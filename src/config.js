@@ -15,7 +15,8 @@ const list = (k) => env(k, '').split(',').map((s) => s.trim().toLowerCase()).fil
 export function loadConfig() {
   return {
     // Zoom
-    joinUrl: req('ZOOM_JOIN_URL'),
+    // One universal link for every webinar (redirects to the live Zoom webinar). Override with the ZOOM_JOIN_URL variable if it ever changes.
+    joinUrl: env('ZOOM_JOIN_URL', 'https://sb.flexifunnels.com/genie-demo'),
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered
@@ -34,7 +35,6 @@ export function loadConfig() {
 
     // Webinar History sheet (Summary / Q&A / Leads tabs). Empty = use the main chat sheet.
     historySheetId: env('HISTORY_SHEET_ID', ''),
-    slot: env('SLOT', ''),
     mode: env('MODE', ''),
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 

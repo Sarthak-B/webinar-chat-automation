@@ -4,7 +4,7 @@ An AI agent that runs the chat of FlexiFunnels' automated aEvent × Zoom webinar
 
 > **Setting it up?** Follow **[SETUP.md](SETUP.md)**: the step-by-step guide to go from demo to live (Zoom, OpenAI, Google, GitHub secrets and variables, dashboard).
 
-It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
+It joins every webinar through the universal link **https://sb.flexifunnels.com/genie-demo**, logged in as a Zoom account that's an alternative host. It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
 
 ```
  ┌──────────────────────┐   launch (tab · link · mode)    ┌───────────────────────────┐
@@ -58,9 +58,10 @@ It doesn't call the AI for simple reactions (they get a number ask instead, if n
 The control room for everything. It's deployed on **Vercel** (the repo's `vercel.json` serves the `dashboard/` folder as a static site, with nothing to build), or you can open the file directly in Chrome. It's built for desktop.
 
 1. **Pick the tab:** cards for every schedule tab, read live from the sheet, with chat count and first → last time.
-2. **Pick the Zoom link:** 11 AM or 7:30 PM, chosen automatically from the tab name. If aEvent gives a new link per session, paste it instead.
-3. **Pick the mode:** dry / timed / full.
-4. **Launch**, or **Arm** it.
+2. **Pick the mode:** dry / timed / full.
+3. **Launch**, or **Arm** it.
+
+There's no link to choose: every webinar is joined through the universal link **https://sb.flexifunnels.com/genie-demo**. The agent follows its redirect into Zoom. Only one webinar runs at a time.
 
 **Launch window:** GitHub jobs max out at 6 hours, so the agent can start at most **45 minutes before the first chat**. It then waits and joins 5 minutes early. Earlier than that, the button becomes **Arm**: keep the tab open and it launches itself when the window opens.
 
@@ -90,7 +91,7 @@ Until you connect it, it shows **demo data** with a banner. To connect, click **
 ## One-time setup
 
 ### 1. Zoom account for the agent
-Use a Zoom account that aEvent adds as an **alternative host or panelist**. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Team*, and set `AGENT_NAME` to the same.
+Use a Zoom account that's an **alternative host** of the webinar. The universal link is the audience link, and host powers come from the login. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Team*, and set `AGENT_NAME` to the same.
 
 ### 2. Save the Zoom login (on your laptop, Node 20+)
 ```bash
@@ -124,8 +125,6 @@ In the repo, go to [Settings → Secrets and variables → Actions](https://gith
 | Name | Value |
 |---|---|
 | `ZOOM_SESSION_B64` | Contents of `zoom-session.b64`, or `gh secret set ZOOM_SESSION_B64 < zoom-session.b64` |
-| `ZOOM_JOIN_URL_11AM` | The 11 AM webinar join link for the agent's account (panelist link, or the normal link if it's an alternative host) |
-| `ZOOM_JOIN_URL_730PM` | Same for the 7:30 PM webinar |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | The service-account JSON key |
 | `OPENAI_API_KEY` | OpenAI API key (only used in `full` mode) |
 | `SECRETS_PAT` | Fine-grained token for this repo with **Secrets: Read and write**. Lets the agent save the refreshed Zoom login after each run, so it doesn't expire. |
@@ -156,7 +155,7 @@ A visible Chrome joins the webinar. Send a chat from your phone; the terminal sh
 ## Running it
 
 - **Dashboard** (normal way): tab → link → mode → **Launch**.
-- **GitHub:** [Actions → Webinar chat agent → Run workflow](https://github.com/Sarthak-B/webinar-chat-automation/actions/workflows/webinar-agent.yml). Type the exact tab name (en dash included, e.g. `Variant 3 – 11 AM`), then pick the slot and mode.
+- **GitHub:** [Actions → Webinar chat agent → Run workflow](https://github.com/Sarthak-B/webinar-chat-automation/actions/workflows/webinar-agent.yml). Type the exact tab name (en dash included, e.g. `Variant 3 – 11 AM`), then pick the mode.
 - **Stop:** **Stop agent** in the dashboard, or cancel the run on GitHub. Either way it leaves the webinar and saves the refreshed login.
 - **Zoom login check:** `session-check.yml` runs daily at 8:05 AM IST, or on demand from the dashboard. If the login has expired, the run fails and GitHub emails you. Run `npm run save-session` again and update `ZOOM_SESSION_B64`.
 
@@ -189,7 +188,7 @@ After changing the layout, run `npm test -- <exported sheet file>` to confirm ev
 
 ```
 .github/workflows/
-  webinar-agent.yml     runs the agent (started from the dashboard: tab, slot, mode)
+  webinar-agent.yml     runs the agent (started from the dashboard: tab, mode)
   session-check.yml     daily Zoom login check + refresh
 dashboard/index.html    Autopilot dashboard (single self-contained file)
 apps-script/Code.gs     keyed, read-only sheet feed for the dashboard
@@ -239,6 +238,7 @@ Set any of these as a repo **Variable** ([Settings → Secrets and variables →
 | Dashboard: "GitHub: Bad credentials" / 404 | Token expired, or it doesn't cover this repo with *Actions: Read and write*. |
 | Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` is missing or broken. Run `npm run save-session` again. |
 | Log says "Zoom session logged out" | The login expired. Run `save-session` again. Joining still works through the link, but without the account's powers. |
+| Agent Log WARNING "Joined as an ATTENDEE" | Make the agent's Zoom account an alternative host of the webinar |
 | Joins but nothing appears in the log | Chat selectors have changed. See setup step 6. |
 | Messages logged as FAILED · "attendee not found" | Selector for the "To:" dropdown or its search box. See step 6. |
 | "Tab not found" | The tab name must match exactly, including the en dash `–`. Pick it from the dashboard instead of typing it. |

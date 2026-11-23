@@ -2,6 +2,7 @@ name: Webinar chat agent
 run-name: "Webinar agent · ${{ inputs.tab }} · ${{ inputs.mode }}"
 
 # Started from the dashboard (or Actions → Run workflow). It always asks which tab to read first.
+# Joins through the universal link https://sb.flexifunnels.com/genie-demo (redirects to the live webinar).
 # Start it up to ~45 min before the first chat in the tab – the agent waits, then joins 5 min early.
 on:
   workflow_dispatch:
@@ -9,23 +10,19 @@ on:
       tab:
         description: 'Sheet tab to read the timed chats from (exact name, e.g. "Variant 3 – 11 AM")'
         required: true
-      slot:
-        description: 'Which Zoom link to join'
-        type: choice
-        options: ['11am', '730pm']
-        default: '11am'
       mode:
         description: 'dry = send nothing · timed = timed chats + numbers only · full = everything incl. AI replies'
         type: choice
         options: ['dry', 'timed', 'full']
         default: 'dry'
       join_url:
-        description: 'Optional: this session''s Zoom link (overrides the saved 11 AM / 7:30 PM secret)'
+        description: 'Optional: a different join link for this run (normally leave empty – the universal link is used)'
         required: false
         default: ''
 
+# One webinar at a time
 concurrency:
-  group: webinar-agent-${{ inputs.slot }}
+  group: webinar-agent
   cancel-in-progress: false
 
 jobs:
@@ -61,12 +58,12 @@ jobs:
       - name: Run agent
         env:
           SCHEDULE_TAB: ${{ inputs.tab }}
-          ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || (inputs.slot == '11am' && secrets.ZOOM_JOIN_URL_11AM || secrets.ZOOM_JOIN_URL_730PM) }}
+          # Universal link https://sb.flexifunnels.com/genie-demo is the built-in default; a ZOOM_JOIN_URL variable or the join_url input overrides it
+          ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
           SHEET_ID: ${{ vars.SHEET_ID }}
           HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID }}
-          SLOT: ${{ inputs.slot }}
           MODE: ${{ inputs.mode }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

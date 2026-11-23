@@ -11,7 +11,7 @@ Everything you need to do, once, so the dashboard shows **real** data and the ag
 
 | Piece | Where it lives | What it does |
 |---|---|---|
-| **Agent** | GitHub Actions (`webinar-agent.yml`) | Joins the webinar, posts timed chats, replies, collects numbers |
+| **Agent** | GitHub Actions (`webinar-agent.yml`) | Joins via https://sb.flexifunnels.com/genie-demo, posts timed chats, replies, collects numbers |
 | **Zoom login** | GitHub secret `ZOOM_SESSION_B64` | Lets the agent open Zoom already signed in |
 | **AI** | GitHub secret `OPENAI_API_KEY` | Writes every reply |
 | **Sheet access (agent)** | GitHub secret `GOOGLE_SERVICE_ACCOUNT_JSON` | Agent reads the chat tabs and writes Agent Log / Numbers |
@@ -41,19 +41,14 @@ Secrets stay hidden either way, but the repo shows your webinar flow and sheet s
 
 ## Step 2: Zoom account for the agent (10 min)
 
+The agent always joins through the universal webinar link **https://sb.flexifunnels.com/genie-demo**. It's built in, so there's nothing to set or update per webinar. The page redirects to the live Zoom webinar, and the agent follows the redirect.
+
 1. **Pick the account.** Use a separate Zoom account, **not** the one aEvent's presenter bot runs on. Logging the same account in twice can kick the presenter out of the webinar.
 2. **Set its display name** to what attendees will see, e.g. **FlexiFunnels Team**. Zoom web → Profile → Edit name.
-3. **Give it chat powers in the webinar.** In aEvent / Zoom, add this account as an **alternative host** or **panelist** for the 11 AM and 7:30 PM webinars. Panelists can see every attendee message and reply privately.
-4. **Copy its join links.** Use the panelist invite link (or the normal join link, if it's an alternative host) for:
-   - the **11 AM** webinar → you'll save it as `ZOOM_JOIN_URL_11AM`
-   - the **7:30 PM** webinar → `ZOOM_JOIN_URL_730PM`
-5. In Zoom web settings for this account, make sure **"Join from your browser"** is allowed.
+3. **Make it an alternative host** of the webinar(s) in aEvent / Zoom. This matters: the universal link is the audience link, and the agent only gets host powers (seeing every attendee message, replying privately, the attendee count) because it's logged in as an alternative host. As a plain attendee it can't read other people's chats.
+4. In Zoom web settings for this account, make sure **"Join from your browser"** is allowed.
 
-> **Does aEvent give a new link every session?** Then just paste the link into the dashboard when you launch. There's a "paste this session's Zoom link" box in step 02 of the launch screen. The secrets are only the default.
-
-✅ Logged in as this account in Chrome, the join link opens the webinar as panelist / host.
-
----
+✅ Logged in as this account in Chrome, opening https://sb.flexifunnels.com/genie-demo during a webinar takes you in **as a host** (you see the Participants button). On the first run, the agent writes "Joined the webinar as host/panelist" in its log. If it ever joins as an attendee, the **Agent Log** gets a WARNING row telling you to fix step 2.3.
 
 ## Step 3: OpenAI API key (5 min)
 
@@ -142,13 +137,11 @@ GitHub repo → **Settings** → **Secrets and variables** → **Actions** → t
 | Name | Value |
 |---|---|
 | `ZOOM_SESSION_B64` | Paste from step 5 (`pbcopy` output) |
-| `ZOOM_JOIN_URL_11AM` | 11 AM join link for the agent account (step 2) |
-| `ZOOM_JOIN_URL_730PM` | 7:30 PM join link for the agent account (step 2) |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Open the JSON file from step 4 and paste its **entire** contents, `{` to `}` |
 | `OPENAI_API_KEY` | The `sk-…` key from step 3 |
 | `SECRETS_PAT` | Token A from step 6 |
 
-✅ The Secrets tab lists all 6 names.
+✅ The Secrets tab lists all 4 names. (No Zoom link secrets are needed; the universal link is built in.)
 
 ---
 
@@ -230,8 +223,7 @@ Click **Test connection** → it should say `GitHub ✓ … · Sheet ✓ (N sche
 
 1. Up to **45 minutes before** the webinar's first chat, open the dashboard → **Launch**:
    - **01** Pick the tab (e.g. `Variant 3 – 11 AM`)
-   - **02** Check the Zoom link (or paste today's link)
-   - **03** Mode **Dry run**
+   - **02** Mode **Dry run**
    - → **Launch the agent**
 2. Your team handles the chat as usual. The agent joins, reads everything, and **logs what it would send, without sending anything**.
 3. Watch **Live** and **Conversations**:
@@ -266,7 +258,6 @@ Below that is **Questions & replies**: every genuine question asked and the repl
 
 - [ ] The **Zoom login** dot is green (the 8:05 AM check passed)
 - [ ] Launch **≤ 45 min before** the first chat, or **Arm** it earlier and keep the tab open
-- [ ] New Zoom link today? Paste it in step **02**
 - [ ] After the webinar: **Numbers today → Copy all** (`Name - Number`, one per line)
 
 ## Things that expire, and what to do
@@ -287,6 +278,7 @@ Below that is **Questions & replies**: every genuine question asked and the repl
 | "GitHub: Bad credentials" / "Not Found" | Token B expired, or doesn't cover this repo with Actions read and write |
 | Launch fails with "Unexpected inputs" | The workflow file on GitHub is outdated. Pull the latest `main` |
 | Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` missing or broken → step 5 |
+| Agent Log has a WARNING "Joined as an ATTENDEE" | Make the agent's Zoom account an alternative host (step 2.3) |
 | Agent joins but nothing in Conversations | Zoom selectors changed → see step 12.4 |
 | Replies FAILED · "attendee not found" | Zoom's "To:" dropdown changed → send me the Inspect HTML of it |
 | "Tab not found" | Pick the tab from the dashboard (names must match exactly, including the `–` dash) |

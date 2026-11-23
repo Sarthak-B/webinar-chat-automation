@@ -80,9 +80,29 @@ export class Zoom {
     }
   }
 
+  // Follows redirect links (e.g. https://sb.flexifunnels.com/genie-demo → zoom.us/…) and opens the
+  // Zoom *web client* for the meeting it lands on.
+  async resolveZoomUrl(link) {
+    const page = this.page;
+    if (/zoom\.us\//i.test(link)) return toWebClientUrl(link);
+    await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    for (let i = 0; i < 60; i++) {
+      // JS redirects can take a moment; some pages open Zoom via a link/button or a zoommtg:// handoff
+      const url = page.url();
+      if (/zoom\.us\/(j|w|s|wc)\//i.test(url)) return toWebClientUrl(url);
+      const href = await page
+        .evaluate(() => [...document.querySelectorAll('a[href*="zoom.us/"], iframe[src*="zoom.us/"]')].map((a) => a.href || a.src)[0] || '')
+        .catch(() => '');
+      if (/zoom\.us\/(j|w|s|wc)\//i.test(href)) return toWebClientUrl(href);
+      await page.waitForTimeout(1000);
+    }
+    throw new Error(`The join link didn't lead to a Zoom meeting (ended on ${page.url()})`);
+  }
+
   async join(joinUrl) {
     const page = this.page;
-    await page.goto(toWebClientUrl(joinUrl), { waitUntil: 'domcontentloaded', timeout: 60_000 });
+    const zoomUrl = await this.resolveZoomUrl(joinUrl);
+    await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const name = await first(page, SEL.nameInput, { timeout: 8000 });
     if (name && (await name.isVisible().catch(() => false)) && !(await name.inputValue().catch(() => ''))) {
@@ -101,6 +121,15 @@ export class Zoom {
     const audio = await first(page, SEL.audioDialogClose);
     if (audio) await audio.click().catch(() => {});
     await this.openChat();
+  }
+
+  // Attendees get a "Raise Hand" button and no Participants list; hosts/panelists see the Participants button.
+  async role() {
+    const participants = await first(this.page, SEL.participantCount);
+    const raiseHand = await first(this.page, ['button[aria-label*="raise hand" i]', 'button:has-text("Raise Hand")']);
+    if (participants && (await participants.isVisible().catch(() => false))) return 'host/panelist';
+    if (raiseHand && (await raiseHand.isVisible().catch(() => false))) return 'attendee';
+    return 'unknown';
   }
 
   async openChat() {

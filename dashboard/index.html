@@ -574,7 +574,7 @@ body.is-demo .demo-banner{display:block}
   <section id="launch">
     <div class="wrap">
       <div class="shead">
-        <div><span class="label"><b>02</b> / Launch sequence</span><h2 data-split>Three choices. <em class="it">Then hands off.</em></h2></div>
+        <div><span class="label"><b>02</b> / Launch sequence</span><h2 data-split>Two choices. <em class="it">Then hands off.</em></h2></div>
         <p data-reveal>The agent asks for the tab first, so it only ever reads the variant you choose. Start it up to 45 minutes before the first chat. It waits, then joins 5 minutes early.</p>
       </div>
       <div class="launch">
@@ -584,16 +584,8 @@ body.is-demo .demo-banner{display:block}
               <button class="btn ghost sm right" id="refreshTabs"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Refresh</button></div>
             <div class="tabs-grid" id="tabsGrid"><div class="empty">Loading tabs…</div></div>
           </div>
-          <div class="step" id="step2" data-reveal>
-            <div class="step-h"><span class="step-n">02</span><div><h3>Which Zoom link?</h3><p>Picked for you from the tab name. Change it if needed.</p></div></div>
-            <div class="seg" id="slotSeg">
-              <button class="opt" data-slot="11am"><b>11 AM webinar</b><span>Joins with the secret <code>ZOOM_JOIN_URL_11AM</code></span></button>
-              <button class="opt" data-slot="730pm"><b>7:30 PM webinar</b><span>Joins with the secret <code>ZOOM_JOIN_URL_730PM</code></span></button>
-            </div>
-            <div class="field" style="margin-top:16px"><label for="joinUrl">Or paste this session's Zoom link <span>(optional – use it when aEvent gives a new link per session)</span></label><input id="joinUrl" placeholder="https://us06web.zoom.us/w/…  (leave empty to use the saved link above)" autocomplete="off"></div>
-          </div>
           <div class="step" id="step3" data-reveal>
-            <div class="step-h"><span class="step-n">03</span><div><h3>How much should it do?</h3><p>Start with a dry run on your first live webinar.</p></div></div>
+            <div class="step-h"><span class="step-n">02</span><div><h3>How much should it do?</h3><p>Start with a dry run on your first live webinar.</p></div></div>
             <div class="seg three" id="modeSeg">
               <button class="opt" data-mode="dry"><span class="tag">Safe</span><b>Dry run</b><span>Joins and reads everything, logs what it would send. Sends nothing.</span></button>
               <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue and saves every number typed in chat. No private messages. Your team answers.</span></button>
@@ -608,7 +600,7 @@ body.is-demo .demo-banner{display:block}
           <div class="sum-row"><span>Tab</span><b id="sumTab">-</b></div>
           <div class="sum-row"><span>Timed chats</span><b id="sumCount">-</b></div>
           <div class="sum-row"><span>First → last</span><b id="sumSpan">-</b></div>
-          <div class="sum-row"><span>Zoom link</span><b id="sumSlot">-</b></div>
+          <div class="sum-row"><span>Joins via</span><b title="https://sb.flexifunnels.com/genie-demo">sb.flexifunnels.com/genie-demo</b></div>
           <div class="sum-row"><span>Mode</span><b id="sumMode">-</b></div>
           <div class="window"><span class="label" id="winLabel">Launch window</span><div class="wt" id="winText">-</div><div class="wbar"><i id="winBar"></i></div></div>
           <button class="btn acid" id="launchBtn" disabled>Launch the agent <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
@@ -787,7 +779,7 @@ let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
-const S = { conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, slot: '11am', mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const S = { conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -925,7 +917,6 @@ async function loadTabs() {
 async function selectTab(name) {
   S.tab = S.tabs.find((t) => t.name === name) || null;
   store.set('autopilot.lastTab', name);
-  S.slot = /7[:.]?30|pm/i.test(name) && !/11\s*am/i.test(name) ? '730pm' : '11am';
   renderTabs(); renderChoices();
   try {
     const rows = isDemo() ? Demo.rows : (await feed({ action: 'schedule', tab: name })).items;
@@ -950,10 +941,8 @@ function renderTabs() {
   $('#step1').classList.toggle('done', !!S.tab);
 }
 function renderChoices() {
-  $$('#slotSeg .opt').forEach((b) => b.classList.toggle('sel', b.dataset.slot === S.slot));
   $$('#modeSeg .opt').forEach((b) => b.classList.toggle('sel', b.dataset.mode === S.mode));
-  $('#step2').classList.toggle('done', !!S.tab); $('#step3').classList.toggle('done', !!S.tab);
-  $('#step2').classList.toggle('active', !!S.tab); $('#step3').classList.toggle('active', !!S.tab);
+  $('#step3').classList.toggle('done', !!S.tab); $('#step3').classList.toggle('active', !!S.tab);
   const hints = {
     dry: 'Best for the first live test. Your team handles chat as usual, then compare the Agent Log with what they did.',
     timed: 'Sir\'s timed chats go out on cue and every number typed is saved. The agent sends no private messages, so your team answers questions.',
@@ -973,7 +962,6 @@ function renderLaunch() {
   $('#sumTab').textContent = t ? t.name : '-';
   $('#sumCount').textContent = S.schedule.length ? `${S.schedule.length}` : '-';
   $('#sumSpan').textContent = S.schedule.length ? `${fmtTime(S.schedule[0].at)} → ${fmtTime(S.schedule.at(-1).at)}` : '-';
-  $('#sumSlot').textContent = t ? (S.joinUrl ? 'Pasted link' : S.slot === '11am' ? '11 AM link' : '7:30 PM link') : '-';
   $('#sumMode').textContent = t ? modeName[S.mode] : '-';
   const w = launchWindow(); const now = Date.now(); const busy = S.active && ['queued', 'in_progress'].includes(S.active.status);
   let label = 'Launch the agent', note = 'Runs on GitHub Actions. You can stop it any time from here.', winLabel = 'Launch window', winText = '-', pct = 0, disabled = !t || !w;
@@ -1206,7 +1194,7 @@ async function onLaunchClick(e) {
   if (S.armed) return disarm();
   const w = launchWindow(); if (!S.tab || !w) return;
   if (Date.now() < w.opens) return arm(w.opens);
-  const ok = await confirmBox(`Launch on "${S.tab.name}"?`, `${modeName[S.mode]} · ${S.slot === '11am' ? '11 AM' : '7:30 PM'} Zoom link · ${S.schedule.length} timed chats.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
+  const ok = await confirmBox(`Launch on "${S.tab.name}"?`, `${modeName[S.mode]} · joins via sb.flexifunnels.com/genie-demo · ${S.schedule.length} timed chats.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
   if (ok) launch(e);
 }
 async function launch(e) {
@@ -1215,7 +1203,7 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
-    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, slot: S.slot, mode: S.mode, join_url: S.joinUrl || '' } }) });
+    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, mode: S.mode } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
@@ -1234,7 +1222,7 @@ async function launch(e) {
   }
 }
 function arm(at) {
-  S.armed = { at, tab: S.tab.name, slot: S.slot, mode: S.mode }; store.set('autopilot.armed', S.armed);
+  S.armed = { at, tab: S.tab.name, mode: S.mode }; store.set('autopilot.armed', S.armed);
   toast(`Armed: auto-launch at ${fmtTime(new Date(at))}`); renderOrb(); renderLaunch();
 }
 function disarm() { S.armed = null; store.set('autopilot.armed', null); toast('Disarmed'); renderOrb(); renderLaunch(); }
@@ -1673,7 +1661,7 @@ setInterval(() => {
   tickSchedule();
   if (S.armed && Date.now() >= S.armed.at && !S.active) {
     const a = S.armed; S.armed = null; store.set('autopilot.armed', null);
-    if (S.tab?.name === a.tab) { S.slot = a.slot; S.mode = a.mode; launch(); }
+    if (S.tab?.name === a.tab) { S.mode = a.mode; launch(); }
   }
   if (S.tab) renderLaunch();
 }, 1000);
@@ -1686,7 +1674,6 @@ $('#saveCfg').addEventListener('click', saveCfg);
 ['#cOwner', '#cRepo', '#cToken', '#cScript', '#cKey'].forEach((sel) => $(sel).addEventListener('input', (e) => { e.target.style.borderColor = ''; })); $('#testConn').addEventListener('click', testConn);
 $('#copyScript').addEventListener('click', () => { navigator.clipboard?.writeText(SCRIPT_CODE).then(() => toast('Apps Script code copied')); });
 $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (S.tab) selectTab(S.tab.name); toast('Tabs refreshed'); });
-$$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = b.dataset.slot; renderChoices(); renderLaunch(); }));
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#launchBtn').addEventListener('click', onLaunchClick);
 $('#histList').addEventListener('click', (e) => { const b = e.target.closest('[data-wid]'); if (!b) return; H.sel = b.dataset.wid; renderHistList(); loadHistoryDetail(); });
@@ -1694,12 +1681,6 @@ $('#qaSearch').addEventListener('input', (e) => { H.q = e.target.value.trim().to
 $('#qaCopy').addEventListener('click', () => {
   if (!H.qa.length) return toast('No questions to copy', true);
   copyText(['Question\tReply', ...H.qa.map((r) => [r.Question, r.Reply].map((x) => String(x).replace(/[\t\n]+/g, ' ')).join('\t'))].join('\n'), `${H.qa.length} questions copied – paste into a sheet`);
-});
-$('#joinUrl').addEventListener('input', (e) => {
-  const v = e.target.value.trim();
-  S.joinUrl = /^https:\/\/([\w-]+\.)*zoom\.us\//i.test(v) ? v : '';
-  e.target.style.borderColor = v && !S.joinUrl ? 'var(--red)' : '';
-  renderLaunch();
 });
 $('#filters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#filters button').forEach((x) => x.classList.toggle('on', x === b)); S.filter = b.dataset.f; moveGlider(); renderFeed(); });
 document.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy, `Copied: ${c.dataset.copy}`); });

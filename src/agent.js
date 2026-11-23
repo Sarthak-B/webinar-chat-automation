@@ -110,7 +110,13 @@ async function joinWithRetry() {
   for (let i = 1; i <= 4; i++) {
     try {
       await zoom.join(cfg.joinUrl);
-      log('Joined the webinar');
+      const role = await zoom.role().catch(() => 'unknown');
+      log(`Joined the webinar as ${role}`);
+      if (role === 'attendee') {
+        const msg = 'Joined as an ATTENDEE – attendees can\'t see other people\'s chats or reply privately. Make the agent\'s Zoom account an alternative host of the webinar.';
+        log(`WARNING: ${msg}`);
+        record('WARNING', '', '', '', msg);
+      }
       return;
     } catch (e) {
       log(`Join attempt ${i} failed: ${e.message}`);
