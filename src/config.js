@@ -50,8 +50,8 @@ export function loadConfig() {
     nudgeMax: num('NUDGE_MAX', 2), // max number asks per person (AI replies that ask count too)
     nudgeGapMin: num('NUDGE_GAP_MIN', 20), // min minutes between two asks to the same person
 
-    // Natural, not spammy: the chat should feel like Sir replying, not a bot.
-    personaName: env('PERSONA_NAME', 'Sir'), // who the replies sound like (first person)
+    // Natural, not spammy: professional team replies at a human pace, never a burst of bot messages.
+    personaName: env('PERSONA_NAME', 'Sir'), // the presenter the team replies on behalf of
     humanize: bool('HUMANIZE', true), // wait a human-like "read + type" time before each private reply
     maxPrivatePerMin: num('MAX_PRIVATE_PER_MIN', 6), // cap on private messages per minute (replies + thanks + asks)
     maxAsksPerMin: num('MAX_ASKS_PER_MIN', 2), // of which unprompted number asks
