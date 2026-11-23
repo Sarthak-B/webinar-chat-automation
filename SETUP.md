@@ -194,34 +194,38 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 
 ---
 
-## Step 10: Sheet feed for the dashboard: Apps Script (7 min)
+## Step 10: Apps Script, the dashboard's backend (10 min)
 
-1. Make a long random key. On Mac: `openssl rand -hex 24` → copy the output.
+The Apps Script feeds the dashboard from your sheets **and** makes the GitHub calls for it. The GitHub token lives inside the script, so teammates only ever need **one team password**.
+
+1. Pick a team password. A long random one is best: on Mac, `openssl rand -hex 12`.
 2. Open the **chat Google Sheet** → **Extensions → Apps Script**.
 3. Delete everything in `Code.gs` and paste the contents of [`apps-script/Code.gs`](apps-script/Code.gs). The dashboard's ⚙ panel also has a **Copy** button for it.
-4. On the line `const KEY = 'CHANGE-ME-to-a-long-random-key';`, replace the text inside the quotes with your key.
-   On the line `const HISTORY_SHEET_ID = '';`, put the **Webinar History** sheet's ID between the quotes. You need edit access to that sheet. → **Save** (💾).
-5. **Deploy → New deployment** → ⚙ next to "Select type" → **Web app**:
-   - Description: `dashboard feed`
-   - **Execute as: Me**
-   - **Who has access: Anyone**
-   → **Deploy**
-6. Google asks for permission: **Authorize access** → choose your account. If it says "Google hasn't verified this app", click **Advanced → Go to (project name)**. It's your own script. Then **Allow**.
-7. Copy the **Web app URL** (ends with `/exec`).
-8. Test it: open `YOUR_URL?key=YOUR_KEY&action=tabs` in Chrome. You should see JSON that lists your tabs, e.g. `"Variant 3 – 11 AM"`.
-   History test: `YOUR_URL?key=YOUR_KEY&action=history` should show `{"header":[],"rows":[]}` before the first webinar, and the Summary rows after it. If it says it can't open the sheet, check the `HISTORY_SHEET_ID` in the script and that your Google account can open it.
+4. Set two lines:
+   - `const KEY = '…';` → your **team password**
+   - `const HISTORY_SHEET_ID = '…';` → the Webinar History sheet's ID
 
-> **Changed the script later?** Apps Script keeps serving the old version until you go to **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL stays the same.
-> **Using a company Google Workspace account?** If "Anyone" isn't offered, your admin blocks public web apps. Deploy from a personal Google account that has edit access to the sheet.
+   Then **Save** (💾).
+5. **Project Settings** (⚙ in the left bar) → **Script properties** → **Add script property**:
+   - Property: `GITHUB_TOKEN`
+   - Value: **token B** from step 6 (*Actions: Read and write*, *Contents: Read*)
 
-✅ The test URL shows your tab names. "Wrong key" means the key in the URL doesn't match the one in the script.
+   → **Save script properties**. The token stays private inside the script; it's never shown on the page or stored in the repo.
+6. **Deploy → New deployment** → ⚙ → **Web app**, with *Execute as: **Me*** and *Who has access: **Anyone*** → **Deploy**.
+   - Already deployed? Use **Deploy → Manage deployments → ✏️ → Version: New version → Deploy** instead. The URL stays the same.
+7. Google asks for permissions, including "connect to an external service" (that's GitHub): **Authorize access → Advanced → Go to … → Allow**.
+8. Copy the **Web app URL** (ends with `/exec`).
+9. Test, in Chrome:
+   - `YOUR_URL?key=TEAM_PASSWORD&action=whoami` → `{"ok":true,"github":true,…}`
+   - `"github":false` means the `GITHUB_TOKEN` script property is missing.
 
----
+✅ `whoami` shows `"github":true`.
 
 ## Step 10b: Host the dashboard on FlexiFunnels (optional, instead of or alongside Vercel)
 
 1. In FlexiFunnels, create a page (e.g. *Webinar Automation Dashboard*) and add a **Custom Code** element.
-2. Open [`dashboard/flexifunnels-loader.html`](dashboard/flexifunnels-loader.html), copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**. You only do this **once**.
+2. Open [`dashboard/flexifunnels-loader.html`](dashboard/flexifunnels-loader.html) and put your Apps Script `/exec` URL into the line `var APPS_SCRIPT_URL = '';`. Copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**. You only do this **once**.
+   Anyone who opens the page then sees just a **team password** screen, once per browser. No tokens or links to set up.
 3. Open the published page or **Preview**. The editor canvas may only show the placeholder. The dashboard fills the screen.
 
 **It stays connected to GitHub.** Every time the page opens, the loader fetches the **latest** `dashboard/index.html` from the repo, so every push shows up within about 5 minutes, with no re-pasting. It tries, in order:
@@ -239,26 +243,13 @@ Notes:
 - Settings (tokens and keys) are saved in your browser for that page's domain. Use a page on a domain without third-party scripts you don't trust.
 - `dashboard/flexifunnels-embed.html` is a full **offline snapshot** (no GitHub needed). It doesn't update by itself, so use the loader unless you specifically need that.
 
-## Step 11: Connect the dashboard (3 min)
+## Step 11: Open the dashboard (1 min)
 
-Open your Vercel dashboard URL → **⚙** (top right):
+- **FlexiFunnels page (loader with `APPS_SCRIPT_URL` set):** type the **team password** → **Unlock**. Done. The DEMO badge disappears, the dots turn green, and your real tabs appear.
+- **Vercel / opened as a file:** click **⚙** and fill in the Apps Script web-app URL and the team password. Leave the GitHub token empty, because the Apps Script holds it. Then **Test connection → Save**.
+- **Sign out** (in ⚙) forgets the password on that browser, e.g. on a shared computer.
 
-| Field | Value |
-|---|---|
-| Owner / Repo | Already filled: `Sarthak-B` / `webinar-chat-automation` |
-| Access token | **Token B** from step 6 |
-| Agent workflow file | `webinar-agent.yml` |
-| Apps Script web-app URL | From step 10 |
-| Feed key | Your key from step 10 |
-| Chat sheet link | The chat sheet's normal link (for the "Open sheet" button) |
-| Webinar History sheet link | Its normal link (for the History section's "Open sheet" button) |
-| Use demo data | **Off** |
-
-Click **Test connection** → it should say `GitHub ✓ … · Sheet ✓ (N schedule tabs)` → **Save**.
-
-✅ The purple **DEMO** badge and banner disappear, the **GitHub** and **Sheet** dots turn green, and the tab cards show your real variant tabs. Settings are saved in that browser only. Each computer that uses the dashboard needs its own setup.
-
----
+✅ No DEMO badge, GitHub and Sheet dots green, real tabs in Launch.
 
 ## Step 12: First live test: dry run (during a real webinar)
 
@@ -314,9 +305,10 @@ Below that is **Questions & replies**: every genuine question asked and the repl
 
 | You see | Fix |
 |---|---|
-| Dashboard still says DEMO | ⚙ → make sure "Use demo data" is **off** and all fields are filled → Save |
-| "Sheet: Wrong key" | The key in ⚙ ≠ `KEY` in the Apps Script (and redeploy a **new version** after changing it) |
-| "GitHub: Bad credentials" / "Not Found" | Token B expired, or doesn't cover this repo with Actions read and write |
+| Dashboard still says DEMO | Enter the team password (FlexiFunnels page), or ⚙ → Apps Script URL + team password, "Use demo data" **off** → Save |
+| "That password isn't right" / "Sheet: Wrong key" | The team password ≠ `KEY` in the Apps Script (redeploy a **new version** after changing it) |
+| "GITHUB_TOKEN is not set…" | Apps Script → Project Settings → Script properties → add `GITHUB_TOKEN` (step 10.5) |
+| "GitHub: Bad credentials" / "Not Found" | Token B (the `GITHUB_TOKEN` script property) expired, or doesn't cover this repo with Actions read and write |
 | Launch fails with "Unexpected inputs" | The workflow file on GitHub is outdated. Pull the latest `main` |
 | Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` missing or broken → step 5 |
 | Agent Log has a WARNING "Joined as an ATTENDEE" | The account isn't an alternative host / panelist of this webinar → step 2 (Option A or B) |

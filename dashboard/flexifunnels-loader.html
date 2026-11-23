@@ -4,7 +4,7 @@
        1. GitHub (public repo)  - raw dashboard/index.html from the main branch
        2. GitHub (private repo) - the same file through the GitHub API, using the token saved in the dashboard's settings
        3. Vercel                - the Vercel deployment (also updates on every push)
-     Only edit the three lines marked EDIT if the repo or Vercel address ever changes. -->
+     Set APPS_SCRIPT_URL once (below) so teammates only need the team password. -->
 <div id="webinar-autopilot-root"><div id="wa-loading">Loading Webinar Autopilot...</div></div>
 <style>
   html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #0C0E13 !important; }
@@ -26,6 +26,13 @@
   var BRANCH = 'main';
   var VERCEL_URL = 'https://webinar-chat-automation.vercel.app/';
   var FILE = 'dashboard/index.html';
+  /* EDIT once: shared settings for everyone who opens this page (they then only type the team password) */
+  var APPS_SCRIPT_URL = '';
+  var CHAT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit';
+  var HISTORY_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno/edit';
+  try {
+    localStorage.setItem('autopilot.defaults', JSON.stringify({ script: APPS_SCRIPT_URL, sheetUrl: CHAT_SHEET_URL, historyUrl: HISTORY_SHEET_URL }));
+  } catch (e) { }
 
   var root = document.getElementById('webinar-autopilot-root');
   if (!root || root.getAttribute('data-ready')) { return; }

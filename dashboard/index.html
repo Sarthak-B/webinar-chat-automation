@@ -443,6 +443,19 @@ footer .big em.it{-webkit-text-stroke:0;color:var(--acid)}
 footer:hover .big{color:#1F2431}
 footer .row{display:flex;justify-content:space-between;margin-top:40px;color:var(--dim);font-size:13px}
 
+/* team password screen */
+.lock{position:fixed;inset:0;z-index:170;display:grid;place-items:center;background:radial-gradient(800px circle at 70% 10%,rgba(214,242,60,.12),transparent 60%),rgba(7,8,11,.94);backdrop-filter:blur(8px)}
+.lock-box{width:440px;padding:36px;border-radius:28px;background:var(--panel);border:1px solid var(--line2);box-shadow:0 40px 90px -30px rgba(0,0,0,.7);animation:pop .6s var(--ease) both}
+.lock-box h3{font:800 30px/1.05 var(--display);letter-spacing:-.03em;margin:26px 0 8px}
+.lock-box p{color:var(--muted);font-size:14px;margin-bottom:20px}
+.lock-box form{display:flex;gap:10px}
+.lock-box input{flex:1;height:48px;padding:0 16px;border-radius:14px;background:var(--bg2);border:1px solid var(--line2);font-size:15px}
+.lock-box input:focus{outline:none;border-color:var(--acid);box-shadow:0 0 0 4px rgba(214,242,60,.12)}
+.lock-box .btn{height:48px}
+.lock-err{min-height:20px;margin-top:10px;font-size:13px;color:var(--red)}
+.lock-demo{margin-top:6px;font-size:13px;color:var(--muted);text-decoration:underline}
+.lock-demo:hover{color:var(--ink)}
+
 /* drawer */
 .scrim{position:fixed;inset:0;background:rgba(5,6,9,.6);backdrop-filter:blur(4px);z-index:150;opacity:0;pointer-events:none;transition:opacity .5s var(--ease)}
 .scrim.on{opacity:1;pointer-events:auto}
@@ -735,26 +748,37 @@ body.is-demo .demo-banner{display:block}
   <div class="drawer-b">
     <div class="fgroup"><span class="label"><b>A</b> / GitHub</span>
       <div class="two"><div class="field"><label for="cOwner">Owner</label><input id="cOwner" placeholder="your-github-username"></div><div class="field"><label for="cRepo">Repo</label><input id="cRepo" placeholder="webinar-agent"></div></div>
-      <div class="field"><label for="cToken">Access token <span>(fine-grained, this repo only)</span></label><input id="cToken" type="password" placeholder="github_pat_…" autocomplete="off"></div>
+      <div class="field"><label for="cToken">Personal GitHub token <span>(optional – leave empty when the Apps Script holds GITHUB_TOKEN)</span></label><input id="cToken" type="password" placeholder="github_pat_…" autocomplete="off"></div>
       <div class="field"><label for="cWorkflow">Agent workflow file</label><input id="cWorkflow" placeholder="webinar-agent.yml"></div>
       <p class="small">Token permissions: <code>Actions: Read and write</code> and <code>Contents: Read</code>. It's saved only in this browser, so use this page on your own computer.</p>
     </div>
     <div class="fgroup"><span class="label"><b>B</b> / Google Sheet feed</span>
       <div class="field"><label for="cScript">Apps Script web-app URL</label><input id="cScript" placeholder="https://script.google.com/macros/s/…/exec"></div>
-      <div class="field"><label for="cKey">Feed key <span>(the KEY you set in the script)</span></label><input id="cKey" type="password" autocomplete="off"></div>
+      <div class="field"><label for="cKey">Team password <span>(the KEY in the Apps Script)</span></label><input id="cKey" type="password" autocomplete="off"></div>
       <div class="field"><label for="cSheetUrl">Chat sheet link <span>(for "open sheet" buttons)</span></label><input id="cSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
       <div class="field"><label for="cHistoryUrl">Webinar History sheet link <span>(optional, for its "open sheet" button)</span></label><input id="cHistoryUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
-      <p class="small">Open the chat sheet → Extensions → Apps Script. Paste the code below, change <code>KEY</code>, then Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone). Copy the URL here.</p>
+      <p class="small">Open the chat sheet → Extensions → Apps Script. Paste the code below and set <code>KEY</code> (the team password). In Project Settings → Script properties, add <code>GITHUB_TOKEN</code>. Then Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone) and copy the URL here.</p>
       <div class="field" style="margin-top:12px"><label>Apps Script code <button class="btn ghost sm" id="copyScript" style="margin-left:8px">Copy</button></label><textarea id="scriptCode" readonly></textarea></div>
     </div>
   </div>
   <div class="drawer-f">
     <label class="toggle" title="Turn on only to preview with sample data"><input type="checkbox" id="cDemo"><span class="sw"></span>Use demo data</label>
+    <button class="btn ghost" id="signOut" title="Forget the team password and token on this browser">Sign out</button>
     <button class="btn ghost" id="testConn">Test connection</button>
     <button class="btn acid" id="saveCfg">Save</button>
   </div>
 </aside>
 
+<div class="lock" id="lock" hidden>
+  <div class="lock-box">
+    <span class="brand"><span class="mark"><i></i></span><span>Webinar Autopilot<small>FlexiFunnels · team access</small></span></span>
+    <h3>Enter the team password</h3>
+    <p>Ask whoever set up the dashboard. You only need it once on this browser.</p>
+    <form id="lockForm"><input id="lockKey" type="password" placeholder="Team password" autocomplete="current-password" aria-label="Team password"><button class="btn acid" type="submit">Unlock</button></form>
+    <div class="lock-err" id="lockErr"></div>
+    <button class="lock-demo" id="lockDemo" type="button">Just look around with demo data</button>
+  </div>
+</div>
 <div class="modal" id="modal"><div class="box"><h3 id="mTitle"></h3><p id="mText"></p><div class="acts"><button class="btn ghost" id="mNo">Cancel</button><button class="btn acid" id="mYes">Confirm</button></div></div></div>
 <div class="blast" id="blast"><div class="rings"><i></i><i></i><i></i><i></i></div><div class="count" id="blastCount"></div><div class="done" id="blastDone"><div class="ck"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#0C0E13" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h3 id="blastTitle">Agent dispatched</h3><p id="blastText"></p></div></div>
 <div class="toasts" id="toasts"></div>
@@ -778,8 +802,9 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', historyUrl: '', demo: null };
-let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
-const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
+// Shared defaults (Apps Script URL, sheet links) are written by the FlexiFunnels loader, so teammates only need the team password.
+let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.defaults', {}), ...store.get('autopilot.cfg', {}) };
+const configured = () => cfg.owner && cfg.repo && cfg.script && cfg.key; // GitHub token optional: the Apps Script holds it
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
 const S = { conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
@@ -804,6 +829,12 @@ function toSchedule(rows) {
 
 // ---------- APIs ----------
 async function gh(path, opts = {}) {
+  if (!cfg.token) {
+    // Through the Apps Script: it holds the GitHub token (Script properties → GITHUB_TOKEN)
+    const r = await feed({ action: 'gh', method: opts.method || 'GET', path, body: opts.body || '' });
+    if (r.status >= 300) throw new Error(`GitHub: ${(r.data && r.data.message) || r.status}`);
+    return r.status === 204 || r.status === 202 ? null : r.data;
+  }
   const res = await fetch(`https://api.github.com${path}`, {
     ...opts,
     headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${cfg.token}`, 'X-GitHub-Api-Version': '2022-11-28', ...(opts.body ? { 'Content-Type': 'application/json' } : {}) },
@@ -1482,12 +1513,14 @@ async function runWorkflow(file, btn) {
 
 // ---------- settings ----------
 const SCRIPT_CODE = `/**
- * Dashboard data feed for the FlexiFunnels webinar agent.
- * Setup (2 min): open the chat sheet → Extensions → Apps Script → paste this → change KEY →
- * Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the dashboard.
- * The KEY keeps strangers out, so make it long and random.
+ * Dashboard backend for the FlexiFunnels webinar agent: sheet feed + GitHub actions, behind one team password.
+ * Setup: open the chat sheet → Extensions → Apps Script → paste this → set KEY (the team password) →
+ *   Project Settings (⚙) → Script properties → add GITHUB_TOKEN = your dashboard GitHub token →
+ *   Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the loader.
+ * Teammates then only type the team password once. The GitHub token never leaves this script.
  */
-const KEY = 'CHANGE-ME-to-a-long-random-key';
+const KEY = 'CHANGE-ME-to-a-long-random-key'; // the team password
+const REPO = 'Sarthak-B/webinar-chat-automation';
 // The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
 // Leave empty if the agent writes the Summary / Q&A tabs into this same sheet.
 const HISTORY_SHEET_ID = '';
@@ -1502,6 +1535,8 @@ function doGet(e) {
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
+    if (p.action === 'gh') return out(github(p.method, p.path, p.body));
+    if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
     return out({ error: String(err) });
@@ -1568,6 +1603,32 @@ function historyFor(tab, id) {
   return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
 }
 
+// ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
+function githubToken() {
+  return PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN') || '';
+}
+// Only this repo's Actions endpoints (+ the repo itself) can be reached.
+function github(method, path, body) {
+  method = String(method || 'GET').toUpperCase();
+  path = String(path || '');
+  const base = '/repos/' + REPO;
+  const okPath = path === base || path.indexOf(base + '/actions/') === 0;
+  if (!okPath || ['GET', 'POST'].indexOf(method) < 0) return { status: 403, data: { message: 'Not allowed: ' + method + ' ' + path } };
+  const token = githubToken();
+  if (!token) return { status: 401, data: { message: 'GITHUB_TOKEN is not set in the Apps Script project properties' } };
+  const opts = {
+    method: method.toLowerCase(),
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    muteHttpExceptions: true,
+  };
+  if (body) { opts.payload = body; opts.contentType = 'application/json'; }
+  const res = UrlFetchApp.fetch('https://api.github.com' + path, opts);
+  const text = res.getContentText();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = { message: text.slice(0, 300) }; }
+  return { status: res.getResponseCode(), data: data };
+}
+
 function out(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }`;
@@ -1589,7 +1650,7 @@ async function testConn() {
 }
 async function saveCfg() {
   const f = readForm();
-  const need = [['#cOwner', 'Owner', f.owner], ['#cRepo', 'Repo', f.repo], ['#cToken', 'Access token', f.token], ['#cScript', 'Apps Script web-app URL', f.script], ['#cKey', 'Feed key', f.key]];
+  const need = [['#cOwner', 'Owner', f.owner], ['#cRepo', 'Repo', f.repo], ['#cScript', 'Apps Script web-app URL', f.script], ['#cKey', 'Team password', f.key]];
   need.forEach(([sel, , v]) => { $(sel).style.borderColor = v || f.demo ? '' : 'var(--red)'; });
   const missing = need.filter(([, , v]) => !v).map(([, label]) => label);
   const filled = !missing.length;
@@ -1603,6 +1664,27 @@ async function saveCfg() {
   cfg = { ...cfg, ...f, demo: f.demo ? true : false };
   store.set('autopilot.cfg', cfg); closeDrawer(); toast(cfg.demo ? 'Saved – showing demo data' : 'Saved – connected to live data'); boot();
 }
+
+// ---------- team password screen ----------
+// Shown when the shared Apps Script URL is known (from the loader) but this browser has no team password yet.
+function needsPassword() { return !!cfg.script && !cfg.key && cfg.demo !== true; }
+function showLock() { if (!needsPassword()) return; $('#lock').hidden = false; setTimeout(() => $('#lockKey').focus(), 50); }
+$('#lockForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const key = $('#lockKey').value.trim(); if (!key) return;
+  $('#lockErr').textContent = 'Checking…';
+  const prev = cfg; cfg = { ...cfg, key, demo: false };
+  try {
+    const r = await feed({ action: 'whoami' });
+    if (!r.ok) throw new Error('Wrong password');
+    store.set('autopilot.cfg', { ...store.get('autopilot.cfg', {}), key, demo: false });
+    $('#lock').hidden = true; $('#lockErr').textContent = '';
+    toast(r.github ? 'Unlocked – connected to live data' : 'Unlocked – but GITHUB_TOKEN is missing in the Apps Script'); boot();
+  } catch (err) {
+    cfg = prev; $('#lockErr').textContent = /wrong key|wrong password/i.test(err.message) ? 'That password isn\'t right.' : `Couldn't reach the Apps Script: ${err.message}`;
+  }
+});
+$('#lockDemo').addEventListener('click', () => { $('#lock').hidden = true; });
 
 // ---------- UI helpers ----------
 function toast(msg, err) {
@@ -1683,7 +1765,11 @@ $$('[data-open-settings]').forEach((b) => b.addEventListener('click', openDrawer
 $('#closeDrawer').addEventListener('click', closeDrawer);
 $('#scrim').addEventListener('click', () => { if (!$('#modal').classList.contains('on')) closeDrawer(); });
 $('#saveCfg').addEventListener('click', saveCfg);
-['#cOwner', '#cRepo', '#cToken', '#cScript', '#cKey'].forEach((sel) => $(sel).addEventListener('input', (e) => { e.target.style.borderColor = ''; })); $('#testConn').addEventListener('click', testConn);
+$('#signOut').addEventListener('click', () => {
+  cfg = { ...cfg, key: '', token: '', demo: null }; store.set('autopilot.cfg', { ...store.get('autopilot.cfg', {}), key: '', token: '', demo: null });
+  closeDrawer(); toast('Signed out on this browser'); boot(); showLock();
+});
+['#cOwner', '#cRepo', '#cScript', '#cKey'].forEach((sel) => $(sel).addEventListener('input', (e) => { e.target.style.borderColor = ''; })); $('#testConn').addEventListener('click', testConn);
 $('#copyScript').addEventListener('click', () => { navigator.clipboard?.writeText(SCRIPT_CODE).then(() => toast('Apps Script code copied')); });
 $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (S.tab) selectTab(S.tab.name); toast('Tabs refreshed'); });
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
@@ -1722,6 +1808,7 @@ document.addEventListener('click', (e) => {
 // arrival
 S.armed = store.get('autopilot.armed', null);
 splitWords();
+showLock();
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 setTimeout(() => { $('#curtain').classList.add('up'); setTimeout(() => { $('#curtain').remove(); }, 1100); observe(); moveGlider(); }, reduce ? 0 : 950);
 boot();

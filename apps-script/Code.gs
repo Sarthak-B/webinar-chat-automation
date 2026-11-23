@@ -1,10 +1,12 @@
 /**
- * Dashboard data feed for the FlexiFunnels webinar agent.
- * Setup (2 min): open the chat sheet → Extensions → Apps Script → paste this → change KEY →
- * Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the dashboard.
- * The KEY keeps strangers out, so make it long and random.
+ * Dashboard backend for the FlexiFunnels webinar agent: sheet feed + GitHub actions, behind one team password.
+ * Setup: open the chat sheet → Extensions → Apps Script → paste this → set KEY (the team password) →
+ *   Project Settings (⚙) → Script properties → add GITHUB_TOKEN = your dashboard GitHub token →
+ *   Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the loader.
+ * Teammates then only type the team password once. The GitHub token never leaves this script.
  */
-const KEY = 'CHANGE-ME-to-a-long-random-key';
+const KEY = 'CHANGE-ME-to-a-long-random-key'; // the team password
+const REPO = 'Sarthak-B/webinar-chat-automation';
 // The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
 // Leave empty if the agent writes the Summary / Q&A tabs into this same sheet.
 const HISTORY_SHEET_ID = '';
@@ -19,6 +21,8 @@ function doGet(e) {
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
+    if (p.action === 'gh') return out(github(p.method, p.path, p.body));
+    if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
     return out({ error: String(err) });
@@ -83,6 +87,32 @@ function historyFor(tab, id) {
   if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
   return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
+}
+
+// ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
+function githubToken() {
+  return PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN') || '';
+}
+// Only this repo's Actions endpoints (+ the repo itself) can be reached.
+function github(method, path, body) {
+  method = String(method || 'GET').toUpperCase();
+  path = String(path || '');
+  const base = '/repos/' + REPO;
+  const okPath = path === base || path.indexOf(base + '/actions/') === 0;
+  if (!okPath || ['GET', 'POST'].indexOf(method) < 0) return { status: 403, data: { message: 'Not allowed: ' + method + ' ' + path } };
+  const token = githubToken();
+  if (!token) return { status: 401, data: { message: 'GITHUB_TOKEN is not set in the Apps Script project properties' } };
+  const opts = {
+    method: method.toLowerCase(),
+    headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    muteHttpExceptions: true,
+  };
+  if (body) { opts.payload = body; opts.contentType = 'application/json'; }
+  const res = UrlFetchApp.fetch('https://api.github.com' + path, opts);
+  const text = res.getContentText();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = { message: text.slice(0, 300) }; }
+  return { status: res.getResponseCode(), data: data };
 }
 
 function out(o) {

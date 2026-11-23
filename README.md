@@ -83,7 +83,7 @@ While a run is going, the dashboard shows:
 - **Webinar history**: every past webinar with attendees, live leads, live lead % (and ratio), engagement %, and its questions with the replies given
 - Agent run history, and one-click buttons for the other workflows in the repo
 
-Until you connect it, it shows **demo data** with a banner. To connect, click **⚙**:
+**Team access:** the GitHub token lives in the Apps Script (script property `GITHUB_TOKEN`), and the FlexiFunnels loader carries the Apps Script URL. Anyone opening the page types **one team password**, once per browser. Until then it shows **demo data** with a banner. To connect manually (Vercel / local file), click **⚙**:
 
 | Field | Value |
 |---|---|
