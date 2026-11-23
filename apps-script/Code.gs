@@ -1,0 +1,65 @@
+/**
+ * Dashboard data feed for the FlexiFunnels webinar agent.
+ * Setup (2 min): open the chat sheet → Extensions → Apps Script → paste this → change KEY →
+ * Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the dashboard.
+ * The KEY keeps strangers out, so make it long and random.
+ */
+const KEY = 'CHANGE-ME-to-a-long-random-key';
+
+function doGet(e) {
+  const p = e.parameter || {};
+  if (p.key !== KEY) return out({ error: 'Wrong key' });
+  const ss = SpreadsheetApp.getActive();
+  try {
+    if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
+    if (p.action === 'schedule') return out(schedule(ss, p.tab));
+    if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
+    return out({ error: 'Unknown action' });
+  } catch (err) {
+    return out({ error: String(err) });
+  }
+}
+
+function headerIndex(values) {
+  for (let i = 0; i < values.length; i++) if (String(values[i][0]).trim().toLowerCase() === 'video time') return i;
+  return -1;
+}
+
+function describe(sh) {
+  const n = Math.max(1, Math.min(sh.getLastRow(), 600));
+  const v = sh.getRange(1, 1, n, 4).getDisplayValues();
+  const h = headerIndex(v);
+  if (h < 0) return { name: sh.getName(), schedule: false };
+  const items = v.slice(h + 1).filter(function (r) { return r[1] && r[2]; });
+  return {
+    name: sh.getName(),
+    schedule: true,
+    count: items.length,
+    start: v[0][0],
+    first: items.length ? items[0][1] : '',
+    last: items.length ? items[items.length - 1][1] : '',
+  };
+}
+
+function schedule(ss, tab) {
+  const sh = ss.getSheetByName(tab);
+  if (!sh) return { error: 'Tab not found: ' + tab };
+  const v = sh.getRange(1, 1, Math.max(1, Math.min(sh.getLastRow(), 600)), 4).getDisplayValues();
+  const h = headerIndex(v);
+  const items = h < 0 ? [] : v.slice(h + 1).filter(function (r) { return r[1] && r[2]; });
+  return { tab: tab, start: v[0][0], items: items };
+}
+
+// Rows of "Agent Log" / "Numbers" after row `from` (max 400 at a time).
+function rows(ss, tab, from) {
+  const sh = ss.getSheetByName(tab);
+  if (!sh) return { total: 0, rows: [] };
+  const last = sh.getLastRow();
+  const start = Math.max(2, from + 1, last - 399);
+  const data = last >= start ? sh.getRange(start, 1, last - start + 1, sh.getLastColumn()).getDisplayValues() : [];
+  return { total: last, from: start, rows: data };
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}

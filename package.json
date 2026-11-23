@@ -1,0 +1,21 @@
+{
+  "name": "flexifunnels-webinar-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Joins the aEvent Zoom webinar, posts the timed chats from the Google Sheet and replies privately to attendees with AI.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "save-session": "node scripts/save-session.js",
+    "check-session": "node scripts/check-session.js",
+    "agent": "node src/agent.js",
+    "test": "node test/schedule.test.js",
+    "agent:local": "node --env-file=.env src/agent.js"
+  },
+  "dependencies": {
+    "googleapis": "^144.0.0",
+    "playwright": "^1.49.0"
+  }
+}

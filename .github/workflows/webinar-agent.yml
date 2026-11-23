@@ -1,0 +1,82 @@
+name: Webinar chat agent
+run-name: "Webinar agent · ${{ inputs.tab }} · ${{ inputs.mode }}"
+
+# Started from the dashboard (or Actions → Run workflow). It always asks which tab to read first.
+# Start it up to ~45 min before the first chat in the tab – the agent waits, then joins 5 min early.
+on:
+  workflow_dispatch:
+    inputs:
+      tab:
+        description: 'Sheet tab to read the timed chats from (exact name, e.g. "Variant 3 – 11 AM")'
+        required: true
+      slot:
+        description: 'Which Zoom link to join'
+        type: choice
+        options: ['11am', '730pm']
+        default: '11am'
+      mode:
+        description: 'dry = send nothing · timed = timed chats + numbers only · full = everything incl. AI replies'
+        type: choice
+        options: ['dry', 'timed', 'full']
+        default: 'dry'
+
+concurrency:
+  group: webinar-agent-${{ inputs.slot }}
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      TZ: Asia/Kolkata
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Restore Zoom session
+        env:
+          ZOOM_SESSION_B64: ${{ secrets.ZOOM_SESSION_B64 }}
+        run: |
+          echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json
+          chmod 600 zoom-session.json
+
+      - name: Run agent
+        env:
+          SCHEDULE_TAB: ${{ inputs.tab }}
+          ZOOM_JOIN_URL: ${{ inputs.slot == '11am' && secrets.ZOOM_JOIN_URL_11AM || secrets.ZOOM_JOIN_URL_730PM }}
+          DRY_RUN: ${{ inputs.mode == 'dry' }}
+          AUTO_REPLY: ${{ inputs.mode == 'full' }}
+          SHEET_ID: ${{ vars.SHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          AGENT_NAME: ${{ vars.AGENT_NAME }}
+          TEAM_NAMES: ${{ vars.TEAM_NAMES }}
+          MAX_RUNTIME_MIN: 345
+        # Zoom's web client behaves better in a real (virtual) display than in headless mode.
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent
+
+      # Zoom renews its cookies while we use it – store the fresh copy so the login doesn't expire.
+      - name: Save refreshed Zoom session
+        if: always() && hashFiles('.session-ok') != ''
+        env:
+          GH_TOKEN: ${{ secrets.SECRETS_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping session refresh"; exit 0; fi
+          gzip -c zoom-session.json | base64 -w0 | gh secret set ZOOM_SESSION_B64 --repo "$GITHUB_REPOSITORY"
+          echo "Session secret refreshed"
+
+      - name: Wipe session file
+        if: always()
+        run: rm -f zoom-session.json .session-ok
+      # No artifacts are uploaded on purpose: traces/screenshots can contain the Zoom session.

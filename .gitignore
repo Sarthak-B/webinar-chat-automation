@@ -1,0 +1,6 @@
+node_modules/
+.env
+zoom-session.json
+zoom-session.b64
+.session-ok
+*.log
