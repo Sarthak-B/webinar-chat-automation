@@ -558,7 +558,7 @@ body.is-demo .demo-banner{display:block}
     <div class="wrap">
       <div class="shead">
         <div><span class="label"><b>03</b> / Live run</span><h2 data-split>Every chat, <em class="it">right on cue.</em></h2></div>
-        <p data-reveal>Counts come from today's Agent Log tab and refresh every 15 seconds. The timeline shows the chosen tab against the clock.</p>
+        <p data-reveal>Counts come from today's Agent Log tab and refresh every few seconds. The timeline shows the chosen tab against the clock.</p>
       </div>
       <div class="kpis">
         <div class="kpi" data-reveal id="kTimed"><span class="label"><i style="background:var(--acid)"></i>Timed chats sent</span><div class="v" data-k="timed">0</div><div class="s" id="kTimedS">of 0 in this tab</div></div>
@@ -1108,8 +1108,8 @@ function renderFeed() {
   }).join('');
   if (rows.length !== shownLog) shownLog = rows.length;
 
-  const nums = todays(S.numbers).slice().reverse();
-  $('#numbersList').innerHTML = nums.length ? nums.map((r) => { const [, time, name, num] = r; return `<div class="person ${isNew(['n', ...r])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(contact(name, num))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
+  const nums = contactsToday().slice().reverse();
+  $('#numbersList').innerHTML = nums.length ? nums.map((c) => { const { time, name, num } = c; return `<div class="person ${isNew(['n', name, num])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(contact(name, num))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
   const team = rows.filter((r) => kindOf(r[2]) === 'team').reverse();
   $('#teamCount').textContent = team.length;
   $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
@@ -1117,9 +1117,32 @@ function renderFeed() {
 }
 // ---------- conversations ----------
 const contact = (name, num) => `${String(name).trim()} - ${String(num).trim()}`;
+// Same rules as the agent: 9876543210, 98765 43210, +91 98765-43210, 09876543210 …
+function findPhone(text) {
+  for (const run of String(text).match(/\+?\d[\d\s-]{8,16}\d/g) || []) {
+    let d = run.replace(/\D/g, '');
+    if (d.length === 12 && d.startsWith('91')) d = d.slice(2); else if (d.length === 11 && d.startsWith('0')) d = d.slice(1);
+    if (d.length === 10 && /^[6-9]/.test(d)) return d;
+  }
+  return null;
+}
+// Numbers from the Numbers tab AND straight from attendee messages, so they show the moment they're typed.
+// Deduplicated by the last 10 digits; oldest first.
 function contactsToday() {
   const seen = new Set(), out = [];
-  todays(S.numbers).forEach((r) => { const name = r[2], num = String(r[3]).replace(/\s+/g, ''); if (!num || seen.has(num)) return; seen.add(num); out.push({ name, num: r[3] }); });
+  const add = (name, num, time) => {
+    const key = /X/i.test(num) ? String(num).trim() : String(num).replace(/\D/g, '').slice(-10); // X = masked demo numbers
+    if (!key || seen.has(key)) return;
+    seen.add(key); out.push({ name: String(name).trim(), num: String(num).trim(), time });
+  };
+  const rows = [];
+  todays(S.numbers).forEach((r) => rows.push({ t: parseClock(r[1]) || 0, name: r[2], num: r[3], time: r[1] }));
+  todays(S.log).forEach((r) => {
+    if (String(r[2]).replace(/^DRY /, '').toUpperCase() !== 'IN') return;
+    const n = findPhone(r[5]) || (isDemo() && /^\d{2}X{5}\d{3}$/.test(String(r[5]).trim()) ? String(r[5]).trim() : null);
+    if (n) rows.push({ t: parseClock(r[1]) || 0, name: r[3], num: n, time: r[1] });
+  });
+  rows.sort((a, b) => a.t - b.t).forEach((x) => add(x.name, x.num, x.time));
   return out;
 }
 function copyText(text, msg) {
@@ -1218,6 +1241,7 @@ const prevK = {};
 function renderKpis() {
   const rows = todays(S.log); const c = { timed: 0, reply: 0, number: 0, team: 0 };
   rows.forEach((r) => { const k = kindOf(r[2]); if (k in c) c[k]++; });
+  c.number = contactsToday().length; // includes numbers typed but not yet thanked
   $$('.kpi .v').forEach((el) => {
     const k = el.dataset.k, v = c[k];
     if (prevK[k] !== undefined && prevK[k] !== v) { const card = el.closest('.kpi'); card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump'); }
@@ -1399,7 +1423,7 @@ async function boot() {
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows()]);
   timers.push(setInterval(() => loadRuns(), 10_000));
-  timers.push(setInterval(() => loadFeed(), isDemo() ? 4_000 : 15_000));
+  timers.push(setInterval(() => loadFeed(), isDemo() ? 4_000 : 8_000));
   timers.push(setInterval(() => loadWorkflows(), 60_000));
 }
 setInterval(() => {

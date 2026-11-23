@@ -170,16 +170,31 @@ function cleanSender(raw) {
   return { name, isTeam: role || teamSet.has(name.toLowerCase()) };
 }
 
+// Saved the moment the number appears in chat (not when the thank-you goes out), so it shows up right away.
+const savedNumbers = new Set();
+const thankedNumbers = new Set();
+function saveNumber(sender, text) {
+  const phone = findPhone(text);
+  if (!phone || savedNumbers.has(phone)) return;
+  savedNumbers.add(phone);
+  numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
+  numbers.flush().catch((e) => log('numbers flush failed:', e.message));
+  log(`Number from ${sender}: ${phone}`);
+}
+
 async function handle(sender, text) {
   const name = firstName(sender);
   const phone = findPhone(text);
   if (phone) {
-    numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
-    newNumberNames.push(name);
-    const thanks = brain.replyFor(/shared phone number/i, name) || `${name}, thank you. We've asked our senior mentoring team to connect with you.`;
-    enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text });
-    lastReplyTo.set(sender, Date.now());
-    return;
+    if (!thankedNumbers.has(phone)) {
+      thankedNumbers.add(phone);
+      newNumberNames.push(name);
+      const thanks = brain.replyFor(/shared phone number/i, name) || `${name}, thank you. We've asked our senior mentoring team to connect with you.`;
+      enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text });
+      lastReplyTo.set(sender, Date.now());
+    }
+    // "9876543210, EMI hai?" → thank them AND answer the question
+    text = text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim();
   }
   if (isTrivial(text)) return;
   if (!cfg.autoReply) {
@@ -253,6 +268,7 @@ async function chatLoop() {
       const { name, isTeam } = cleanSender(m.sender);
       if (!name || isTeam) continue;
       record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
+      saveNumber(name, m.text);
       queueAttendee(name, m.text);
     }
     first = false;
