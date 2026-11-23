@@ -420,6 +420,61 @@ export class Zoom {
   // Zoom's "to:" dropdown has changed markup many times, so the option is found by its visible text
   // (anywhere in the open dropdown, not in the chat messages) instead of a fixed class name.
   async setReceiver(name) {
+    // 1st choice: click the attendee's blue name on their latest chat message – Zoom then switches
+    // "to:" to that person directly (no dropdown, no search).
+    if (name && (await this.clickSenderName(name))) {
+      this.currentReceiver = name;
+      return;
+    }
+    return this.setReceiverFromList(name);
+  }
+
+  async clickSenderName(name) {
+    const ui = this.root;
+    const marked = await ui.evaluate((want) => {
+      const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const target = norm(want);
+      document.querySelectorAll('[data-agent-name]').forEach((e) => e.removeAttribute('data-agent-name'));
+      const items = [...document.querySelectorAll('[class*="chat-item"], [class*="chat-message"], [class*="chat-list"] > *')];
+      // all elements inside the chat list whose own text is exactly the attendee's name
+      const hits = [];
+      for (const it of items) {
+        for (const el of it.querySelectorAll('span, a, button, div')) {
+          if (norm(el.innerText || el.textContent) !== target) continue;
+          if ([...el.children].some((c) => norm(c.innerText) === target)) continue; // keep the innermost
+          const r = el.getBoundingClientRect();
+          if (r.width && r.height) hits.push(el);
+        }
+      }
+      const el = hits.at(-1); // newest message
+      if (!el) return false;
+      el.scrollIntoView({ block: 'center' });
+      el.setAttribute('data-agent-name', '1');
+      return true;
+    }, name).catch(() => false);
+    if (!marked) return false;
+    const loc = ui.locator('[data-agent-name="1"]').first();
+    await loc.hover().catch(() => {});
+    await loc.click({ timeout: 3000 }).catch(() => {});
+    await this.page.waitForTimeout(500);
+    // check the "to:" now shows the name (if it can't be read, trust the click)
+    const label = await first(ui, SEL.receiverButton);
+    const text = label ? ((await label.innerText().catch(() => '')) || '').toLowerCase() : '';
+    if (!text || text.includes(name.toLowerCase())) return true;
+    // clicking the name may open a small menu (e.g. "Chat privately") – pick that option
+    const opt = ui.locator('text=/^(chat|message|reply)( privately)?$/i').first();
+    if (await opt.isVisible().catch(() => false)) {
+      await opt.click().catch(() => {});
+      await this.page.waitForTimeout(400);
+      const t2 = label ? ((await label.innerText().catch(() => '')) || '').toLowerCase() : '';
+      if (!t2 || t2.includes(name.toLowerCase())) return true;
+    }
+    await this.page.keyboard.press('Escape').catch(() => {});
+    return false;
+  }
+
+  // 2nd choice: open the "to:" dropdown and pick the attendee by the text it shows.
+  async setReceiverFromList(name) {
     const ui = this.root;
     const btn = await first(ui, SEL.receiverButton);
     if (!btn) throw new Error('chat receiver button not found');

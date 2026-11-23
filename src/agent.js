@@ -210,6 +210,7 @@ async function senderLoop() {
     }
     try {
       await zoom.send(job.text, job.to);
+      ownTexts.add(norm(job.text));
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
       if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
@@ -279,6 +280,10 @@ const newNumberNames = [];
 let aiBusy = 0;
 
 const teamSet = new Set([cfg.agentName.toLowerCase(), 'me', ...cfg.teamNames]);
+// The agent's own messages show up in the chat under the Zoom account's name (e.g. the host's name).
+// Anyone who "says" exactly what the agent just sent is the agent itself → treated as team from then on.
+const ownTexts = new Set();
+const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
 function cleanSender(raw) {
   const role = /\((host|co-host|panelist|panelists)\)/i.test(raw);
   const name = raw.replace(/\s+to\s+(everyone|me|all .*|hosts? and panelists.*|panelists?.*)$/i, '').replace(/\((host|co-host|panelist|me)\)/gi, '').trim();
@@ -479,6 +484,14 @@ async function chatLoop() {
       if (t && now - t < 10 * 60_000) continue; // same person, same text, within 10 min = same message
       seen.set(key, now);
       if (first) continue; // don't answer chat history from before we joined
+      if (ownTexts.has(norm(m.text))) {
+        const self = cleanSender(m.sender).name.toLowerCase();
+        if (self && !teamSet.has(self)) {
+          teamSet.add(self);
+          log(`Recognised "${self}" as the agent's own Zoom name – its messages are ignored`);
+        }
+        continue;
+      }
       const { name, isTeam } = cleanSender(m.sender);
       if (!name || isTeam) continue;
       record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
