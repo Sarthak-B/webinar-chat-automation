@@ -46,8 +46,15 @@ export function loadConfig() {
     socialProofEveryMin: num('SOCIAL_PROOF_EVERY_MIN', 12),
     // Getting the number comes first: every attendee who chats but hasn't shared a number gets asked privately.
     numberNudges: bool('NUMBER_NUDGES', true),
-    nudgeMax: num('NUDGE_MAX', 3), // max private number asks per person (AI replies that ask count too)
-    nudgeGapMin: num('NUDGE_GAP_MIN', 12), // min minutes between two asks to the same person
+    nudgeAfterMessages: num('NUDGE_AFTER_MESSAGES', 2), // only ask people who've typed at least this many messages
+    nudgeMax: num('NUDGE_MAX', 2), // max number asks per person (AI replies that ask count too)
+    nudgeGapMin: num('NUDGE_GAP_MIN', 20), // min minutes between two asks to the same person
+
+    // Natural, not spammy: the chat should feel like Sir replying, not a bot.
+    personaName: env('PERSONA_NAME', 'Sir'), // who the replies sound like (first person)
+    humanize: bool('HUMANIZE', true), // wait a human-like "read + type" time before each private reply
+    maxPrivatePerMin: num('MAX_PRIVATE_PER_MIN', 6), // cap on private messages per minute (replies + thanks + asks)
+    maxAsksPerMin: num('MAX_ASKS_PER_MIN', 2), // of which unprompted number asks
     objectionThreshold: num('OBJECTION_THRESHOLD', 3), // distinct people within 5 min
     objectionCooldownMin: num('OBJECTION_COOLDOWN_MIN', 15),
     endAfterLastMin: num('END_AFTER_LAST_MIN', 10),

@@ -533,8 +533,8 @@ body.is-demo .demo-banner{display:block}
             <div class="step-h"><span class="step-n">03</span><div><h3>How much should it do?</h3><p>Start with a dry run on your first live webinar.</p></div></div>
             <div class="seg three" id="modeSeg">
               <button class="opt" data-mode="dry"><span class="tag">Safe</span><b>Dry run</b><span>Joins and reads everything, logs what it would send. Sends nothing.</span></button>
-              <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue, asks every chatter for their number and thanks them. No AI replies.</span></button>
-              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Everything above, plus AI replies that answer briefly and always end by asking for the number.</span></button>
+              <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue and saves every number typed in chat. No private messages. Your team answers.</span></button>
+              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, plus private replies written by AI in Sir's voice and the attendee's language. Every reply goes for the number.</span></button>
             </div>
             <div class="hint" id="modeHint"></div>
           </div>
@@ -601,7 +601,7 @@ body.is-demo .demo-banner{display:block}
         <div class="thread">
           <div class="thread-h" id="threadHead"></div>
           <div class="msgs" id="msgs"><div class="chat-empty"><b>No conversations yet</b>When attendees start typing in the webinar chat, their threads appear here.</div></div>
-          <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent (sent privately)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
+          <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent, as Sir (private)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
         </div>
       </div>
       <div class="feed-grid">
@@ -786,18 +786,18 @@ const Demo = (() => {
   });
   const people = ['Rahul Sharma', 'Priya Verma', 'Ankit', 'Sneha K', 'Vikram Singh', 'Pooja', 'Imran Khan', 'Neha Gupta', 'Arjun', 'Kavya'];
   const asks = [
-    ['REPLY', 'price kya hai?', '{n}, it\'s just $447 (Rs. 36,999 incl. GST) today – here\'s the link: https://sb.flexifunnels.com/get?id=19029. Kindly share your contact number and our team will guide you.'],
-    ['REPLY', 'Is EMI available?', '{n}, EMI is available on the same link starting at less than Rs. 1,800/month. Kindly share your contact number, our team will assist you.'],
-    ['REPLY', 'recording milegi?', '{n}, sure – share your contact number and our team will send you the recording personally.'],
-    ['NUMBER', '98XXXXX421', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
-    ['REPLY', 'I have a job, can I do this?', '{n}, you don\'t need to leave your job. 60 minutes a day is enough to start. Share your contact number and our team will help you plan it.'],
-    ['NEEDS TEAM', 'I paid yesterday but did not get login details', ''],
-    ['NUMBER', '91XXXXX077', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
+    ['REPLY', 'price kya hai?', 'Aaj sirf $447 hai (₹36,999 incl. GST) – yeh raha link: https://sb.flexifunnels.com/get?id=19029. Apna number drop kar do, meri team call karke sab samjha degi 🙏'],
+    ['REPLY', 'Is EMI available?', 'Yes {n}, EMI starts at under ₹1,800/month on the same link. Share your number and my team will help you pick the easiest plan.'],
+    ['REPLY', 'recording milegi?', 'Haan {n}, recording personally bhejwa dunga. Bas apna WhatsApp number yahan type kar do 👇'],
+    ['NUMBER', '98XXXXX421', 'Thank you {n}! My team will call you shortly 🙏'],
+    ['REPLY', 'क्या नौकरी के साथ ये कर सकते हैं?', 'बिल्कुल {n}, दिन के 60 मिनट काफी हैं – कई लोगों ने जॉब के साथ ही शुरू किया। अपना नंबर शेयर करें, मेरी टीम आपका प्लान बना देगी।'],
+    ['NEEDS TEAM', 'I paid yesterday but did not get login details', 'Sorry about that {n} – my team will sort your login personally. Drop your number here so they can call you right away.'],
+    ['NUMBER', '91XXXXX077', 'शुक्रिया {n}! मेरी टीम आपको जल्दी कॉल करेगी 🙏'],
   ];
   const trivial = ['Yes', 'YES 🔥', '1', 'Mumbai', 'Delhi se', 'T', 'F', 'Excited!', 'Hi sir 🙏', '🔥🔥🔥', 'Jaipur', 'Type 1 – 1'];
   let k = 0, a = 0, pending = [];
-  const asked = new Set();
-  const bankLines = ["that's your first step. Step 2: drop your number 👇", 'confused which model fits YOU? Drop your WhatsApp number. A senior mentor will call and map your personal roadmap – FREE 👇', 'no spam. No pressure. Just one call from a senior mentor. Drop your number 📞'];
+  const asked = new Set(), seenOnce = new Set();
+  const bankLines = ['dikh raha hai aap kaafi excited ho 😄 apna number drop kar do, meri team aapka personal roadmap bana degi', 'glad you\'re enjoying it! If you want a 1-on-1 plan, just type your number here', 'koi bhi sawaal ho toh apna number share karo – meri team khud call karegi 📞'];
   const row = (kind, to, sent, said, note = '', at = new Date()) => [todayStr(), fmtFull(at), kind, to, sent, said, note];
   // one "tick" of fake chat: someone types, and the agent answers on the next tick
   function tick(at = new Date()) {
@@ -805,14 +805,16 @@ const Demo = (() => {
     const p = people[k++ % people.length], first = p.split(' ')[0];
     if (Math.random() < .4) {
       out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at));
-      if (!asked.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
+      if (seenOnce.has(p) && !asked.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
+      seenOnce.add(p);
       return out;
     }
     const [kind, said, reply] = asks[a++ % asks.length];
     out.push(row('IN', p, '', said, '', at));
     const said2 = kind === 'NUMBER' ? `9${(7 + (k % 3))}XXXXX${String(100 + ((k * 37) % 900))}` : said;
     if (kind === 'NUMBER') out[out.length - 1][5] = said2;
-    pending.push(kind === 'NEEDS TEAM' ? row('DRY NEEDS TEAM', p, '', said, 'account/login problem – needs a human', at) : row(`DRY ${kind}`, p, reply.replace('{n}', first), said2, '', at));
+    if (kind === 'NEEDS TEAM') { pending.push(row('DRY NEEDS TEAM', p, '', said, 'account/login problem – needs a human', at)); pending.push(row('DRY NUMBER ASK', p, reply.replace('{n}', first), said, 'needs team · english', at)); }
+    else pending.push(row(`DRY ${kind}`, p, reply.replace('{n}', first), said2, '', at));
     return out;
   }
   const log = [];
@@ -876,8 +878,8 @@ function renderChoices() {
   $('#step2').classList.toggle('active', !!S.tab); $('#step3').classList.toggle('active', !!S.tab);
   const hints = {
     dry: 'Best for the first live test. Your team handles chat as usual, then compare the Agent Log with what they did.',
-    timed: 'Sir\'s timed chats, number thank-yous and private number asks are automatic. Your team still answers questions.',
-    full: 'The agent answers every question privately from the Attendee Replies tab. Keep someone watching "Needs the team".',
+    timed: 'Sir\'s timed chats go out on cue and every number typed is saved. The agent sends no private messages, so your team answers questions.',
+    full: 'Replies sound like Sir: short, varied, in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
   };
   $('#modeHint').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${S.mode === 'full' ? 'var(--red)' : 'var(--acid)'}" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${hints[S.mode]}</span>`;
 }

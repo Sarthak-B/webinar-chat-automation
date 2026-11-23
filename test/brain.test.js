@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict';
+import { Brain, detectLang, asksForNumber, firstName } from '../src/brain.js';
+
+// language detection
+const cases = {
+  'What is the price?': 'english', 'Is EMI available for students?': 'english', 'I have a job, can I do this?': 'english',
+  'price kya hai?': 'hinglish', 'EMI milega kya': 'hinglish', 'mujhe samajh nahi aaya': 'hinglish', 'recording milegi?': 'hinglish',
+  'sir ye kaise kaam karta hai': 'hinglish', 'कीमत क्या है?': 'hindi', 'क्या EMI मिलेगी?': 'hindi', '🔥🔥': null, 'Mumbai': 'english',
+};
+for (const [t, want] of Object.entries(cases)) assert.equal(detectLang(t), want, `${t} → ${detectLang(t)} (want ${want})`);
+assert.ok(asksForNumber('अपना नंबर शेयर करें')); assert.ok(asksForNumber('apna number drop karo')); assert.ok(!asksForNumber('Haan bilkul, EMI available hai'));
+assert.equal(firstName('rahul sharma'), 'Rahul'); assert.equal(firstName('राहुल शर्मा'), 'राहुल');
+
+// fake OpenAI
+let next;
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify(next) } }] }) });
+const b = new Brain({ openaiKey: 'x', model: 'x', personaName: 'Saurabh Sir',
+  replies: [{ when: 'price', reply: '{Name}, $447 today – https://sb.flexifunnels.com/get?id=19029' }], objections: [{ key: 'obj1', objection: 'not technical', chat: 'No coding' }],
+  numberBank: [{ angle: 'Trust', line: 'No spam. Drop your number 📞' }] });
+assert.match(b.system, /Saurabh Sir/); assert.match(b.system, /Never say you are AI/);
+
+next = { action: 'reply', reply: 'Haan bilkul, EMI ₹59/day se start hai', objection: null, safe_to_ask: true };
+let d = await b.decide({ sender: 'Rahul', text: 'EMI milega kya', hasNumber: false });
+console.log('hinglish reply w/o ask  →', d.reply); assert.ok(asksForNumber(d.reply)); assert.equal(d.lang, 'hinglish');
+
+next = { action: 'reply', reply: 'हाँ, EMI उपलब्ध है', safe_to_ask: true };
+d = await b.decide({ sender: 'राहुल', text: 'क्या EMI मिलेगी?', hasNumber: false });
+console.log('hindi reply w/o ask     →', d.reply); assert.match(d.reply, /नंबर/);
+
+next = { action: 'reply', reply: 'Yes! EMI is available. My team will call you on your number.', safe_to_ask: true };
+d = await b.decide({ sender: 'Priya', text: 'Is EMI available?', hasNumber: true });
+console.log('has number, no re-ask   →', d.reply);
+
+next = { action: 'reply', reply: 'Buy here https://evil.example.com', safe_to_ask: true };
+d = await b.decide({ sender: 'X', text: 'link?', hasNumber: false });
+console.log('unknown link            →', d.action, '·', d.reason); assert.equal(d.action, 'escalate');
+
+next = { action: 'escalate', reply: 'You are an idiot', safe_to_ask: false };
+d = await b.decide({ sender: 'Troll', text: 'scam!!', hasNumber: false });
+console.log('abusive                 →', d.action, '· reply:', d.reply); assert.equal(d.reply, null);
+
+next = { message: 'Aapka number drop kar do, meri team call karke sab samjha degi 🙏' };
+console.log('compose ask (hinglish)  →', await b.compose({ purpose: 'ask', sender: 'Ankit', said: 'haan', lang: 'hinglish' }));
+globalThis.fetch = async () => { throw new Error('network down'); };
+console.log('AI down, ask fallback   →', await b.compose({ purpose: 'ask', sender: 'सुनीता', said: 'जी', lang: 'hindi' }));
+console.log('AI down, thanks fallback→', await b.compose({ purpose: 'thanks', sender: 'Mike', said: '9876543210', lang: 'english' }));
+d = await b.decide({ sender: 'Mike', text: 'what about refunds?', hasNumber: false });
+console.log('AI down, decide         →', d.action, '·', d.reason);
+console.log('✓ brain tests passed');

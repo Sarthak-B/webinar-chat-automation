@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
 import { parseSchedule, parseReplies, parseObjections, parseNumberBank } from './schedule.js';
-import { Brain, findPhone, isTrivial, firstName, asksForNumber } from './brain.js';
+import { Brain, findPhone, isTrivial, firstName, asksForNumber, detectLang } from './brain.js';
 import { Zoom } from './zoom.js';
 
 const cfg = loadConfig();
@@ -52,7 +52,6 @@ log(`Using tab "${cfg.scheduleTab}"`);
 
 const replies = parseReplies(await sheet.read(cfg.repliesTab));
 const objections = parseObjections(await sheet.read(cfg.objectionsTab));
-const brain = new Brain({ ...cfg, replies, objections });
 let numberBank = [];
 try {
   numberBank = parseNumberBank(await sheet.read(cfg.numberBankTab));
@@ -66,7 +65,8 @@ if (!numberBank.length) {
     { angle: 'Trust', line: 'no spam, no pressure – just one call from a senior mentor. Share your contact number 📞' },
   ];
 }
-log(`Loaded ${replies.length} reply templates, ${objections.length} objection lines, ${numberBank.length} number-ask lines`);
+const brain = new Brain({ ...cfg, replies, objections, numberBank });
+log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName}`);
 
 let schedule = parseSchedule(await sheet.read(cfg.scheduleTab, 'A1:D600'));
 if (!schedule.length) throw new Error(`No timed chats found in "${cfg.scheduleTab}"`);
@@ -120,22 +120,63 @@ async function joinWithRetry() {
 await joinWithRetry();
 
 // ---------- Send queue (one sender, so nothing types over anything else) ----------
-const queue = []; // { prio, text, to, kind, said, at }
-const enqueue = (job) => queue.push({ at: Date.now(), ...job });
+// Timed chats go out exactly on cue. Private messages wait a human "read + type" time and are
+// rate-limited, so the chat feels like Sir answering people one by one – never a burst of bot replies.
+const queue = []; // { prio, text, to, kind, said, at, notBefore, skipIf }
+const rand = (a, b) => a + Math.random() * (b - a);
+function humanDelay(text) {
+  if (!cfg.humanize) return 0;
+  const typing = Math.min(25_000, String(text).length * rand(45, 80)); // ~13–22 chars/sec
+  return rand(4_000, 9_000) + typing; // read, think, type
+}
+const enqueue = (job) => {
+  const at = Date.now();
+  queue.push({ at, notBefore: job.to ? at + humanDelay(job.text) : at, ...job });
+};
+const privateSent = []; // timestamps of private sends (for the per-minute caps)
+const asksSent = [];
+const perMin = (arr) => {
+  const cut = Date.now() - 60_000;
+  while (arr.length && arr[0] < cut) arr.shift();
+  return arr.length;
+};
 let lastSend = 0;
 
 async function senderLoop() {
   while (running) {
-    if (!queue.length || Date.now() - lastSend < cfg.sendGapMs) {
+    const now = Date.now();
+    if (!queue.length || now - lastSend < cfg.sendGapMs) {
       await sleep(250);
       continue;
     }
-    queue.sort((a, b) => a.prio - b.prio || a.at - b.at);
-    const job = queue.shift();
+    const privateFull = perMin(privateSent) >= cfg.maxPrivatePerMin;
+    const asksFull = perMin(asksSent) >= cfg.maxAsksPerMin;
+    const ready = queue
+      .filter((j) => j.notBefore <= now)
+      .filter((j) => !j.to || !privateFull) // public timed chats are never held back
+      .filter((j) => j.kind !== 'NUMBER ASK' || !asksFull)
+      .sort((a, b) => a.prio - b.prio || a.notBefore - b.notBefore);
+    const job = ready[0];
+    if (!job) {
+      await sleep(250);
+      continue;
+    }
+    queue.splice(queue.indexOf(job), 1);
     if (job.skipIf?.()) continue; // e.g. a number ask for someone who has since shared their number
+    if (job.to && job.kind !== 'NUMBER' && now - job.at > 15 * 60_000) {
+      record('SKIPPED', job.to, job.text, job.said || '', 'reply waited over 15 min – too late to feel natural');
+      continue;
+    }
     try {
       await zoom.send(job.text, job.to);
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
+      if (job.to) {
+        privateSent.push(Date.now());
+        if (job.kind === 'NUMBER ASK') asksSent.push(Date.now());
+        remember(job.to, 'me', job.text);
+        recentSent.push(job.text);
+        if (recentSent.length > 8) recentSent.shift();
+      }
     } catch (e) {
       log(`send failed (${job.kind} → ${job.to || 'Everyone'}): ${e.message}`);
       record('FAILED', job.to, job.text, job.said || '', e.message);
@@ -184,12 +225,34 @@ function cleanSender(raw) {
   return { name, isTeam: role || teamSet.has(name.toLowerCase()) };
 }
 
+// ---------- Per-person memory (language, short history) ----------
+const people = new Map(); // name → { lang, msgs, history: [{who, text}] }
+const recentSent = []; // last private messages to anyone – the AI avoids repeating their phrasing
+function person(name) {
+  if (!people.has(name)) people.set(name, { lang: null, msgs: 0, history: [] });
+  return people.get(name);
+}
+function remember(name, who, text) {
+  const p = person(name);
+  p.history.push({ who, text: String(text).slice(0, 300) });
+  if (p.history.length > 8) p.history.shift();
+}
+function noteIncoming(name, text) {
+  const p = person(name);
+  p.msgs++;
+  const l = detectLang(text);
+  // Hindi / Hinglish are strong signals; a one-word English "Yes" shouldn't flip a Hinglish speaker to English.
+  if (l && (l !== 'english' || !p.lang || String(text).trim().split(/\s+/).length > 3)) p.lang = l;
+  remember(name, 'them', text);
+}
+const langOf = (name) => person(name).lang || 'english';
+
 // ---------- Numbers come first ----------
 // Saved the moment the number appears in chat (not when the thank-you goes out), so it shows up right away.
 const savedNumbers = new Set();
 const thankedNumbers = new Set();
 const hasNumber = new Set(); // attendee names who have shared a number
-const asks = new Map(); // name → { count, last } private number asks sent (replies that ask count too)
+const asks = new Map(); // name → { count, last } number asks sent (replies that ask count too)
 let bankIdx = 0;
 
 function noteAsk(sender) {
@@ -203,26 +266,24 @@ function canAsk(sender) {
   const a = asks.get(sender);
   return !a || (a.count < cfg.nudgeMax && Date.now() - a.last > cfg.nudgeGapMin * 60_000);
 }
-// Private "share your number" message, rotating through the sheet's Number Drop Bank lines.
-function askForNumber(sender, said, reason, prio = 4) {
-  if (!cfg.numberNudges || !canAsk(sender)) return false;
-  const name = firstName(sender);
-  const { line, angle } = numberBank[bankIdx++ % numberBank.length];
-  const text = `${name === 'there' ? 'Hi' : name}, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+// AI-written private "share your number" line in their language, only for people who are really engaged.
+async function askForNumber(sender, said, reason) {
+  if (!cfg.autoReply || !cfg.numberNudges || !canAsk(sender)) return;
+  if (person(sender).msgs < cfg.nudgeAfterMessages) return; // one "Yes" isn't enough – don't bomb everyone
   noteAsk(sender);
+  const angle = numberBank.length ? numberBank[bankIdx++ % numberBank.length] : null;
+  const text = await brain.compose({ purpose: 'ask', sender, said, lang: langOf(sender), history: person(sender).history, recent: recentSent, angle: angle && `${angle.angle} – ${angle.line}` });
   const queuedAt = Date.now();
   const skipIf = () => {
     if (hasNumber.has(sender)) return true;
     if (Date.now() - queuedAt > 10 * 60_000) {
-      // waited too long behind timed chats/replies – drop it and let them be asked fresh later
-      const a = asks.get(sender);
+      const a = asks.get(sender); // waited too long – drop it and let them be asked fresh later
       if (a) a.count = Math.max(0, a.count - 1);
       return true;
     }
     return false;
   };
-  enqueue({ prio, text, to: sender, kind: 'NUMBER ASK', said, note: `${reason} · ${angle}`, skipIf });
-  return true;
+  enqueue({ prio: 4, text, to: sender, kind: 'NUMBER ASK', said, note: `${reason}${angle ? ` · ${angle.angle}` : ''} · ${langOf(sender)}`, skipIf });
 }
 
 function saveNumber(sender, text) {
@@ -236,59 +297,63 @@ function saveNumber(sender, text) {
   log(`Number from ${sender}: ${phone}`);
 }
 
-async function handle(sender, text) {
-  const name = firstName(sender);
-  const phone = findPhone(text);
-  if (phone) {
-    if (!thankedNumbers.has(phone)) {
-      thankedNumbers.add(phone);
-      newNumberNames.push(name);
-      const thanks = brain.replyFor(/shared phone number/i, name) || `${name}, thank you. We've asked our senior mentoring team to connect with you.`;
-      enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text });
-      lastReplyTo.set(sender, Date.now());
-    }
-    // "9876543210, EMI hai?" → thank them AND answer the question
-    text = text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim();
-  }
-  if (isTrivial(text)) {
-    // "Yes" / "1" / emojis: they're engaged right now – the best moment to ask for the number.
-    if (!phone) askForNumber(sender, text, 'engaged, no number yet');
-    return;
-  }
-  if (!cfg.autoReply) {
-    record('QUESTION', sender, '', text, 'auto-reply off');
-    // No AI replies in this mode, but still go for the number.
-    askForNumber(sender, text, 'asked a question', 2);
-    return;
-  }
-
+async function aiSlot(fn) {
   while (aiBusy >= cfg.aiConcurrency) await sleep(200);
   aiBusy++;
-  let d;
   try {
-    d = await brain.decide({ sender, text, hasNumber: hasNumber.has(sender) });
-  } catch (e) {
-    d = { action: 'escalate', reason: `AI error: ${e.message}` };
+    return await fn();
   } finally {
     aiBusy--;
   }
+}
 
+async function handle(sender, text) {
+  const phone = findPhone(text);
+  const lang = langOf(sender);
+  const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent });
+
+  if (!cfg.autoReply) {
+    // Timed-chats mode: no private messages at all. Numbers are still saved; real questions are logged for the team.
+    const rest = phone ? text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').trim() : text;
+    if (!isTrivial(rest)) record('QUESTION', sender, '', text, 'timed mode – answer manually');
+    return;
+  }
+
+  if (phone && !thankedNumbers.has(phone)) {
+    thankedNumbers.add(phone);
+    newNumberNames.push(firstName(sender));
+    const rest = text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim();
+    if (isTrivial(rest)) {
+      const thanks = await aiSlot(() => brain.compose({ purpose: 'thanks', said: text, ...ctx() }));
+      enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text, note: lang });
+      lastReplyTo.set(sender, Date.now());
+      return;
+    }
+    text = rest; // "9876543210, EMI hai?" → one reply that thanks them AND answers (hasNumber is already set)
+  }
+  if (isTrivial(text)) {
+    // "Yes" / "1" / emojis – no answer needed; maybe a gentle number ask if they keep engaging.
+    if (!phone) await aiSlot(() => askForNumber(sender, text, 'engaged, no number yet'));
+    return;
+  }
+
+  const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
-  if (d.action === 'reply') {
-    enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text });
+  if (d.action === 'reply' && d.reply) {
+    enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang });
     if (asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
     record('NEEDS TEAM', sender, '', text, d.reason || '');
     log(`NEEDS TEAM: ${sender}: ${text}`);
-    // The team can only help if they can call – get the number now.
-    if (d.safe_to_ask !== false && !hasNumber.has(sender) && cfg.numberNudges) {
-      const t = brain.replyFor(/wants a call|general doubt/i, name) || `${name}, our team will help you with this personally. Kindly share your contact number and they'll call you.`;
-      enqueue({ prio: 1, text: t, to: sender, kind: 'NUMBER ASK', said: text, note: 'needs team – asking for number', skipIf: () => hasNumber.has(sender) });
-      noteAsk(sender);
+    if (d.safe_to_ask !== false) {
+      // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
+      const reply = d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
+      enqueue({ prio: 1, text: reply, to: sender, kind: hasNumber.has(sender) ? 'REPLY' : 'NUMBER ASK', said: text, note: `needs team · ${lang}` });
+      if (!hasNumber.has(sender)) noteAsk(sender);
     }
   } else if (d.safe_to_ask !== false && !phone) {
-    askForNumber(sender, text, 'chatting, no number yet'); // "ignore" (city names, compliments…) – still go for the number
+    await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet')); // city names, compliments…
   }
 }
 
@@ -337,6 +402,7 @@ async function chatLoop() {
       const { name, isTeam } = cleanSender(m.sender);
       if (!name || isTeam) continue;
       record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
+      noteIncoming(name, m.text);
       saveNumber(name, m.text);
       queueAttendee(name, m.text);
     }
@@ -350,10 +416,15 @@ async function socialProofLoop() {
   while (running) {
     await sleep(cfg.socialProofEveryMin * 60_000);
     if (!running || !newNumberNames.length) continue;
-    const names = [...new Set(newNumberNames.splice(0))].filter((n) => n !== 'there').slice(-3);
+    const names = [...new Set(newNumberNames.splice(0))].filter(Boolean).slice(-3);
     if (!names.length) continue;
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} & ${names.at(-1)}`;
-    enqueue({ prio: 3, text: `Thank you ${list}. Our team is calling you shortly. Others, drop your number 🙏`, to: null, kind: 'SOCIAL PROOF' });
+    const lines = [
+      `Thank you ${list} 🙏 my team is calling you shortly. Anyone else who wants help, drop your number here`,
+      `${list} – got your numbers, my team will call you soon. Baaki sab bhi apna number drop karo 👇`,
+      `Thanks ${list}! Team will connect with you shortly. If you also want a call, just type your number 📞`,
+    ];
+    enqueue({ prio: 3, text: lines[Math.floor(Math.random() * lines.length)], to: null, kind: 'SOCIAL PROOF' });
   }
 }
 

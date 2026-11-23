@@ -60,6 +60,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          PERSONA_NAME: ${{ vars.PERSONA_NAME }}
           AGENT_NAME: ${{ vars.AGENT_NAME }}
           TEAM_NAMES: ${{ vars.TEAM_NAMES }}
           MAX_RUNTIME_MIN: 345
