@@ -61,7 +61,7 @@ It doesn't call the AI for simple reactions (they get a number ask instead, if n
 
 ## The dashboard: `dashboard/index.html`
 
-The control room for everything. It's deployed on **Vercel** (the repo's `vercel.json` serves the `dashboard/` folder as a static site, with nothing to build), or you can open the file directly in Chrome. It's built for desktop.
+The control room for everything. It's deployed on **Vercel** (the repo's `vercel.json` serves the `dashboard/` folder as a static site, with nothing to build), or **inside a FlexiFunnels page**: paste [`dashboard/flexifunnels-embed.html`](dashboard/flexifunnels-embed.html) into a Custom Code element (SETUP.md step 10b). You can also open the file directly in Chrome. It's built for desktop.
 
 1. **Pick the tab:** cards for every schedule tab, read live from the sheet, with chat count and first → last time.
 2. **Pick the mode:** dry / timed / full.
@@ -198,6 +198,7 @@ After changing the layout, run `npm test -- <exported sheet file>` to confirm ev
   webinar-agent.yml     runs the agent (started from the dashboard: tab, mode)
   session-check.yml     daily Zoom login check + refresh
 dashboard/index.html    Autopilot dashboard (single self-contained file)
+dashboard/flexifunnels-embed.html   the same dashboard as one paste-ready Custom Code block
 apps-script/Code.gs     keyed, read-only sheet feed for the dashboard
 src/
   agent.js              main loop: asks for the tab, timed chats, replies, numbers, logging
@@ -209,6 +210,7 @@ src/
   config.js             all settings (env vars)
 scripts/
   save-session.js       one-time Zoom login → zoom-session.b64
+  build-embed.mjs       builds dashboard/flexifunnels-embed.html (paste-ready for FlexiFunnels)
   check-session.js      verifies the saved login
 test/schedule.test.js   parser tests (pass an exported sheet to test real tabs)
 test/brain.test.js      language detection, number-ask guarantee, link blocking, AI-down fallbacks

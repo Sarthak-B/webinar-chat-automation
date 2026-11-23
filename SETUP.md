@@ -218,6 +218,17 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 
 ---
 
+## Step 10b: Host the dashboard on FlexiFunnels (optional, instead of Vercel)
+
+1. In FlexiFunnels, create a page (e.g. *Webinar Automation Dashboard*) and add a **Custom Code** element.
+2. Open [`dashboard/flexifunnels-embed.html`](dashboard/flexifunnels-embed.html), copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**.
+3. Open the published page. The dashboard fills the whole screen, and everything works as on Vercel: launch, stop, conversations, history, workflows and copy buttons.
+
+Notes:
+- The editor canvas may only show the "Custom Code" placeholder. Check it on **Preview** or the published page.
+- Settings (tokens and keys) are saved in your browser for that page's domain. Use a page on a domain with no third-party scripts you don't trust, and keep token B limited to this repo (step 6).
+- When the dashboard changes, the repo's `flexifunnels-embed.html` is rebuilt (`npm run build:embed`), and you paste it again.
+
 ## Step 11: Connect the dashboard (3 min)
 
 Open your Vercel dashboard URL → **⚙** (top right):
