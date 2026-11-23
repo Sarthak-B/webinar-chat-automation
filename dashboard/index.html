@@ -19,6 +19,7 @@
   --ease:cubic-bezier(.22,1,.36,1); --r:22px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--ink);font:400 15px/1.55 var(--body);min-width:1100px;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -362,6 +363,66 @@ section{padding:110px 0 30px}
 .status.failure i,.status.cancelled i{background:var(--red)}
 .status.in_progress i,.status.queued i{background:var(--amber);animation:breathe 1.2s infinite}
 
+/* webinar history */
+.hist{display:grid;grid-template-columns:330px 1fr;min-height:680px;border-radius:26px;overflow:hidden;border:1px solid var(--line2);background:var(--panel);margin-bottom:16px}
+.hist-list{background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.hist-list-h{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+#histList{overflow:auto;max-height:760px;scrollbar-width:thin}
+.wcard{display:block;width:100%;text-align:left;padding:16px 18px;border-bottom:1px solid var(--line);position:relative;transition:background .3s}
+.wcard:hover{background:rgba(255,255,255,.025)}
+.wcard.on{background:linear-gradient(90deg,rgba(214,242,60,.09),transparent 85%)}
+.wcard.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--acid)}
+.wcard .wd{display:flex;justify-content:space-between;align-items:center;font:500 11px/1 var(--mono);color:var(--muted);letter-spacing:.04em}
+.wcard .wt{font:700 16px/1.25 var(--display);letter-spacing:-.01em;margin:8px 0 10px}
+.wcard .ws{display:flex;gap:14px;font-size:12px;color:var(--muted)}
+.wcard .ws b{color:var(--ink);font-weight:700}
+.wcard .ws b.lead{color:var(--lilac)}
+.livechip{display:inline-flex;align-items:center;gap:6px;font:500 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:5px 8px;border-radius:99px;background:rgba(214,242,60,.12);color:var(--acid)}
+.livechip i{width:6px;height:6px;border-radius:50%;background:var(--acid);animation:breathe 1.2s infinite}
+.modechip{font:500 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:5px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--muted)}
+.hist-detail{display:flex;flex-direction:column;min-width:0;padding:24px 26px}
+.hist-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
+.hist-head h3{font:800 30px/1.05 var(--display);letter-spacing:-.03em}
+.hist-head .hm{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hkpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}
+.hk{padding:16px;border-radius:16px;background:var(--bg2);border:1px solid var(--line);position:relative;overflow:hidden}
+.hk .label{font-size:9.5px;letter-spacing:.14em}
+.hk .v{font:800 34px/1 var(--display);letter-spacing:-.04em;margin-top:12px}
+.hk .s{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.35}
+.hk.lead{border-color:rgba(184,166,246,.45);background:linear-gradient(160deg,rgba(184,166,246,.14),var(--bg2))}
+.hk.lead .v{color:var(--lilac)}
+.hk .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--acid);transition:width 1s var(--ease)}
+.hk.lead .bar{background:var(--lilac)}
+.qa-tools{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.qa-tabs{display:flex;gap:4px;padding:4px;border-radius:99px;background:var(--bg2);border:1px solid var(--line)}
+.qa-tabs button{padding:8px 14px;border-radius:99px;font-size:13px;font-weight:500;color:var(--muted);transition:.3s var(--ease);white-space:nowrap}
+.qa-tabs button.on{background:var(--ink);color:#0C0E13}
+.qa-tabs button b{font:500 10.5px/1 var(--mono);margin-left:5px;opacity:.7}
+.qa-tools .cfilters{margin-top:0}
+.qa-search{flex:1;min-width:200px;height:38px}
+.qa{border:1px solid var(--line);border-radius:16px;overflow:auto;max-height:520px;scrollbar-width:thin}
+.qa-row{display:grid;grid-template-columns:78px 150px 1fr 1.25fr 120px;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:start}
+.qa-row.h{position:sticky;top:0;background:var(--panel2);z-index:1;font:500 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:12px 16px}
+.qa-row.leads{grid-template-columns:78px 220px 180px 1fr 60px}
+.qa-row:not(.h):hover{background:rgba(255,255,255,.02)}
+.qa-row time{font:500 11.5px/1.6 var(--mono);color:var(--dim)}
+.qa-row .who b{display:block;font-weight:700}
+.qa-row .who span{font:500 10px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.qa-row .q{color:var(--ink);white-space:pre-line;overflow-wrap:anywhere}
+.qa-row .r{color:var(--muted);white-space:pre-line;overflow-wrap:anywhere;padding-left:14px;border-left:2px solid rgba(214,242,60,.35)}
+.qa-row .r.none{border-left-color:var(--line2);color:var(--dim);font-style:italic}
+.qa-row .num{font:500 13px/1.4 var(--mono);color:var(--lilac)}
+.st-chip{justify-self:start;font:500 9.5px/1.3 var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:5px 8px;border-radius:8px;border:1px solid var(--line2);color:var(--muted)}
+.st-chip.Answered{color:var(--acid);border-color:rgba(214,242,60,.35);background:var(--acid-soft)}
+.st-chip.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.08)}
+.runs{padding:0}
+.runs summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:20px 26px;font-size:14px;color:var(--muted)}
+.runs summary::-webkit-details-marker{display:none}
+.runs summary b{color:var(--ink)}
+.runs .chev{transition:transform .4s var(--ease);font-size:18px}
+.runs[open] .chev{transform:rotate(180deg)}
+.runs table{margin:0 0 10px}
+
 /* history */
 table{width:100%;border-collapse:collapse}
 th{font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);text-align:left;padding:0 14px 14px}
@@ -535,7 +596,7 @@ body.is-demo .demo-banner{display:block}
             <div class="seg three" id="modeSeg">
               <button class="opt" data-mode="dry"><span class="tag">Safe</span><b>Dry run</b><span>Joins and reads everything, logs what it would send. Sends nothing.</span></button>
               <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue and saves every number typed in chat. No private messages. Your team answers.</span></button>
-              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, plus polite private replies written by AI as "our team", in the attendee's language. Every reply goes for the number.</span></button>
+              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, plus polite AI replies to genuine questions only, as "our team" and in the attendee's language. Every reply goes for the number.</span></button>
             </div>
             <div class="hint" id="modeHint"></div>
           </div>
@@ -644,12 +705,27 @@ body.is-demo .demo-banner{display:block}
   <section id="history">
     <div class="wrap">
       <div class="shead">
-        <div><span class="label"><b>06</b> / Run history</span><h2 data-split>Past webinars, <em class="it">on record.</em></h2></div>
-        <p data-reveal>The last 15 agent runs, with the tab and mode each one used.</p>
+        <div><span class="label"><b>06</b> / Webinar history</span><h2 data-split>Every webinar, <em class="it">on record.</em></h2></div>
+        <p data-reveal>Attendance, engagement, live lead % and every genuine question with the reply it got. All of it comes from your Webinar History sheet, which the agent fills in during each webinar.</p>
       </div>
-      <div class="card" data-reveal>
+      <div class="hist" data-reveal>
+        <aside class="hist-list"><div class="hist-list-h"><span class="label">Webinars</span><a class="btn ghost sm" id="openHistSheet" href="#" target="_blank" rel="noopener" hidden>Open sheet ↗</a></div><div id="histList"><div class="empty">No webinars recorded yet.</div></div></aside>
+        <div class="hist-detail">
+          <div class="hist-head" id="histHead"></div>
+          <div class="hkpis" id="histKpis"></div>
+          <div class="qa-tools">
+            <div class="qa-tabs" id="qaTabs"><button class="on" data-qt="qa">Questions &amp; replies <b id="qaCount">0</b></button><button data-qt="leads">Leads <b id="leadCount">0</b></button></div>
+            <div class="cfilters" id="qaFilters"><button class="on" data-qf="all">All</button><button data-qf="Answered">Answered</button><button data-qf="Needs team">Needs team</button></div>
+            <label class="search qa-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="qaSearch" placeholder="Search questions, replies, names" aria-label="Search history"></label>
+            <button class="btn ghost sm" id="qaCopy">Copy</button>
+          </div>
+          <div class="qa" id="qaTable"><div class="empty">Pick a webinar on the left.</div></div>
+        </div>
+      </div>
+      <details class="card runs" data-reveal>
+        <summary><span><b>Agent runs on GitHub</b> · last 15 launches with tab, mode, status and duration</span><span class="chev">⌄</span></summary>
         <table><thead><tr><th>Started</th><th>Run</th><th>Status</th><th>Duration</th><th></th></tr></thead><tbody id="historyBody"><tr><td colspan="5" class="empty">No runs yet.</td></tr></tbody></table>
-      </div>
+      </details>
     </div>
   </section>
 </main>
@@ -675,7 +751,8 @@ body.is-demo .demo-banner{display:block}
     <div class="fgroup"><span class="label"><b>B</b> / Google Sheet feed</span>
       <div class="field"><label for="cScript">Apps Script web-app URL</label><input id="cScript" placeholder="https://script.google.com/macros/s/…/exec"></div>
       <div class="field"><label for="cKey">Feed key <span>(the KEY you set in the script)</span></label><input id="cKey" type="password" autocomplete="off"></div>
-      <div class="field"><label for="cSheetUrl">Sheet link <span>(for "open sheet" buttons)</span></label><input id="cSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
+      <div class="field"><label for="cSheetUrl">Chat sheet link <span>(for "open sheet" buttons)</span></label><input id="cSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
+      <div class="field"><label for="cHistoryUrl">Webinar History sheet link <span>(optional, for its "open sheet" button)</span></label><input id="cHistoryUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
       <p class="small">Open the chat sheet → Extensions → Apps Script. Paste the code below, change <code>KEY</code>, then Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone). Copy the URL here.</p>
       <div class="field" style="margin-top:12px"><label>Apps Script code <button class="btn ghost sm" id="copyScript" style="margin-left:8px">Copy</button></label><textarea id="scriptCode" readonly></textarea></div>
     </div>
@@ -709,7 +786,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', demo: null };
+const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', historyUrl: '', demo: null };
 let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
@@ -806,8 +883,7 @@ const Demo = (() => {
     const p = people[k++ % people.length], first = p.split(' ')[0];
     if (Math.random() < .4) {
       out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at));
-      if (seenOnce.has(p) && !asked.has(p) && !numbered.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
-      seenOnce.add(p);
+      // engagement replies ("Yes", "1", 🔥) get no reply
       return out;
     }
     const [kind, said, reply] = asks[a++ % asks.length];
@@ -885,7 +961,7 @@ function renderChoices() {
   const hints = {
     dry: 'Best for the first live test. Your team handles chat as usual, then compare the Agent Log with what they did.',
     timed: 'Sir\'s timed chats go out on cue and every number typed is saved. The agent sends no private messages, so your team answers questions.',
-    full: 'Replies are short, professional and in the team\'s voice ("our team", "humari team"), in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
+    full: 'Only genuine questions get a reply. "Type 1" / "Yes" answers are left alone. Replies are short, professional and in the team\'s voice ("our team", "humari team"), in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
   };
   $('#modeHint').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${S.mode === 'full' ? 'var(--red)' : 'var(--acid)'}" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${hints[S.mode]}</span>`;
 }
@@ -1033,6 +1109,117 @@ function renderHistory() {
   }).join('');
 }
 
+// ---------- webinar history (from the Webinar History sheet) ----------
+const H = { list: [], sel: null, qa: [], leads: [], view: 'qa', filter: 'all', q: '', loadedFor: null };
+const toObjs = (header, rows) => rows.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
+const pctNum = (v) => parseFloat(String(v).replace('%', '')) || 0;
+
+const DemoHistory = (() => {
+  const d = (daysAgo, h, m) => { const x = new Date(); x.setDate(x.getDate() - daysAgo); x.setHours(h, m, 0, 0); return x; };
+  const fmtD = (x) => x.toLocaleDateString('en-IN', { timeZone: TZ });
+  const id = (x, tab) => `${x.toLocaleString('sv-SE', { timeZone: TZ }).slice(0, 16)} · ${tab}`;
+  const mk = (x, tab, slot, mode, status, att, chat, q, ans, team, leads, timed) => ({
+    'Webinar ID': id(x, tab), Date: fmtD(x), 'Sheet tab': tab, Slot: slot, Mode: mode, Started: fmtTime(x), Ended: status === 'Live' ? '' : fmtTime(new Date(x.getTime() + 4.6 * 3600e3)), Status: status,
+    'Attendees (peak)': att, 'People who chatted': chat, 'Engagement %': `${Math.round(chat / att * 1000) / 10}%`, 'Questions asked': q, Answered: ans, 'Needs team': team,
+    'Numbers captured': leads, 'Live lead %': `${Math.round(leads / att * 1000) / 10}%`, 'Numbers from chatters %': `${Math.round(leads * .9 / chat * 1000) / 10}%`, 'Timed chats sent': timed, 'Run link': '',
+  });
+  const list = [
+    mk(d(3, 19, 30), 'Variant 4 – 7:30 PM', '730pm', 'full', 'Completed', 412, 168, 57, 52, 5, 46, 160),
+    mk(d(2, 11, 0), 'Variant 3 – 11 AM', '11am', 'full', 'Completed', 356, 131, 44, 41, 3, 39, 160),
+    mk(d(1, 19, 30), 'Variant 2 – 7:30 PM', '730pm', 'timed', 'Completed', 389, 142, 49, 0, 0, 31, 155),
+    mk(d(0, 11, 0), 'Variant 3 – 11 AM', '11am', 'dry', 'Live', 274, 97, 26, 24, 2, 21, 64),
+  ];
+  const qs = [
+    ['Rahul Sharma', 'hinglish', 'price kya hai?', 'Ji, aaj ka offer $447 hai (₹36,999 incl. GST) – link: https://sb.flexifunnels.com/get?id=19029. Kripya apna contact number share kijiye, humari team aapko guide karegi.', 'Answered'],
+    ['Priya Verma', 'english', 'Is EMI available for this?', 'Yes, EMI starts at under ₹1,800/month on the same link. Please share your contact number and our team will help you with the plan.', 'Answered'],
+    ['सुनीता', 'hindi', 'क्या नौकरी के साथ ये कर सकते हैं?', 'जी हाँ, रोज़ 60 मिनट काफ़ी हैं – कई लोगों ने जॉब के साथ ही शुरुआत की है। कृपया अपना नंबर शेयर करें, हमारी टीम आपको प्लान समझा देगी।', 'Answered'],
+    ['Ankit', 'english', 'I paid yesterday but did not get login details', 'We\'re sorry for the trouble. Our team will check your login right away – please share your contact number so they can call you.', 'Needs team'],
+    ['Imran Khan', 'hinglish', 'recording milegi?', 'Ji, humari team aapke number par recording bhejwa degi. Kripya apna WhatsApp number yahan share kijiye.', 'Answered'],
+    ['Neha Gupta', 'english', 'Can I connect my own domain?', 'Yes, you can connect your own domain for free, and hosting is included. Please share your number and our team will guide you through it.', 'Answered'],
+    ['Vikram Singh', 'hinglish', 'mere paas product nahi hai, kya karu?', 'Aap faceless digital product se shuru kar sakte hain – custom GPTs se ek din mein ban jata hai. Apna number share kijiye, humari team sahi model chunne mein madad karegi.', 'Answered'],
+  ];
+  const leads = ['Rahul Sharma', 'Priya Verma', 'Imran Khan', 'Kavya', 'Arjun', 'Pooja'];
+  return {
+    list,
+    qa: (w) => qs.map((q, i) => ({ 'Webinar ID': w['Webinar ID'], Date: w.Date, Time: fmtTime(new Date(Date.now() - (qs.length - i) * 7 * 60e3)), Attendee: q[0], Language: q[1], Question: q[2], Reply: w.Mode === 'timed' ? '' : q[3], Status: w.Mode === 'timed' ? 'Not answered (timed mode)' : w.Mode === 'dry' ? `${q[4]} (dry run – not sent)` : q[4] })),
+    leads: (w) => leads.map((n, i) => ({ 'Webinar ID': w['Webinar ID'], Date: w.Date, Time: fmtTime(new Date(Date.now() - (leads.length - i) * 9 * 60e3)), Name: n, Number: `9${7 + (i % 3)}XXXXX${String(200 + i * 77).slice(-3)}`, 'Their message': '' })),
+  };
+})();
+
+// Recalculate the % columns from the counts, so a hand-typed attendee count in the sheet is reflected.
+function normaliseWebinar(w) {
+  const att = +w['Attendees (peak)'] || 0, chat = +w['People who chatted'] || 0, nums = +w['Numbers captured'] || 0;
+  const p = (a, b) => (b ? `${Math.round((a / b) * 1000) / 10}%` : '');
+  if (att) { w['Engagement %'] = p(chat, att); w['Live lead %'] = p(nums, att); }
+  return w;
+}
+async function loadHistoryList() {
+  try {
+    if (isDemo()) H.list = DemoHistory.list.slice();
+    else { const d = await feed({ action: 'history' }); H.list = toObjs(d.header || [], d.rows || []); }
+  } catch (e) { $('#histList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  H.list = H.list.map(normaliseWebinar).reverse(); // newest first
+  if (!H.sel || !H.list.some((w) => w['Webinar ID'] === H.sel)) H.sel = H.list[0]?.['Webinar ID'] || null;
+  renderHistList();
+  const w = H.list.find((x) => x['Webinar ID'] === H.sel);
+  if (w && (H.loadedFor !== H.sel || w.Status === 'Live')) loadHistoryDetail();
+  else renderHistDetail();
+}
+async function loadHistoryDetail() {
+  const w = H.list.find((x) => x['Webinar ID'] === H.sel); if (!w) return renderHistDetail();
+  try {
+    if (isDemo()) { H.qa = DemoHistory.qa(w); H.leads = DemoHistory.leads(w); }
+    else {
+      const [q, l] = await Promise.all([feed({ action: 'historyqa', id: H.sel }), feed({ action: 'historyleads', id: H.sel })]);
+      H.qa = toObjs(q.header || [], q.rows || []); H.leads = toObjs(l.header || [], l.rows || []);
+    }
+    H.loadedFor = H.sel;
+  } catch (e) { H.qa = []; H.leads = []; toast(e.message, true); }
+  renderHistDetail();
+}
+function renderHistList() {
+  $('#openHistSheet').hidden = !cfg.historyUrl; $('#openHistSheet').href = cfg.historyUrl || '#';
+  if (!H.list.length) { $('#histList').innerHTML = '<div class="empty" style="padding:30px 18px">No webinars recorded yet. The first run of the agent creates the Summary, Q&amp;A and Leads tabs in your Webinar History sheet.</div>'; return; }
+  $('#histList').innerHTML = H.list.map((w) => `<button class="wcard ${w['Webinar ID'] === H.sel ? 'on' : ''}" data-wid="${esc(w['Webinar ID'])}">
+    <span class="wd"><span>${esc(w.Date)} · ${esc(w.Started)}</span>${w.Status === 'Live' ? '<span class="livechip"><i></i>Live</span>' : `<span class="modechip">${esc(w.Mode || '')}</span>`}</span>
+    <span class="wt">${esc(w['Sheet tab'])}</span>
+    <span class="ws"><span><b>${esc(w['Attendees (peak)'] || '–')}</b> attended</span><span><b>${esc(w['Engagement %'] || '–')}</b> engaged</span><span><b class="lead">${esc(w['Live lead %'] || '–')}</b> leads</span></span>
+  </button>`).join('');
+}
+function renderHistDetail() {
+  const w = H.list.find((x) => x['Webinar ID'] === H.sel);
+  if (!w) { $('#histHead').innerHTML = ''; $('#histKpis').innerHTML = ''; $('#qaTable').innerHTML = '<div class="empty">Pick a webinar on the left.</div>'; return; }
+  $('#histHead').innerHTML = `<div><span class="label">${esc(w.Date)} · ${esc(w.Started)}${w.Ended ? ` → ${esc(w.Ended)}` : ''}</span><h3>${esc(w['Sheet tab'])}</h3>
+    <div class="hm">${w.Status === 'Live' ? '<span class="livechip"><i></i>Live now</span>' : `<span class="modechip">${esc(w.Status)}</span>`}<span class="modechip">${esc(w.Mode)} mode</span><span>${esc(w.Slot === '730pm' ? '7:30 PM link' : w.Slot === '11am' ? '11 AM link' : '')}</span><span>${esc(w['Timed chats sent'])} timed chats sent</span></div></div>
+    ${w['Run link'] ? `<a class="btn ghost sm" href="${esc(w['Run link'])}" target="_blank" rel="noopener">Run on GitHub ↗</a>` : ''}`;
+  const att = +w['Attendees (peak)'] || 0;
+  const tile = (label, v, sub, bar, cls = '') => `<div class="hk ${cls}"><span class="label">${label}</span><div class="v">${esc(v)}</div><div class="s">${sub}</div>${bar != null ? `<span class="bar" style="width:${Math.min(100, bar)}%"></span>` : ''}</div>`;
+  $('#histKpis').innerHTML = [
+    tile('Attendees', att || '–', att ? 'peak in Zoom' : 'count not read from Zoom'),
+    tile('Chatted', w['People who chatted'] || '0', `${esc(w['Engagement %'] || '–')} engagement`, pctNum(w['Engagement %'])),
+    tile('Questions', w['Questions asked'] || '0', 'genuine questions asked'),
+    tile('Answered', w.Answered || '0', `${esc(w['Needs team'] || 0)} handed to the team`, (+w['Questions asked'] ? (+w.Answered / +w['Questions asked']) * 100 : 0)),
+    tile('Numbers', w['Numbers captured'] || '0', `${esc(w['Numbers from chatters %'] || '–')} of chatters`, pctNum(w['Numbers from chatters %'])),
+    tile('Live lead %', w['Live lead %'] || '–', 'numbers ÷ attendees', pctNum(w['Live lead %']) * 3, 'lead'),
+  ].join('');
+  $('#qaCount').textContent = H.qa.length; $('#leadCount').textContent = H.leads.length;
+  $('#qaFilters').style.display = H.view === 'qa' ? '' : 'none';
+  const q = H.q;
+  if (H.view === 'qa') {
+    const rows = H.qa.filter((r) => H.filter === 'all' || String(r.Status).startsWith(H.filter))
+      .filter((r) => !q || [r.Attendee, r.Question, r.Reply].some((x) => String(x).toLowerCase().includes(q)));
+    $('#qaTable').innerHTML = `<div class="qa-row h"><span>Time</span><span>Attendee</span><span>Question</span><span>Reply</span><span>Status</span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row">
+      <time>${esc(shortTime(r.Time))}</time><div class="who"><b>${esc(r.Attendee)}</b><span>${esc(r.Language)}</span></div>
+      <div class="q">${esc(r.Question)}</div><div class="r ${r.Reply ? '' : 'none'}">${r.Reply ? linkify(r.Reply) : 'No reply sent'}</div>
+      <span class="st-chip ${String(r.Status).startsWith('Answered') ? 'Answered' : String(r.Status).startsWith('Needs') ? 'team' : ''}">${esc(r.Status)}</span></div>`).join('') : '<div class="empty">No questions match.</div>');
+  } else {
+    const rows = H.leads.filter((r) => !q || [r.Name, r.Number].some((x) => String(x).toLowerCase().includes(q)));
+    $('#qaTable').innerHTML = `<div class="qa-row h leads"><span>Time</span><span>Name</span><span>Number</span><span>Their message</span><span></span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row leads">
+      <time>${esc(shortTime(r.Time))}</time><div class="who"><b>${esc(r.Name)}</b></div><span class="num">${esc(r.Number)}</span><div class="q" style="color:var(--muted)">${esc(r['Their message'])}</div>
+      <button class="copy" data-copy="${esc(contact(r.Name, r.Number))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`).join('') : '<div class="empty">No numbers captured.</div>');
+  }
+}
+
 // ---------- launch ----------
 function confirmBox(title, text, yes = 'Confirm') {
   return new Promise((resolve) => {
@@ -1175,7 +1362,7 @@ function avatarStyle(name) {
 }
 const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 const linkify = (t) => esc(t).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
-const shortTime = (t) => String(t).replace(/:\d\d(\s)/, '$1');
+const shortTime = (t) => String(t).replace(/^(\d{1,2}:\d{2}):\d{2}(\s)/, '$1$2'); // 4:10:33 pm → 4:10 pm
 
 function buildConversations() {
   const map = new Map();
@@ -1321,10 +1508,16 @@ async function runWorkflow(file, btn) {
 }
 
 // ---------- settings ----------
-const SCRIPT_CODE = `/** Dashboard data feed for the FlexiFunnels webinar agent.
- * Extensions → Apps Script → paste → change KEY → Deploy → New deployment →
- * Web app · Execute as: Me · Who has access: Anyone → copy the URL. */
+const SCRIPT_CODE = `/**
+ * Dashboard data feed for the FlexiFunnels webinar agent.
+ * Setup (2 min): open the chat sheet → Extensions → Apps Script → paste this → change KEY →
+ * Deploy → New deployment → Web app → Execute as: Me, Who has access: Anyone → copy the URL into the dashboard.
+ * The KEY keeps strangers out, so make it long and random.
+ */
 const KEY = 'CHANGE-ME-to-a-long-random-key';
+// The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
+// Leave empty if the agent writes the Summary / Q&A / Leads tabs into this same sheet.
+const HISTORY_SHEET_ID = '';
 
 function doGet(e) {
   const p = e.parameter || {};
@@ -1334,43 +1527,87 @@ function doGet(e) {
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
+    if (p.action === 'history') return out(history());
+    if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
+    if (p.action === 'historyleads') return out(historyFor('Leads', p.id));
     return out({ error: 'Unknown action' });
-  } catch (err) { return out({ error: String(err) }); }
+  } catch (err) {
+    return out({ error: String(err) });
+  }
 }
-function headerIndex(v) { for (let i = 0; i < v.length; i++) if (String(v[i][0]).trim().toLowerCase() === 'video time') return i; return -1; }
+
+function headerIndex(values) {
+  for (let i = 0; i < values.length; i++) if (String(values[i][0]).trim().toLowerCase() === 'video time') return i;
+  return -1;
+}
+
 function describe(sh) {
-  const v = sh.getRange(1, 1, Math.max(1, Math.min(sh.getLastRow(), 600)), 4).getDisplayValues();
+  const n = Math.max(1, Math.min(sh.getLastRow(), 600));
+  const v = sh.getRange(1, 1, n, 4).getDisplayValues();
   const h = headerIndex(v);
   if (h < 0) return { name: sh.getName(), schedule: false };
   const items = v.slice(h + 1).filter(function (r) { return r[1] && r[2]; });
-  return { name: sh.getName(), schedule: true, count: items.length, start: v[0][0],
-    first: items.length ? items[0][1] : '', last: items.length ? items[items.length - 1][1] : '' };
+  return {
+    name: sh.getName(),
+    schedule: true,
+    count: items.length,
+    start: v[0][0],
+    first: items.length ? items[0][1] : '',
+    last: items.length ? items[items.length - 1][1] : '',
+  };
 }
+
 function schedule(ss, tab) {
   const sh = ss.getSheetByName(tab);
   if (!sh) return { error: 'Tab not found: ' + tab };
   const v = sh.getRange(1, 1, Math.max(1, Math.min(sh.getLastRow(), 600)), 4).getDisplayValues();
   const h = headerIndex(v);
-  return { tab: tab, start: v[0][0], items: h < 0 ? [] : v.slice(h + 1).filter(function (r) { return r[1] && r[2]; }) };
+  const items = h < 0 ? [] : v.slice(h + 1).filter(function (r) { return r[1] && r[2]; });
+  return { tab: tab, start: v[0][0], items: items };
 }
-// First call (from=0): latest 3000 rows. After that: only rows after \`from\`.
+
+// Rows of "Agent Log" / "Numbers". First call (from=0): the latest 3000 rows. After that: only rows after \`from\`.
 function rows(ss, tab, from) {
   const sh = ss.getSheetByName(tab);
   if (!sh) return { total: 0, rows: [] };
   const last = sh.getLastRow();
-  const start = from > 0 ? Math.max(2, from + 1) : Math.max(2, last - 2999), end = Math.min(last, start + 2999);
-  return { total: end, from: start, rows: end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [] };
+  const start = from > 0 ? Math.max(2, from + 1) : Math.max(2, last - 2999);
+  const end = Math.min(last, start + 2999);
+  const data = end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [];
+  return { total: end, from: start, rows: data };
 }
-function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }`;
+
+// ---- Webinar History ----
+function historyBook() {
+  return HISTORY_SHEET_ID ? SpreadsheetApp.openById(HISTORY_SHEET_ID) : SpreadsheetApp.getActive();
+}
+// Summary rows (newest last, up to 300) with the header row first.
+function history() {
+  const sh = historyBook().getSheetByName('Summary');
+  if (!sh || sh.getLastRow() < 1) return { header: [], rows: [] };
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  return { header: v[0], rows: v.slice(1).slice(-300) };
+}
+// Q&A or Leads rows for one webinar (column A = Webinar ID).
+function historyFor(tab, id) {
+  const sh = historyBook().getSheetByName(tab);
+  if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}`;
 function openDrawer() {
   $('#cOwner').value = cfg.owner; $('#cRepo').value = cfg.repo; $('#cToken').value = cfg.token; $('#cWorkflow').value = cfg.workflow;
-  $('#cScript').value = cfg.script; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cDemo').checked = cfg.demo === true;
+  $('#cScript').value = cfg.script; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cHistoryUrl').value = cfg.historyUrl || ''; $('#cDemo').checked = cfg.demo === true;
   $('#scriptCode').value = SCRIPT_CODE;
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
 }
 function closeDrawer() { $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); }
 function readForm() {
-  return { owner: $('#cOwner').value.trim(), repo: $('#cRepo').value.trim(), token: $('#cToken').value.trim(), workflow: $('#cWorkflow').value.trim() || 'webinar-agent.yml', script: $('#cScript').value.trim(), key: $('#cKey').value.trim(), sheetUrl: $('#cSheetUrl').value.trim(), demo: $('#cDemo').checked };
+  return { owner: $('#cOwner').value.trim(), repo: $('#cRepo').value.trim(), token: $('#cToken').value.trim(), workflow: $('#cWorkflow').value.trim() || 'webinar-agent.yml', script: $('#cScript').value.trim(), key: $('#cKey').value.trim(), sheetUrl: $('#cSheetUrl').value.trim(), historyUrl: $('#cHistoryUrl').value.trim(), demo: $('#cDemo').checked };
 }
 async function testConn() {
   const prev = cfg; cfg = { ...cfg, ...readForm(), demo: false }; const out = [];
@@ -1446,17 +1683,18 @@ let timers = [];
 async function boot() {
   timers.forEach(clearInterval); timers = [];
   document.body.classList.toggle('is-demo', isDemo()); $('#pillDemo').hidden = !isDemo();
-  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true;
+  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; H.list = []; H.loadedFor = null; seenRows.clear(); firstPaint = true;
   $('#openSheet').href = cfg.sheetUrl || '#'; $('#openSheet').hidden = !cfg.sheetUrl;
   if (isDemo()) { Demo.log.length = 0; }
   if (!isDemo()) { try { S.defaultBranch = (await gh(repo())).default_branch || 'main'; } catch (e) { setPill('#pillGh', 'bad', e.message); } }
   await loadTabs();
   const last = store.get('autopilot.lastTab', null);
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
-  await Promise.all([loadRuns(), loadFeed(), loadWorkflows()]);
+  await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
   timers.push(setInterval(() => loadRuns(), 10_000));
   timers.push(setInterval(() => loadFeed(), isDemo() ? 4_000 : 8_000));
   timers.push(setInterval(() => loadWorkflows(), 60_000));
+  timers.push(setInterval(() => loadHistoryList(), isDemo() ? 20_000 : 60_000));
 }
 setInterval(() => {
   const now = new Date(); $('#orbClock').textContent = `${fmtFull(now)} IST`; $('#footClock').textContent = now.toLocaleString('en-IN', { timeZone: TZ });
@@ -1479,6 +1717,18 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = b.dataset.slot; renderChoices(); renderLaunch(); }));
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#launchBtn').addEventListener('click', onLaunchClick);
+$('#histList').addEventListener('click', (e) => { const b = e.target.closest('[data-wid]'); if (!b) return; H.sel = b.dataset.wid; renderHistList(); loadHistoryDetail(); });
+$('#qaTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#qaTabs button').forEach((x) => x.classList.toggle('on', x === b)); H.view = b.dataset.qt; renderHistDetail(); });
+$('#qaFilters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#qaFilters button').forEach((x) => x.classList.toggle('on', x === b)); H.filter = b.dataset.qf; renderHistDetail(); });
+$('#qaSearch').addEventListener('input', (e) => { H.q = e.target.value.trim().toLowerCase(); renderHistDetail(); });
+$('#qaCopy').addEventListener('click', () => {
+  if (H.view === 'leads') {
+    if (!H.leads.length) return toast('No numbers to copy', true);
+    return copyText(H.leads.map((r) => contact(r.Name, r.Number)).join('\n'), `${H.leads.length} contacts copied as Name - Number`);
+  }
+  if (!H.qa.length) return toast('No questions to copy', true);
+  copyText(['Attendee\tQuestion\tReply\tStatus', ...H.qa.map((r) => [r.Attendee, r.Question, r.Reply, r.Status].map((x) => String(x).replace(/[\t\n]+/g, ' ')).join('\t'))].join('\n'), `${H.qa.length} questions copied – paste into a sheet`);
+});
 $('#joinUrl').addEventListener('input', (e) => {
   const v = e.target.value.trim();
   S.joinUrl = /^https:\/\/([\w-]+\.)*zoom\.us\//i.test(v) ? v : '';

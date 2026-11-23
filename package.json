@@ -11,7 +11,7 @@
     "save-session": "node scripts/save-session.js",
     "check-session": "node scripts/check-session.js",
     "agent": "node src/agent.js",
-    "test": "node test/brain.test.js && node test/schedule.test.js",
+    "test": "node test/brain.test.js && node test/history.test.js && node test/schedule.test.js",
     "agent:local": "node --env-file=.env src/agent.js"
   },
   "dependencies": {

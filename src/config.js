@@ -32,6 +32,12 @@ export function loadConfig() {
     logTab: env('LOG_TAB', 'Agent Log'),
     numbersTab: env('NUMBERS_TAB', 'Numbers'),
 
+    // Webinar History sheet (Summary / Q&A / Leads tabs). Empty = use the main chat sheet.
+    historySheetId: env('HISTORY_SHEET_ID', ''),
+    slot: env('SLOT', ''),
+    mode: env('MODE', ''),
+    runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
+
     // AI
     openaiKey: req('OPENAI_API_KEY'),
     model: env('OPENAI_MODEL', 'gpt-4o-mini'),
@@ -45,7 +51,7 @@ export function loadConfig() {
     attendeeCooldownSec: num('ATTENDEE_COOLDOWN_SEC', 45),
     socialProofEveryMin: num('SOCIAL_PROOF_EVERY_MIN', 12),
     // Getting the number comes first: every attendee who chats but hasn't shared a number gets asked privately.
-    numberNudges: bool('NUMBER_NUDGES', true),
+    numberNudges: bool('NUMBER_NUDGES', false), // off: only genuine questions get a reply (with the number ask in it)
     nudgeAfterMessages: num('NUDGE_AFTER_MESSAGES', 2), // only ask people who've typed at least this many messages
     nudgeMax: num('NUDGE_MAX', 2), // max number asks per person (AI replies that ask count too)
     nudgeGapMin: num('NUDGE_GAP_MIN', 20), // min minutes between two asks to the same person

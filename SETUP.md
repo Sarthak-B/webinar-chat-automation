@@ -15,7 +15,8 @@ Everything you need to do, once, so the dashboard shows **real** data and the ag
 | **Zoom login** | GitHub secret `ZOOM_SESSION_B64` | Lets the agent open Zoom already signed in |
 | **AI** | GitHub secret `OPENAI_API_KEY` | Writes every reply |
 | **Sheet access (agent)** | GitHub secret `GOOGLE_SERVICE_ACCOUNT_JSON` | Agent reads the chat tabs and writes Agent Log / Numbers |
-| **Sheet feed (dashboard)** | Apps Script web app in the sheet | Dashboard reads tabs, conversations and numbers |
+| **Sheet feed (dashboard)** | Apps Script web app in the sheet | Dashboard reads tabs, conversations, numbers and history |
+| **Webinar History sheet** | A separate Google Sheet | One row per webinar (attendees, engagement %, live lead %), every question + reply, every lead |
 | **Dashboard** | Vercel | Launch / stop / watch everything |
 
 ## Before you start
@@ -80,7 +81,9 @@ With the default model (`gpt-4o-mini`), a full webinar usually costs very little
 
 The agent needs **Editor** to create the **Agent Log** and **Numbers** tabs. It never edits your other tabs.
 
-✅ The sheet's Share list shows the service-account email as Editor. Keep the JSON file for step 7.
+7. **Webinar History sheet:** create a new Google Sheet named **Webinar History** and **share it with the same service-account email as Editor**. Leave it empty; the agent creates the **Summary**, **Q&A** and **Leads** tabs on its first run. Copy its ID from the URL (`/spreadsheets/d/`**`THIS_PART`**`/edit`) for step 8.
+
+✅ Both the chat sheet and the Webinar History sheet show the service-account email as Editor. Keep the JSON file for step 7.
 
 ---
 
@@ -156,6 +159,7 @@ Same page → tab **Variables** → **New repository variable**.
 | Name | Value | Notes |
 |---|---|---|
 | `SHEET_ID` | The ID from the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` | required |
+| `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Recommended. If unset, the Summary / Q&A / Leads tabs go into the chat sheet |
 | `AGENT_NAME` | Exactly the agent account's Zoom display name, e.g. `FlexiFunnels Team` | required, so it ignores its own messages |
 | `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of |
 | `TEAM_NAMES` | e.g. `Arman,Support` | Names whose chat messages are never answered (your team members in the webinar) |
@@ -182,7 +186,8 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 1. Make a long random key. On Mac: `openssl rand -hex 24` → copy the output.
 2. Open the **chat Google Sheet** → **Extensions → Apps Script**.
 3. Delete everything in `Code.gs` and paste the contents of [`apps-script/Code.gs`](apps-script/Code.gs). The dashboard's ⚙ panel also has a **Copy** button for it.
-4. On the line `const KEY = 'CHANGE-ME-to-a-long-random-key';`, replace the text inside the quotes with your key → **Save** (💾).
+4. On the line `const KEY = 'CHANGE-ME-to-a-long-random-key';`, replace the text inside the quotes with your key.
+   On the line `const HISTORY_SHEET_ID = '';`, put the **Webinar History** sheet's ID between the quotes. You need edit access to that sheet. → **Save** (💾).
 5. **Deploy → New deployment** → ⚙ next to "Select type" → **Web app**:
    - Description: `dashboard feed`
    - **Execute as: Me**
@@ -191,6 +196,7 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 6. Google asks for permission: **Authorize access** → choose your account. If it says "Google hasn't verified this app", click **Advanced → Go to (project name)**. It's your own script. Then **Allow**.
 7. Copy the **Web app URL** (ends with `/exec`).
 8. Test it: open `YOUR_URL?key=YOUR_KEY&action=tabs` in Chrome. You should see JSON that lists your tabs, e.g. `"Variant 3 – 11 AM"`.
+   History test: `YOUR_URL?key=YOUR_KEY&action=history` should show `{"header":[],"rows":[]}` before the first webinar, and the Summary rows after it. If it says it can't open the sheet, check the `HISTORY_SHEET_ID` in the script and that your Google account can open it.
 
 > **Changed the script later?** Apps Script keeps serving the old version until you go to **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL stays the same.
 > **Using a company Google Workspace account?** If "Anyone" isn't offered, your admin blocks public web apps. Deploy from a personal Google account that has edit access to the sheet.
@@ -210,7 +216,8 @@ Open your Vercel dashboard URL → **⚙** (top right):
 | Agent workflow file | `webinar-agent.yml` |
 | Apps Script web-app URL | From step 10 |
 | Feed key | Your key from step 10 |
-| Sheet link | The chat sheet's normal link (for the "Open sheet" button) |
+| Chat sheet link | The chat sheet's normal link (for the "Open sheet" button) |
+| Webinar History sheet link | Its normal link (for the History section's "Open sheet" button) |
 | Use demo data | **Off** |
 
 Click **Test connection** → it should say `GitHub ✓ … · Sheet ✓ (N schedule tabs)` → **Save**.
@@ -239,6 +246,23 @@ Click **Test connection** → it should say `GitHub ✓ … · Sheet ✓ (N sche
 2. **After that:** mode **Everything**. The AI replies privately in the attendee's language and goes for the number. Keep one person watching **Conversations → Team** and **No number**.
 
 ---
+
+## What the History section shows
+
+For every webinar, read from the Webinar History sheet. It updates every 5 minutes during the webinar and once more at the end.
+
+| Number | Meaning |
+|---|---|
+| **Attendees** | Highest attendee count Zoom showed during the webinar |
+| **Chatted / Engagement %** | People who sent at least one chat message ÷ attendees |
+| **Questions / Answered / Needs team** | Genuine questions only. "Type 1" / "Yes" answers aren't counted and aren't replied to |
+| **Numbers** | Unique phone numbers captured (also listed in the Leads tab) |
+| **Live lead %** | Numbers ÷ attendees |
+| **Numbers from chatters %** | How many of the people who chatted gave their number |
+
+Below the numbers, the **Questions & replies** tab shows each question next to the exact reply that was sent, and the **Leads** tab shows every name and number. **Copy** pastes either straight into a sheet.
+
+> If **Attendees** is blank, the agent couldn't read Zoom's participant counter. Type the number from aEvent / Zoom into the Summary row's *Attendees (peak)* cell, and the dashboard uses it. The percentages in the sheet itself won't recalculate, though.
 
 ## Every webinar: 30-second checklist
 

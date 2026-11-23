@@ -65,6 +65,9 @@ jobs:
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
           SHEET_ID: ${{ vars.SHEET_ID }}
+          HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID }}
+          SLOT: ${{ inputs.slot }}
+          MODE: ${{ inputs.mode }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}

@@ -4,6 +4,7 @@ import { Sheet, SheetLogger } from './sheets.js';
 import { parseSchedule, parseReplies, parseObjections, parseNumberBank } from './schedule.js';
 import { Brain, findPhone, isTrivial, firstName, asksForNumber, detectLang } from './brain.js';
 import { Zoom } from './zoom.js';
+import { History } from './history.js';
 
 const cfg = loadConfig();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -84,6 +85,8 @@ async function reloadSchedule() {
 await agentLog.init();
 await numbers.init();
 record('START', '', '', '', `tab="${cfg.scheduleTab}" dryRun=${cfg.dryRun} autoReply=${cfg.autoReply}`);
+const history = new History({ cfg, today, clock, log });
+await history.init();
 
 // ---------- Wait until it's time to join ----------
 const joinAt = schedule[0].at.getTime() - cfg.joinEarlyMin * 60_000;
@@ -170,6 +173,8 @@ async function senderLoop() {
     try {
       await zoom.send(job.text, job.to);
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
+      if (job.kind.startsWith('TIMED')) history.timed();
+      if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
         privateSent.push(Date.now());
         if (job.kind === 'NUMBER ASK') asksSent.push(Date.now());
@@ -293,6 +298,7 @@ function saveNumber(sender, text) {
   if (savedNumbers.has(phone)) return;
   savedNumbers.add(phone);
   numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
+  history.lead(sender, phone, text);
   numbers.flush().catch((e) => log('numbers flush failed:', e.message));
   log(`Number from ${sender}: ${phone}`);
 }
@@ -307,23 +313,28 @@ async function aiSlot(fn) {
   }
 }
 
+// Only genuine questions get a reply. "Type 1" / "Yes" / emojis / city names get nothing.
 async function handle(sender, text) {
   const phone = findPhone(text);
   const lang = langOf(sender);
   const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent });
+  const rest = phone ? text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim() : text;
 
   if (!cfg.autoReply) {
     // Timed-chats mode: no private messages at all. Numbers are still saved; real questions are logged for the team.
-    const rest = phone ? text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').trim() : text;
-    if (!isTrivial(rest)) record('QUESTION', sender, '', text, 'timed mode – answer manually');
+    if (!isTrivial(rest)) {
+      record('QUESTION', sender, '', text, 'timed mode – answer manually');
+      history.question();
+      history.qaRow({ name: sender, lang, question: rest, status: 'Not answered (timed mode)' });
+    }
     return;
   }
 
   if (phone && !thankedNumbers.has(phone)) {
     thankedNumbers.add(phone);
     newNumberNames.push(firstName(sender));
-    const rest = text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim();
     if (isTrivial(rest)) {
+      // They shared their number: a short thank-you so they know the team will call.
       const thanks = await aiSlot(() => brain.compose({ purpose: 'thanks', said: text, ...ctx() }));
       enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text, note: lang });
       lastReplyTo.set(sender, Date.now());
@@ -331,30 +342,32 @@ async function handle(sender, text) {
     }
     text = rest; // "9876543210, EMI hai?" → one reply that thanks them AND answers (hasNumber is already set)
   }
-  if (isTrivial(text)) {
-    // "Yes" / "1" / emojis – no answer needed; maybe a gentle number ask if they keep engaging.
-    if (!phone) await aiSlot(() => askForNumber(sender, text, 'engaged, no number yet'));
-    return;
-  }
+  if (isTrivial(text)) return; // engagement replies ("1", "yes", 🔥) – no reply
 
   const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
   if (d.action === 'reply' && d.reply) {
-    enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang });
+    history.question();
+    enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang, qa: { name: sender, lang, question: text, status: 'Answered' } });
     if (asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
+    history.question();
     record('NEEDS TEAM', sender, '', text, d.reason || '');
     log(`NEEDS TEAM: ${sender}: ${text}`);
+    const qa = { name: sender, lang, question: text, status: 'Needs team' };
     if (d.safe_to_ask !== false) {
       // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
       const reply = d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
-      enqueue({ prio: 1, text: reply, to: sender, kind: hasNumber.has(sender) ? 'REPLY' : 'NUMBER ASK', said: text, note: `needs team · ${lang}` });
+      enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
       if (!hasNumber.has(sender)) noteAsk(sender);
+    } else {
+      history.qaRow(qa); // abusive/spam: logged for the team, no reply sent
     }
-  } else if (d.safe_to_ask !== false && !phone) {
-    await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet')); // city names, compliments…
+  } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges) {
+    await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
   }
+  // action "ignore" (greetings, compliments, chit-chat): no reply
 }
 
 // Collect messages from one person for a few seconds, so "hi" + "price?" + "emi?" gets one reply.
@@ -403,6 +416,7 @@ async function chatLoop() {
       if (!name || isTeam) continue;
       record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
       noteIncoming(name, m.text);
+      history.chatter(name);
       saveNumber(name, m.text);
       queueAttendee(name, m.text);
     }
@@ -430,7 +444,16 @@ async function socialProofLoop() {
 
 // ---------- Run ----------
 let running = true;
-const workers = [senderLoop(), scheduleLoop(), chatLoop(), socialProofLoop()];
+// Attendee count from Zoom's Participants button – the peak goes into the webinar history.
+async function attendeeLoop() {
+  while (running) {
+    const n = await zoom.participantCount().catch(() => null);
+    if (n) history.attendees(n);
+    await sleep(60_000);
+  }
+}
+
+const workers = [senderLoop(), scheduleLoop(), chatLoop(), socialProofLoop(), attendeeLoop()];
 
 async function shutdown(reason) {
   if (!running) return;
@@ -438,7 +461,7 @@ async function shutdown(reason) {
   log('Stopping:', reason);
   record('STOP', '', '', '', reason);
   await zoom.saveSession().catch((e) => log('could not save session', e.message));
-  await Promise.all([agentLog.close(), numbers.close()]);
+  await Promise.all([agentLog.close(), numbers.close(), history.close(/SIG|max runtime/.test(reason) ? 'Stopped' : 'Completed')]);
   await zoom.close();
 }
 

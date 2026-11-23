@@ -5,6 +5,9 @@
  * The KEY keeps strangers out, so make it long and random.
  */
 const KEY = 'CHANGE-ME-to-a-long-random-key';
+// The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
+// Leave empty if the agent writes the Summary / Q&A / Leads tabs into this same sheet.
+const HISTORY_SHEET_ID = '';
 
 function doGet(e) {
   const p = e.parameter || {};
@@ -14,6 +17,9 @@ function doGet(e) {
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
+    if (p.action === 'history') return out(history());
+    if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
+    if (p.action === 'historyleads') return out(historyFor('Leads', p.id));
     return out({ error: 'Unknown action' });
   } catch (err) {
     return out({ error: String(err) });
@@ -59,6 +65,25 @@ function rows(ss, tab, from) {
   const end = Math.min(last, start + 2999);
   const data = end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [];
   return { total: end, from: start, rows: data };
+}
+
+// ---- Webinar History ----
+function historyBook() {
+  return HISTORY_SHEET_ID ? SpreadsheetApp.openById(HISTORY_SHEET_ID) : SpreadsheetApp.getActive();
+}
+// Summary rows (newest last, up to 300) with the header row first.
+function history() {
+  const sh = historyBook().getSheetByName('Summary');
+  if (!sh || sh.getLastRow() < 1) return { header: [], rows: [] };
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  return { header: v[0], rows: v.slice(1).slice(-300) };
+}
+// Q&A or Leads rows for one webinar (column A = Webinar ID).
+function historyFor(tab, id) {
+  const sh = historyBook().getSheetByName(tab);
+  if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
+  const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
+  return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
 }
 
 function out(o) {

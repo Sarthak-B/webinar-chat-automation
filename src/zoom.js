@@ -20,6 +20,8 @@ export const SEL = {
   receiverButton: ['.chat-receiver-list__receiver', 'button[aria-label*="send to" i]', '#chatReceiverMenu', '[class*="chat-receiver"] button'],
   receiverSearch: ['.chat-receiver-list__search input', 'input[placeholder*="search" i]'],
   receiverEveryone: ['text=/^(Everyone|All panelists and attendees)$/i'],
+  // the number on the footer "Participants" button (webinar attendee count, as the panelist/host sees it)
+  participantCount: ['.footer-button__participants-icon .footer-button__number-counter', '.footer-button__number-counter', 'button[aria-label*="participant" i] [class*="counter"]', 'button[aria-label*="participant" i]'],
   meetingEnded: ['text=/meeting has been ended|webinar has ended|This meeting has ended/i'],
 };
 
@@ -110,6 +112,18 @@ export class Zoom {
 
   async hasEnded() {
     return Boolean(await first(this.page, SEL.meetingEnded)) || this.page.isClosed();
+  }
+
+  // Current attendee count shown in Zoom (null if it can't be read).
+  async participantCount() {
+    for (const sel of SEL.participantCount) {
+      const el = this.page.locator(sel).first();
+      if (!(await el.count().catch(() => 0))) continue;
+      const text = `${(await el.textContent().catch(() => '')) || ''} ${(await el.getAttribute('aria-label').catch(() => '')) || ''}`;
+      const m = text.replace(/,/g, '').match(/\d+/);
+      if (m) return Number(m[0]);
+    }
+    return null;
   }
 
   // Returns the messages currently rendered in the chat panel: [{ sender, text }]

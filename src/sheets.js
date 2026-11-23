@@ -49,6 +49,28 @@ export class Sheet {
     this.ready.add(tab);
   }
 
+  // Appends one row and returns its 1-based row number (so it can be updated later).
+  async appendRow(tab, row) {
+    const res = await this.api.spreadsheets.values.append({
+      spreadsheetId: this.id,
+      range: `'${tab}'!A1`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [row] },
+    });
+    const m = String(res.data.updates?.updatedRange || '').match(/!A(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  async updateRow(tab, rowNumber, row) {
+    await this.api.spreadsheets.values.update({
+      spreadsheetId: this.id,
+      range: `'${tab}'!A${rowNumber}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [row] },
+    });
+  }
+
   async append(tab, rows, skipEnsure = false) {
     if (!skipEnsure && !this.ready.has(tab)) throw new Error(`ensureTab(${tab}) first`);
     await this.api.spreadsheets.values.append({

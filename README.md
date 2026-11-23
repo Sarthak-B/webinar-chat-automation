@@ -35,7 +35,8 @@ It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats fro
 | **Language** | **Hindi → Hindi** (Devanagari), **English → English**, **Hinglish → Hinglish**. It's detected from what each person writes and remembered, so a Hinglish speaker who later types "Yes" still gets Hinglish. |
 | **Private replies (all AI)** | Answers each question **privately**, in 1–2 short, professional sentences in the team's voice ("our team will send the recording to your number" / "humari team aapke number par bhejwa degi"; never "I" or "meri team"; the code corrects it if the AI slips), using only the facts in the **Attendee Replies** tab, reworded every time. It **always ends by asking for their number** (the code adds an ask in their language if the AI forgets). Once they've shared it, replies say the team will call instead. It sees the last few messages with that person and avoids phrasing it just used with others. If asked "is this a bot?", it says the FlexiFunnels team is assisting on Sir's behalf. Thank-yous for numbers are AI-written too. with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
 | **Numbers (top priority)** | A number typed in chat is saved to the **Numbers** tab the moment the agent reads it, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
-| **Number asks** | People who keep engaging (2+ messages, e.g. "Yes", their city, "1") without sharing a number get one natural, AI-written private ask in their language. The angle is inspired by your **Number Drop Bank** tab, never copied. Each person gets at most 2 asks, 20+ min apart, and the asks stop the moment they share a number. People with a problem for the team get a reply saying the team will sort it out, plus a number ask, so the team can call. |
+| **Only genuine questions get a reply** | Engagement answers to timed chats ("Type 1", "Type yes", "Yes", "1", T/F, emojis, cities, greetings) get **no reply**. Only real questions and doubts are answered, and each answer ends with the number ask. People who share a number get a short thank-you. (Optional, off by default: `NUMBER_NUDGES=true` also asks people who only chat for their number.) |
+| **Webinar History** | Writes to the **Webinar History** sheet (`HISTORY_SHEET_ID`): a **Summary** row per webinar (attendees from Zoom, people who chatted, engagement %, questions, answered, needs team, numbers, live lead %), updated every 5 min. Also a **Q&A** tab (every genuine question next to the reply sent) and a **Leads** tab (every name and number). |
 | **Pacing (no bombing)** | Timed chats go out exactly on cue. Every private message waits a human "read + type" time (about 5–30 s, depending on length). Private messages are capped at 6 a minute, and unprompted number asks at 2 a minute. Replies that would arrive more than 15 min late are dropped. |
 | **Objections** | When 3+ different people raise the same objection within 5 min, it posts the matching line from **Objection Handling** to Everyone, at most once per 15 min per objection. |
 | **Logging** | Every attendee message (kind `IN`) and everything the agent sends, skips, fails or hands to the team goes into an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself and never edits your other tabs. |
@@ -72,7 +73,8 @@ While a run is going, the dashboard shows:
 - Counters: chats sent, replies, numbers, needs-team
 - The full chat feed with filters
 - Today's numbers, copied as `Name - Number`, one per line, duplicates removed (one or all), and the questions left for the team
-- Run history, and one-click buttons for the other workflows in the repo
+- **Webinar history**: every past webinar with attendees, engagement %, live lead %, and a Question → Reply table plus Leads, from the Webinar History sheet
+- Agent run history, and one-click buttons for the other workflows in the repo
 
 Until you connect it, it shows **demo data** with a banner. To connect, click **⚙**:
 
@@ -133,6 +135,7 @@ In the repo, go to [Settings → Secrets and variables → Actions](https://gith
 | Name | Example | What it does |
 |---|---|---|
 | `SHEET_ID` | the long ID in the sheet's URL | Which sheet to use |
+| `HISTORY_SHEET_ID` | the Webinar History sheet's ID | Where Summary / Q&A / Leads go (default: the chat sheet) |
 | `AGENT_NAME` | `FlexiFunnels Team` | The agent account's Zoom display name, so it ignores its own messages |
 | `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of (default `Sir`) |
 | `TEAM_NAMES` | `Arman,Support` | Comma-separated names whose chats are never answered |
@@ -193,7 +196,8 @@ apps-script/Code.gs     keyed, read-only sheet feed for the dashboard
 src/
   agent.js              main loop: asks for the tab, timed chats, replies, numbers, logging
   brain.js              AI writing in a professional team voice, language detection, phone detection, safety checks
-  zoom.js               Playwright: join, read chat, send (all selectors in SEL)
+  zoom.js               Playwright: join, read chat, send, attendee count (all selectors in SEL)
+  history.js            Webinar History: Summary / Q&A / Leads tabs
   schedule.js           parses schedule / replies / objection tabs
   sheets.js             Google Sheets read + batched log writes
   config.js             all settings (env vars)
@@ -202,6 +206,7 @@ scripts/
   check-session.js      verifies the saved login
 test/schedule.test.js   parser tests (pass an exported sheet to test real tabs)
 test/brain.test.js      language detection, number-ask guarantee, link blocking, AI-down fallbacks
+test/history.test.js    attendance / engagement / live lead % maths
 ```
 
 ## Tuning (optional)
@@ -221,7 +226,7 @@ Set any of these as a repo **Variable** ([Settings → Secrets and variables →
 | `HUMANIZE` | true | Wait a human read + type time before each private message |
 | `MAX_PRIVATE_PER_MIN` | 6 | Cap on private messages per minute |
 | `MAX_ASKS_PER_MIN` | 2 | Cap on unprompted number asks per minute |
-| `NUMBER_NUDGES` | true | Privately ask engaged chatters without a number for it |
+| `NUMBER_NUDGES` | false | `true` = also privately ask people who only chat ("yes", "1") for their number |
 | `NUDGE_AFTER_MESSAGES` | 2 | Only ask people who've typed at least this many messages |
 | `NUDGE_MAX` | 2 | Max number asks per person (AI replies that ask count too) |
 | `NUDGE_GAP_MIN` | 20 | Minimum minutes between two asks to the same person |
