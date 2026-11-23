@@ -350,8 +350,10 @@ function saveNumber(sender, text) {
   const phone = findPhone(text);
   if (!phone) return;
   hasNumber.add(sender);
-  if (savedNumbers.has(phone)) return;
-  savedNumbers.add(phone);
+  // same attendee + same number → once; new number from the same person, or same number from someone else → saved
+  const key = `${sender.toLowerCase()}|${phone.slice(-10)}`;
+  if (savedNumbers.has(key)) return;
+  savedNumbers.add(key);
   numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
   history.lead(phone);
   numbers.flush().catch((e) => log('numbers flush failed:', e.message));

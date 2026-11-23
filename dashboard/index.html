@@ -195,6 +195,7 @@ section{padding:110px 0 30px}
 .testnow b{display:block;font-size:14px}
 .testnow small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
 .testnow:has(input:checked){border-color:var(--acid)}
+#soundBtn.off{opacity:.55}
 .opt-tag{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px}
 #directHint:empty{display:none}
 .sum-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px dashed var(--line2);font-size:14px}
@@ -710,7 +711,7 @@ body.is-demo .demo-banner{display:block}
         </div>
         <div>
           <div class="card" data-reveal style="margin-bottom:16px">
-            <div class="card-h"><h3>Numbers today</h3><button class="btn ghost sm" id="copyNumbers">Copy all</button></div>
+            <div class="card-h"><h3>Numbers today</h3><div style="display:flex;gap:8px"><button class="btn ghost sm" id="soundBtn" type="button"></button><button class="btn ghost sm" id="copyNumbers">Copy all</button></div></div>
             <div class="fmt-hint">Copies as: Name - Number</div>
             <div class="side-list" id="numbersList"><div class="empty">No numbers yet.</div></div>
           </div>
@@ -1375,11 +1376,41 @@ function renderFeed() {
   if (rows.length !== shownLog) shownLog = rows.length;
 
   const nums = contactsToday().slice().reverse();
+  ringForNew(nums);
   $('#numbersList').innerHTML = nums.length ? nums.map((c) => { const { time, name, num } = c; return `<div class="person ${isNew(['n', name, num])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(contact(name, num))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
   const team = rows.filter((r) => kindOf(r[2]) === 'team').reverse();
   $('#teamCount').textContent = team.length;
   $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
   firstPaint = false;
+}
+// ---------- number alerts: a chime for every NEW full mobile number (10 digits) ----------
+const rung = new Set(); let ringPrimed = false, audioCtx = null;
+const soundOn = () => store.get('autopilot.sound') !== false;
+function unlockAudio() { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); } catch {} }
+['pointerdown', 'keydown'].forEach((ev) => document.addEventListener(ev, unlockAudio, { passive: true }));
+function chime() {
+  if (!soundOn()) return; unlockAudio(); if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  [[880, 0], [1320, 0.16], [1760, 0.32]].forEach(([f, d]) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.35, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.45);
+    o.connect(g).connect(audioCtx.destination); o.start(t0 + d); o.stop(t0 + d + 0.5);
+  });
+}
+function ringForNew(nums) {
+  const fresh = nums.filter((c) => !rung.has(c.key) && /^\+?\d{10,12}$/.test(String(c.num).replace(/[\s-]/g, '')));
+  nums.forEach((c) => rung.add(c.key));
+  if (!ringPrimed) { ringPrimed = true; return; } // numbers already there when the page opened don't ring
+  if (!fresh.length) return;
+  chime();
+  fresh.forEach((c) => toast(`📞 New number: ${contact(c.name, c.num)}`));
+  try { if (soundOn() && 'Notification' in window && Notification.permission === 'granted') fresh.forEach((c) => new Notification('New number', { body: contact(c.name, c.num), silent: true })); } catch {}
+  const t = document.title; document.title = `(${fresh.length}) New number`; setTimeout(() => { document.title = t; }, 8000);
+}
+function renderSoundBtn() {
+  const b = $('#soundBtn'); if (!b) return; const on = soundOn();
+  b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); b.title = on ? 'Chime for every new number is ON' : 'Chime is OFF';
+  b.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>${on ? '' : '<path d="M3 3l18 18"/>'}</svg>${on ? 'Sound on' : 'Sound off'}`;
 }
 // ---------- conversations ----------
 const contact = (name, num) => `${String(name).trim()} - ${String(num).trim()}`;
@@ -1393,13 +1424,15 @@ function findPhone(text) {
   return null;
 }
 // Numbers from the Numbers tab AND straight from attendee messages, so they show the moment they're typed.
-// Deduplicated by the last 10 digits; oldest first.
+// Same attendee + same number = shown once. Same attendee with a new number, or another attendee with the
+// same number, are listed separately. Oldest first.
+const numKey = (name, num) => `${String(name).trim().toLowerCase()}|${/X/i.test(num) ? String(num).trim() : String(num).replace(/\D/g, '').slice(-10)}`; // X = masked demo numbers
 function contactsToday() {
   const seen = new Set(), out = [];
   const add = (name, num, time) => {
-    const key = /X/i.test(num) ? String(num).trim() : String(num).replace(/\D/g, '').slice(-10); // X = masked demo numbers
-    if (!key || seen.has(key)) return;
-    seen.add(key); out.push({ name: String(name).trim(), num: String(num).trim(), time });
+    const key = numKey(name, num);
+    if (!num || seen.has(key)) return;
+    seen.add(key); out.push({ name: String(name).trim(), num: String(num).trim(), time, key });
   };
   const rows = [];
   todays(S.numbers).forEach((r) => rows.push({ t: parseClock(r[1]) || 0, name: r[2], num: r[3], time: r[1] }));
@@ -1834,6 +1867,11 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
 $('#testNow').addEventListener('change', renderLaunch);
+renderSoundBtn();
+$('#soundBtn').addEventListener('click', () => {
+  store.set('autopilot.sound', !soundOn()); renderSoundBtn(); unlockAudio();
+  if (soundOn()) { chime(); try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch {} }
+});
 $('#directClear').addEventListener('click', () => { $('#directUrl').value = ''; renderDirect(); renderLaunch(); });
 $('#launchBtn').addEventListener('click', onLaunchClick);
 $('#histList').addEventListener('click', (e) => { const b = e.target.closest('[data-wid]'); if (!b) return; H.sel = b.dataset.wid; renderHistList(); loadHistoryDetail(); });

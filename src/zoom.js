@@ -417,30 +417,53 @@ export class Zoom {
   }
 
   // Picks who the next message goes to: null = everyone, otherwise an attendee's display name.
+  // Zoom's "to:" dropdown has changed markup many times, so the option is found by its visible text
+  // (anywhere in the open dropdown, not in the chat messages) instead of a fixed class name.
   async setReceiver(name) {
-    const page = this.root;
-    const btn = await first(page, SEL.receiverButton);
+    const ui = this.root;
+    const btn = await first(ui, SEL.receiverButton);
     if (!btn) throw new Error('chat receiver button not found');
+    await btn.evaluate((e) => e.setAttribute('data-agent-recv', '1')).catch(() => {});
     await btn.click();
-    await page.waitForTimeout(400);
+    await this.page.waitForTimeout(600);
     if (name) {
-      const search = await first(page, SEL.receiverSearch);
-      if (search) await search.fill(name);
-      await page.waitForTimeout(500);
-      const opt = page.getByRole('menuitem', { name, exact: false }).or(page.locator(`[role="option"]:has-text("${name.replace(/"/g, '\\"')}")`)).first();
-      if (!(await opt.count())) {
-        await this.page.keyboard.press('Escape');
-        throw new Error(`attendee "${name}" not found in receiver list`);
+      const search = await first(ui, SEL.receiverSearch);
+      if (search && (await search.isVisible().catch(() => false))) {
+        await search.fill(name).catch(() => {});
+        await this.page.waitForTimeout(600);
       }
-      await opt.click();
-    } else {
-      const all = await first(page, SEL.receiverEveryone);
-      if (!all) {
-        await this.page.keyboard.press('Escape');
-        throw new Error('"Everyone" option not found');
-      }
-      await all.click();
     }
+    const want = name || null;
+    const picked = await ui.evaluate((want) => {
+      const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      const target = want ? norm(want) : null;
+      const isEveryone = (t) => /^(everyone|all panelists and attendees|everyone \(in meeting\))$/.test(t);
+      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+      const inMessages = (el) => el.closest('[class*="chat-item"], [class*="chat-message"], [class*="new-chat-message"], [class*="chat-list"]');
+      const cands = [...document.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemradio"], li, a, button, div, span')]
+        .filter((el) => vis(el) && !inMessages(el) && !el.closest('[data-agent-recv]') && !el.querySelector('input, textarea'))
+        .map((el) => ({ el, t: norm(el.innerText || el.textContent) }))
+        .filter(({ t }) => (target ? t === target || t === `${target} (attendee)` || t.replace(/\s*\(.*?\)\s*$/, '') === target : isEveryone(t)));
+      // prefer real list items, and the innermost element
+      cands.sort((a, b) => (/(option|menuitem)/.test(b.el.getAttribute('role') || '') - /(option|menuitem)/.test(a.el.getAttribute('role') || '')) || a.el.contains(b.el) - b.el.contains(a.el));
+      const hit = cands[0];
+      if (!hit) {
+        const seen = [...document.querySelectorAll('[role="menuitem"], [role="option"], [role="listbox"] *, [class*="dropdown"] li, [class*="menu"] li, [class*="receiver"] li')]
+          .filter(vis).map((e) => norm(e.innerText)).filter(Boolean);
+        return { ok: false, seen: [...new Set(seen)].slice(0, 15) };
+      }
+      (hit.el.closest('[role="menuitem"], [role="option"], [role="menuitemradio"], li') || hit.el).click();
+      return { ok: true };
+    }, want);
+    if (!picked.ok) {
+      if (!this.receiverDiag) {
+        this.receiverDiag = true; // snapshot the open dropdown once, for the debug artifact
+        await this.diagnose('receiver-not-found').catch(() => {});
+      }
+      await this.page.keyboard.press('Escape').catch(() => {});
+      throw new Error(`"${name || 'Everyone'}" not in the chat's "to" list (it shows: ${picked.seen.join(' | ') || 'nothing readable'})`);
+    }
+    await this.page.waitForTimeout(300);
     this.currentReceiver = name;
   }
 
