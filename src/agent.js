@@ -85,8 +85,7 @@ async function reloadSchedule() {
 await agentLog.init();
 await numbers.init();
 record('START', '', '', '', `tab="${cfg.scheduleTab}" dryRun=${cfg.dryRun} autoReply=${cfg.autoReply}`);
-const history = new History({ cfg, today, clock, log });
-await history.init();
+const history = new History({ cfg, today, clock, log }); // written once, when the webinar ends
 
 // ---------- Wait until it's time to join ----------
 const joinAt = schedule[0].at.getTime() - cfg.joinEarlyMin * 60_000;
@@ -173,7 +172,6 @@ async function senderLoop() {
     try {
       await zoom.send(job.text, job.to);
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
-      if (job.kind.startsWith('TIMED')) history.timed();
       if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
         privateSent.push(Date.now());
@@ -298,7 +296,7 @@ function saveNumber(sender, text) {
   if (savedNumbers.has(phone)) return;
   savedNumbers.add(phone);
   numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
-  history.lead(sender, phone, text);
+  history.lead(phone);
   numbers.flush().catch((e) => log('numbers flush failed:', e.message));
   log(`Number from ${sender}: ${phone}`);
 }
@@ -325,7 +323,7 @@ async function handle(sender, text) {
     if (!isTrivial(rest)) {
       record('QUESTION', sender, '', text, 'timed mode – answer manually');
       history.question();
-      history.qaRow({ name: sender, lang, question: rest, status: 'Not answered (timed mode)' });
+      history.qaRow({ question: rest });
     }
     return;
   }
@@ -362,7 +360,7 @@ async function handle(sender, text) {
       enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
       if (!hasNumber.has(sender)) noteAsk(sender);
     } else {
-      history.qaRow(qa); // abusive/spam: logged for the team, no reply sent
+      history.qaRow({ question: text }); // abusive/spam: no reply sent
     }
   } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
@@ -461,7 +459,7 @@ async function shutdown(reason) {
   log('Stopping:', reason);
   record('STOP', '', '', '', reason);
   await zoom.saveSession().catch((e) => log('could not save session', e.message));
-  await Promise.all([agentLog.close(), numbers.close(), history.close(/SIG|max runtime/.test(reason) ? 'Stopped' : 'Completed')]);
+  await Promise.all([agentLog.close(), numbers.close(), history.write()]);
   await zoom.close();
 }
 

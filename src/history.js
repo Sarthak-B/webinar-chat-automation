@@ -1,20 +1,20 @@
-// Webinar History: one Summary row per webinar (updated live), every genuine question + reply (Q&A),
-// and every number captured (Leads). Written to the Webinar History sheet (HISTORY_SHEET_ID).
-import { Sheet, SheetLogger } from './sheets.js';
+// Webinar History – written once, when the webinar ends (to HISTORY_SHEET_ID, or the chat sheet if unset):
+//   Summary: one row per webinar – attendees, live leads, live lead %, ratio, engagement %, questions, replies
+//   Q&A:     every genuine question and the reply it was given
+// Only counts and Q&A – no names or numbers (those stay in the chat sheet's Numbers tab for the team).
+import { Sheet } from './sheets.js';
 
 export const SUMMARY_TAB = 'Summary';
 export const QA_TAB = 'Q&A';
-export const LEADS_TAB = 'Leads';
 
 export const SUMMARY_HEADER = [
-  'Webinar ID', 'Date', 'Sheet tab', 'Slot', 'Mode', 'Started', 'Ended', 'Status',
-  'Attendees (peak)', 'People who chatted', 'Engagement %', 'Questions asked', 'Answered', 'Needs team',
-  'Numbers captured', 'Live lead %', 'Numbers from chatters %', 'Timed chats sent', 'Run link',
+  'Webinar ID', 'Date', 'Webinar', 'Started', 'Ended',
+  'Attendees', 'Live leads', 'Live lead %', 'Lead ratio', 'People who chatted', 'Engagement %', 'Questions asked', 'Replies given',
 ];
-export const QA_HEADER = ['Webinar ID', 'Date', 'Time', 'Attendee', 'Language', 'Question', 'Reply', 'Status'];
-export const LEADS_HEADER = ['Webinar ID', 'Date', 'Time', 'Name', 'Number', 'Their message'];
+export const QA_HEADER = ['Webinar ID', 'Date', 'Time', 'Question', 'Reply'];
 
 const pct = (a, b) => (b ? `${Math.round((a / b) * 1000) / 10}%` : '');
+const ratio = (leads, attendees) => (leads && attendees ? `1 in ${Math.max(1, Math.round(attendees / leads))}` : '');
 
 export class History {
   constructor({ cfg, today, clock, log }) {
@@ -23,35 +23,15 @@ export class History {
     this.clock = clock;
     this.log = log;
     this.sheet = new Sheet({ sheetId: cfg.historySheetId || cfg.sheetId, googleCreds: cfg.googleCreds });
-    const d = new Date();
-    const stamp = d.toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 16); // 2026-11-23 11:00
+    const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 16); // 2026-11-23 11:00
     this.id = `${stamp} · ${cfg.scheduleTab}`;
     this.started = clock();
     this.peak = 0;
     this.chatters = new Set();
+    this.leads = new Set(); // phone numbers – only counted, never written to history
     this.questions = 0;
-    this.answered = 0;
-    this.needsTeam = 0;
-    this.numbers = new Map(); // phone → name
-    this.timedSent = 0;
-    this.row = null;
-    this.ok = false;
-  }
-
-  async init() {
-    try {
-      await this.sheet.ensureTab(SUMMARY_TAB, SUMMARY_HEADER);
-      this.qa = new SheetLogger(this.sheet, QA_TAB, QA_HEADER);
-      this.leads = new SheetLogger(this.sheet, LEADS_TAB, LEADS_HEADER);
-      await this.qa.init();
-      await this.leads.init();
-      this.row = await this.sheet.appendRow(SUMMARY_TAB, this.summaryRow('Live'));
-      this.ok = true;
-      this.timer = setInterval(() => this.save('Live'), 5 * 60_000);
-      this.log(`History → ${this.cfg.historySheetId ? 'Webinar History sheet' : 'main sheet'} (Summary row ${this.row})`);
-    } catch (e) {
-      this.log(`History disabled – could not open the history sheet: ${e.message}`);
-    }
+    this.replies = 0;
+    this.qa = [];
   }
 
   // ---- events from the agent ----
@@ -61,50 +41,37 @@ export class History {
   chatter(name) {
     this.chatters.add(name);
   }
-  lead(name, phone, message) {
-    if (this.numbers.has(phone)) return;
-    this.numbers.set(phone, name);
-    this.leads?.add([this.id, this.today, this.clock(), name, phone, message]);
+  lead(phone) {
+    this.leads.add(phone);
   }
   question() {
     this.questions++;
   }
-  timed() {
-    this.timedSent++;
-  }
-  // status: 'Answered' | 'Needs team' | 'Not answered (timed mode)'
-  qaRow({ name, lang, question, reply = '', status }) {
-    if (status === 'Answered') this.answered++;
-    if (status === 'Needs team') this.needsTeam++;
-    const shown = this.cfg.dryRun && reply ? `${status} (dry run – not sent)` : status;
-    this.qa?.add([this.id, this.today, this.clock(), name, lang || '', question, reply, shown]);
+  qaRow({ question, reply = '' }) {
+    if (reply) this.replies++;
+    const shown = reply && this.cfg.dryRun ? `[dry run – not sent] ${reply}` : reply;
+    this.qa.push([this.id, this.today, this.clock(), question, shown]);
   }
 
-  summaryRow(status) {
-    const attendees = this.peak;
-    const chatted = this.chatters.size;
-    const leads = this.numbers.size;
-    const leadsFromChatters = [...this.numbers.values()].filter((n) => this.chatters.has(n)).length;
+  summaryRow() {
+    const att = this.peak;
     return [
-      this.id, this.today, this.cfg.scheduleTab, this.cfg.slot, this.cfg.mode || (this.cfg.dryRun ? 'dry' : this.cfg.autoReply ? 'full' : 'timed'),
-      this.started, status === 'Live' ? '' : this.clock(), status,
-      attendees || '', chatted, pct(chatted, attendees), this.questions, this.answered, this.needsTeam,
-      leads, pct(leads, attendees), pct(leadsFromChatters, chatted), this.timedSent, this.cfg.runUrl,
+      this.id, this.today, this.cfg.scheduleTab, this.started, this.clock(),
+      att || '', this.leads.size, pct(this.leads.size, att), ratio(this.leads.size, att),
+      this.chatters.size, pct(this.chatters.size, att), this.questions, this.replies,
     ];
   }
 
-  async save(status) {
-    if (!this.ok || !this.row) return;
+  // Called once at the end of the webinar.
+  async write() {
     try {
-      await this.sheet.updateRow(SUMMARY_TAB, this.row, this.summaryRow(status));
+      await this.sheet.ensureTab(SUMMARY_TAB, SUMMARY_HEADER);
+      await this.sheet.ensureTab(QA_TAB, QA_HEADER);
+      await this.sheet.append(SUMMARY_TAB, [this.summaryRow()]);
+      if (this.qa.length) await this.sheet.append(QA_TAB, this.qa);
+      this.log(`History saved: ${this.peak || '?'} attendees, ${this.leads.size} live leads, ${this.questions} questions`);
     } catch (e) {
-      this.log(`History summary update failed: ${e.message}`);
+      this.log(`Could not write webinar history: ${e.message}`);
     }
-  }
-
-  async close(status = 'Completed') {
-    clearInterval(this.timer);
-    await Promise.all([this.qa?.close(), this.leads?.close()]);
-    await this.save(status);
   }
 }

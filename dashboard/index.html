@@ -384,10 +384,11 @@ section{padding:110px 0 30px}
 .hist-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
 .hist-head h3{font:800 30px/1.05 var(--display);letter-spacing:-.03em}
 .hist-head .hm{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.hkpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}
+.hkpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
 .hk{padding:16px;border-radius:16px;background:var(--bg2);border:1px solid var(--line);position:relative;overflow:hidden}
 .hk .label{font-size:9.5px;letter-spacing:.14em}
-.hk .v{font:800 34px/1 var(--display);letter-spacing:-.04em;margin-top:12px}
+.hk .v{font:800 46px/1 var(--display);letter-spacing:-.045em;margin-top:14px}
+.hk{padding:20px}
 .hk .s{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.35}
 .hk.lead{border-color:rgba(184,166,246,.45);background:linear-gradient(160deg,rgba(184,166,246,.14),var(--bg2))}
 .hk.lead .v{color:var(--lilac)}
@@ -399,9 +400,9 @@ section{padding:110px 0 30px}
 .qa-tabs button.on{background:var(--ink);color:#0C0E13}
 .qa-tabs button b{font:500 10.5px/1 var(--mono);margin-left:5px;opacity:.7}
 .qa-tools .cfilters{margin-top:0}
-.qa-search{flex:1;min-width:200px;height:38px}
+.qa-search{width:320px;height:38px;flex:none}
 .qa{border:1px solid var(--line);border-radius:16px;overflow:auto;max-height:520px;scrollbar-width:thin}
-.qa-row{display:grid;grid-template-columns:78px 150px 1fr 1.25fr 120px;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:start}
+.qa-row{display:grid;grid-template-columns:80px 1fr 1.4fr;gap:16px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:13.5px;align-items:start}
 .qa-row.h{position:sticky;top:0;background:var(--panel2);z-index:1;font:500 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:12px 16px}
 .qa-row.leads{grid-template-columns:78px 220px 180px 1fr 60px}
 .qa-row:not(.h):hover{background:rgba(255,255,255,.02)}
@@ -705,8 +706,8 @@ body.is-demo .demo-banner{display:block}
   <section id="history">
     <div class="wrap">
       <div class="shead">
-        <div><span class="label"><b>06</b> / Webinar history</span><h2 data-split>Every webinar, <em class="it">on record.</em></h2></div>
-        <p data-reveal>Attendance, engagement, live lead % and every genuine question with the reply it got. All of it comes from your Webinar History sheet, which the agent fills in during each webinar.</p>
+        <div><span class="label"><b>06</b> / Webinar history</span><h2 data-split>Every webinar, <em class="it">in numbers.</em></h2></div>
+        <p data-reveal>Attendees, live leads and engagement for each webinar, plus the questions people asked and the replies they got. Saved to your Webinar History sheet when each webinar ends.</p>
       </div>
       <div class="hist" data-reveal>
         <aside class="hist-list"><div class="hist-list-h"><span class="label">Webinars</span><a class="btn ghost sm" id="openHistSheet" href="#" target="_blank" rel="noopener" hidden>Open sheet ↗</a></div><div id="histList"><div class="empty">No webinars recorded yet.</div></div></aside>
@@ -714,18 +715,13 @@ body.is-demo .demo-banner{display:block}
           <div class="hist-head" id="histHead"></div>
           <div class="hkpis" id="histKpis"></div>
           <div class="qa-tools">
-            <div class="qa-tabs" id="qaTabs"><button class="on" data-qt="qa">Questions &amp; replies <b id="qaCount">0</b></button><button data-qt="leads">Leads <b id="leadCount">0</b></button></div>
-            <div class="cfilters" id="qaFilters"><button class="on" data-qf="all">All</button><button data-qf="Answered">Answered</button><button data-qf="Needs team">Needs team</button></div>
-            <label class="search qa-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="qaSearch" placeholder="Search questions, replies, names" aria-label="Search history"></label>
+            <span class="label" style="margin-right:auto">Questions &amp; replies · <b id="qaCount">0</b></span>
+            <label class="search qa-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="qaSearch" placeholder="Search questions and replies" aria-label="Search questions and replies"></label>
             <button class="btn ghost sm" id="qaCopy">Copy</button>
           </div>
           <div class="qa" id="qaTable"><div class="empty">Pick a webinar on the left.</div></div>
         </div>
       </div>
-      <details class="card runs" data-reveal>
-        <summary><span><b>Agent runs on GitHub</b> · last 15 launches with tab, mode, status and duration</span><span class="chev">⌄</span></summary>
-        <table><thead><tr><th>Started</th><th>Run</th><th>Status</th><th>Duration</th><th></th></tr></thead><tbody id="historyBody"><tr><td colspan="5" class="empty">No runs yet.</td></tr></tbody></table>
-      </details>
     </div>
   </section>
 </main>
@@ -1100,6 +1096,7 @@ function renderSteps() {
 }
 function renderHistory() {
   const body = $('#historyBody');
+  if (!body) return;
   if (!S.runs.length) { body.innerHTML = '<tr><td colspan="5" class="empty">No runs yet.</td></tr>'; return; }
   body.innerHTML = S.runs.map((r) => {
     const st = r.status === 'completed' ? r.conclusion : r.status;
@@ -1110,114 +1107,90 @@ function renderHistory() {
 }
 
 // ---------- webinar history (from the Webinar History sheet) ----------
-const H = { list: [], sel: null, qa: [], leads: [], view: 'qa', filter: 'all', q: '', loadedFor: null };
+const H = { list: [], sel: null, qa: [], q: '', loadedFor: null };
 const toObjs = (header, rows) => rows.map((r) => Object.fromEntries(header.map((h, i) => [h, r[i] ?? ''])));
 const pctNum = (v) => parseFloat(String(v).replace('%', '')) || 0;
 
 const DemoHistory = (() => {
   const d = (daysAgo, h, m) => { const x = new Date(); x.setDate(x.getDate() - daysAgo); x.setHours(h, m, 0, 0); return x; };
-  const fmtD = (x) => x.toLocaleDateString('en-IN', { timeZone: TZ });
-  const id = (x, tab) => `${x.toLocaleString('sv-SE', { timeZone: TZ }).slice(0, 16)} · ${tab}`;
-  const mk = (x, tab, slot, mode, status, att, chat, q, ans, team, leads, timed) => ({
-    'Webinar ID': id(x, tab), Date: fmtD(x), 'Sheet tab': tab, Slot: slot, Mode: mode, Started: fmtTime(x), Ended: status === 'Live' ? '' : fmtTime(new Date(x.getTime() + 4.6 * 3600e3)), Status: status,
-    'Attendees (peak)': att, 'People who chatted': chat, 'Engagement %': `${Math.round(chat / att * 1000) / 10}%`, 'Questions asked': q, Answered: ans, 'Needs team': team,
-    'Numbers captured': leads, 'Live lead %': `${Math.round(leads / att * 1000) / 10}%`, 'Numbers from chatters %': `${Math.round(leads * .9 / chat * 1000) / 10}%`, 'Timed chats sent': timed, 'Run link': '',
+  const mk = (x, tab, att, leads, chat, q, r) => normaliseWebinar({
+    'Webinar ID': `${x.toLocaleString('sv-SE', { timeZone: TZ }).slice(0, 16)} · ${tab}`, Date: x.toLocaleDateString('en-IN', { timeZone: TZ }), Webinar: tab,
+    Started: fmtTime(x), Ended: fmtTime(new Date(x.getTime() + 4.6 * 3600e3)), Attendees: att, 'Live leads': leads, 'People who chatted': chat, 'Questions asked': q, 'Replies given': r,
   });
   const list = [
-    mk(d(3, 19, 30), 'Variant 4 – 7:30 PM', '730pm', 'full', 'Completed', 412, 168, 57, 52, 5, 46, 160),
-    mk(d(2, 11, 0), 'Variant 3 – 11 AM', '11am', 'full', 'Completed', 356, 131, 44, 41, 3, 39, 160),
-    mk(d(1, 19, 30), 'Variant 2 – 7:30 PM', '730pm', 'timed', 'Completed', 389, 142, 49, 0, 0, 31, 155),
-    mk(d(0, 11, 0), 'Variant 3 – 11 AM', '11am', 'dry', 'Live', 274, 97, 26, 24, 2, 21, 64),
+    mk(d(3, 19, 30), 'Variant 4 – 7:30 PM', 412, 46, 168, 57, 55),
+    mk(d(2, 11, 0), 'Variant 3 – 11 AM', 356, 39, 131, 44, 42),
+    mk(d(1, 19, 30), 'Variant 2 – 7:30 PM', 389, 31, 142, 49, 0),
+    mk(d(0, 11, 0), 'Variant 3 – 11 AM', 274, 21, 97, 26, 25),
   ];
   const qs = [
-    ['Rahul Sharma', 'hinglish', 'price kya hai?', 'Ji, aaj ka offer $447 hai (₹36,999 incl. GST) – link: https://sb.flexifunnels.com/get?id=19029. Kripya apna contact number share kijiye, humari team aapko guide karegi.', 'Answered'],
-    ['Priya Verma', 'english', 'Is EMI available for this?', 'Yes, EMI starts at under ₹1,800/month on the same link. Please share your contact number and our team will help you with the plan.', 'Answered'],
-    ['सुनीता', 'hindi', 'क्या नौकरी के साथ ये कर सकते हैं?', 'जी हाँ, रोज़ 60 मिनट काफ़ी हैं – कई लोगों ने जॉब के साथ ही शुरुआत की है। कृपया अपना नंबर शेयर करें, हमारी टीम आपको प्लान समझा देगी।', 'Answered'],
-    ['Ankit', 'english', 'I paid yesterday but did not get login details', 'We\'re sorry for the trouble. Our team will check your login right away – please share your contact number so they can call you.', 'Needs team'],
-    ['Imran Khan', 'hinglish', 'recording milegi?', 'Ji, humari team aapke number par recording bhejwa degi. Kripya apna WhatsApp number yahan share kijiye.', 'Answered'],
-    ['Neha Gupta', 'english', 'Can I connect my own domain?', 'Yes, you can connect your own domain for free, and hosting is included. Please share your number and our team will guide you through it.', 'Answered'],
-    ['Vikram Singh', 'hinglish', 'mere paas product nahi hai, kya karu?', 'Aap faceless digital product se shuru kar sakte hain – custom GPTs se ek din mein ban jata hai. Apna number share kijiye, humari team sahi model chunne mein madad karegi.', 'Answered'],
+    ['price kya hai?', 'Ji, aaj ka offer $447 hai (₹36,999 incl. GST) – link: https://sb.flexifunnels.com/get?id=19029. Kripya apna contact number share kijiye, humari team aapko guide karegi.'],
+    ['Is EMI available for this?', 'Yes, EMI starts at under ₹1,800/month on the same link. Please share your contact number and our team will help you with the plan.'],
+    ['क्या नौकरी के साथ ये कर सकते हैं?', 'जी हाँ, रोज़ 60 मिनट काफ़ी हैं – कई लोगों ने जॉब के साथ ही शुरुआत की है। कृपया अपना नंबर शेयर करें, हमारी टीम आपको प्लान समझा देगी।'],
+    ['I paid yesterday but did not get login details', 'We\'re sorry for the trouble. Our team will check your login right away – please share your contact number so they can call you.'],
+    ['recording milegi?', 'Ji, humari team aapke number par recording bhejwa degi. Kripya apna WhatsApp number yahan share kijiye.'],
+    ['Can I connect my own domain?', 'Yes, you can connect your own domain for free, and hosting is included. Please share your number and our team will guide you through it.'],
+    ['mere paas product nahi hai, kya karu?', 'Aap faceless digital product se shuru kar sakte hain – custom GPTs se ek din mein ban jata hai. Apna number share kijiye, humari team sahi model chunne mein madad karegi.'],
   ];
-  const leads = ['Rahul Sharma', 'Priya Verma', 'Imran Khan', 'Kavya', 'Arjun', 'Pooja'];
   return {
     list,
-    qa: (w) => qs.map((q, i) => ({ 'Webinar ID': w['Webinar ID'], Date: w.Date, Time: fmtTime(new Date(Date.now() - (qs.length - i) * 7 * 60e3)), Attendee: q[0], Language: q[1], Question: q[2], Reply: w.Mode === 'timed' ? '' : q[3], Status: w.Mode === 'timed' ? 'Not answered (timed mode)' : w.Mode === 'dry' ? `${q[4]} (dry run – not sent)` : q[4] })),
-    leads: (w) => leads.map((n, i) => ({ 'Webinar ID': w['Webinar ID'], Date: w.Date, Time: fmtTime(new Date(Date.now() - (leads.length - i) * 9 * 60e3)), Name: n, Number: `9${7 + (i % 3)}XXXXX${String(200 + i * 77).slice(-3)}`, 'Their message': '' })),
+    qa: (w) => qs.map((q, i) => ({ Time: fmtTime(new Date(Date.now() - (qs.length - i) * 7 * 60e3)), Question: q[0], Reply: +w['Replies given'] ? q[1] : '' })),
   };
 })();
 
-// Recalculate the % columns from the counts, so a hand-typed attendee count in the sheet is reflected.
+// Recalculate % and ratio from the counts, so a hand-typed attendee count in the sheet is reflected.
 function normaliseWebinar(w) {
-  const att = +w['Attendees (peak)'] || 0, chat = +w['People who chatted'] || 0, nums = +w['Numbers captured'] || 0;
+  const att = +w.Attendees || 0, chat = +w['People who chatted'] || 0, leads = +w['Live leads'] || 0;
   const p = (a, b) => (b ? `${Math.round((a / b) * 1000) / 10}%` : '');
-  if (att) { w['Engagement %'] = p(chat, att); w['Live lead %'] = p(nums, att); }
+  if (att) { w['Engagement %'] = p(chat, att); w['Live lead %'] = p(leads, att); w['Lead ratio'] = leads ? `1 in ${Math.max(1, Math.round(att / leads))}` : ''; }
   return w;
 }
 async function loadHistoryList() {
   try {
     if (isDemo()) H.list = DemoHistory.list.slice();
-    else { const d = await feed({ action: 'history' }); H.list = toObjs(d.header || [], d.rows || []); }
+    else { const d = await feed({ action: 'history' }); H.list = toObjs(d.header || [], d.rows || []).map(normaliseWebinar); }
   } catch (e) { $('#histList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-  H.list = H.list.map(normaliseWebinar).reverse(); // newest first
+  H.list.reverse(); // newest first
   if (!H.sel || !H.list.some((w) => w['Webinar ID'] === H.sel)) H.sel = H.list[0]?.['Webinar ID'] || null;
   renderHistList();
-  const w = H.list.find((x) => x['Webinar ID'] === H.sel);
-  if (w && (H.loadedFor !== H.sel || w.Status === 'Live')) loadHistoryDetail();
-  else renderHistDetail();
+  if (H.sel && H.loadedFor !== H.sel) loadHistoryDetail(); else renderHistDetail();
 }
 async function loadHistoryDetail() {
-  const w = H.list.find((x) => x['Webinar ID'] === H.sel); if (!w) return renderHistDetail();
+  if (!H.sel) return renderHistDetail();
+  const w = H.list.find((x) => x['Webinar ID'] === H.sel);
   try {
-    if (isDemo()) { H.qa = DemoHistory.qa(w); H.leads = DemoHistory.leads(w); }
-    else {
-      const [q, l] = await Promise.all([feed({ action: 'historyqa', id: H.sel }), feed({ action: 'historyleads', id: H.sel })]);
-      H.qa = toObjs(q.header || [], q.rows || []); H.leads = toObjs(l.header || [], l.rows || []);
-    }
+    if (isDemo()) H.qa = DemoHistory.qa(w);
+    else { const q = await feed({ action: 'historyqa', id: H.sel }); H.qa = toObjs(q.header || [], q.rows || []); }
     H.loadedFor = H.sel;
-  } catch (e) { H.qa = []; H.leads = []; toast(e.message, true); }
+  } catch (e) { H.qa = []; toast(e.message, true); }
   renderHistDetail();
 }
 function renderHistList() {
   $('#openHistSheet').hidden = !cfg.historyUrl; $('#openHistSheet').href = cfg.historyUrl || '#';
-  if (!H.list.length) { $('#histList').innerHTML = '<div class="empty" style="padding:30px 18px">No webinars recorded yet. The first run of the agent creates the Summary, Q&amp;A and Leads tabs in your Webinar History sheet.</div>'; return; }
+  if (!H.list.length) { $('#histList').innerHTML = '<div class="empty" style="padding:30px 18px">No webinars recorded yet. Each webinar is added here when it ends.</div>'; return; }
   $('#histList').innerHTML = H.list.map((w) => `<button class="wcard ${w['Webinar ID'] === H.sel ? 'on' : ''}" data-wid="${esc(w['Webinar ID'])}">
-    <span class="wd"><span>${esc(w.Date)} · ${esc(w.Started)}</span>${w.Status === 'Live' ? '<span class="livechip"><i></i>Live</span>' : `<span class="modechip">${esc(w.Mode || '')}</span>`}</span>
-    <span class="wt">${esc(w['Sheet tab'])}</span>
-    <span class="ws"><span><b>${esc(w['Attendees (peak)'] || '–')}</b> attended</span><span><b>${esc(w['Engagement %'] || '–')}</b> engaged</span><span><b class="lead">${esc(w['Live lead %'] || '–')}</b> leads</span></span>
+    <span class="wd"><span>${esc(w.Date)} · ${esc(w.Started)}</span></span>
+    <span class="wt">${esc(w.Webinar)}</span>
+    <span class="ws"><span><b>${esc(w.Attendees || '–')}</b> attended</span><span><b class="lead">${esc(w['Live leads'] || 0)}</b> leads</span><span><b class="lead">${esc(w['Live lead %'] || '–')}</b></span></span>
   </button>`).join('');
 }
 function renderHistDetail() {
   const w = H.list.find((x) => x['Webinar ID'] === H.sel);
-  if (!w) { $('#histHead').innerHTML = ''; $('#histKpis').innerHTML = ''; $('#qaTable').innerHTML = '<div class="empty">Pick a webinar on the left.</div>'; return; }
-  $('#histHead').innerHTML = `<div><span class="label">${esc(w.Date)} · ${esc(w.Started)}${w.Ended ? ` → ${esc(w.Ended)}` : ''}</span><h3>${esc(w['Sheet tab'])}</h3>
-    <div class="hm">${w.Status === 'Live' ? '<span class="livechip"><i></i>Live now</span>' : `<span class="modechip">${esc(w.Status)}</span>`}<span class="modechip">${esc(w.Mode)} mode</span><span>${esc(w.Slot === '730pm' ? '7:30 PM link' : w.Slot === '11am' ? '11 AM link' : '')}</span><span>${esc(w['Timed chats sent'])} timed chats sent</span></div></div>
-    ${w['Run link'] ? `<a class="btn ghost sm" href="${esc(w['Run link'])}" target="_blank" rel="noopener">Run on GitHub ↗</a>` : ''}`;
-  const att = +w['Attendees (peak)'] || 0;
+  if (!w) { $('#histHead').innerHTML = ''; $('#histKpis').innerHTML = ''; $('#qaTable').innerHTML = '<div class="empty">Pick a webinar on the left.</div>'; $('#qaCount').textContent = 0; return; }
+  $('#histHead').innerHTML = `<div><span class="label">${esc(w.Date)} · ${esc(w.Started)}${w.Ended ? ` → ${esc(w.Ended)}` : ''}</span><h3>${esc(w.Webinar)}</h3></div>`;
   const tile = (label, v, sub, bar, cls = '') => `<div class="hk ${cls}"><span class="label">${label}</span><div class="v">${esc(v)}</div><div class="s">${sub}</div>${bar != null ? `<span class="bar" style="width:${Math.min(100, bar)}%"></span>` : ''}</div>`;
   $('#histKpis').innerHTML = [
-    tile('Attendees', att || '–', att ? 'peak in Zoom' : 'count not read from Zoom'),
-    tile('Chatted', w['People who chatted'] || '0', `${esc(w['Engagement %'] || '–')} engagement`, pctNum(w['Engagement %'])),
-    tile('Questions', w['Questions asked'] || '0', 'genuine questions asked'),
-    tile('Answered', w.Answered || '0', `${esc(w['Needs team'] || 0)} handed to the team`, (+w['Questions asked'] ? (+w.Answered / +w['Questions asked']) * 100 : 0)),
-    tile('Numbers', w['Numbers captured'] || '0', `${esc(w['Numbers from chatters %'] || '–')} of chatters`, pctNum(w['Numbers from chatters %'])),
-    tile('Live lead %', w['Live lead %'] || '–', 'numbers ÷ attendees', pctNum(w['Live lead %']) * 3, 'lead'),
+    tile('Attendees', w.Attendees || '–', w.Attendees ? 'present in the webinar' : 'not read from Zoom – type it in the sheet'),
+    tile('Live leads', w['Live leads'] || 0, w['Lead ratio'] ? `${esc(w['Lead ratio'])} attendees gave a number` : 'numbers captured', null, 'lead'),
+    tile('Live lead %', w['Live lead %'] || '–', 'live leads ÷ attendees', pctNum(w['Live lead %']) * 4, 'lead'),
+    tile('Engagement %', w['Engagement %'] || '–', `${esc(w['People who chatted'] || 0)} people chatted`, pctNum(w['Engagement %'])),
   ].join('');
-  $('#qaCount').textContent = H.qa.length; $('#leadCount').textContent = H.leads.length;
-  $('#qaFilters').style.display = H.view === 'qa' ? '' : 'none';
   const q = H.q;
-  if (H.view === 'qa') {
-    const rows = H.qa.filter((r) => H.filter === 'all' || String(r.Status).startsWith(H.filter))
-      .filter((r) => !q || [r.Attendee, r.Question, r.Reply].some((x) => String(x).toLowerCase().includes(q)));
-    $('#qaTable').innerHTML = `<div class="qa-row h"><span>Time</span><span>Attendee</span><span>Question</span><span>Reply</span><span>Status</span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row">
-      <time>${esc(shortTime(r.Time))}</time><div class="who"><b>${esc(r.Attendee)}</b><span>${esc(r.Language)}</span></div>
-      <div class="q">${esc(r.Question)}</div><div class="r ${r.Reply ? '' : 'none'}">${r.Reply ? linkify(r.Reply) : 'No reply sent'}</div>
-      <span class="st-chip ${String(r.Status).startsWith('Answered') ? 'Answered' : String(r.Status).startsWith('Needs') ? 'team' : ''}">${esc(r.Status)}</span></div>`).join('') : '<div class="empty">No questions match.</div>');
-  } else {
-    const rows = H.leads.filter((r) => !q || [r.Name, r.Number].some((x) => String(x).toLowerCase().includes(q)));
-    $('#qaTable').innerHTML = `<div class="qa-row h leads"><span>Time</span><span>Name</span><span>Number</span><span>Their message</span><span></span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row leads">
-      <time>${esc(shortTime(r.Time))}</time><div class="who"><b>${esc(r.Name)}</b></div><span class="num">${esc(r.Number)}</span><div class="q" style="color:var(--muted)">${esc(r['Their message'])}</div>
-      <button class="copy" data-copy="${esc(contact(r.Name, r.Number))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`).join('') : '<div class="empty">No numbers captured.</div>');
-  }
+  const rows = H.qa.filter((r) => !q || [r.Question, r.Reply].some((x) => String(x).toLowerCase().includes(q)));
+  $('#qaCount').textContent = H.qa.length;
+  $('#qaTable').innerHTML = `<div class="qa-row h"><span>Time</span><span>Question</span><span>Reply</span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row">
+    <time>${esc(shortTime(r.Time))}</time><div class="q">${esc(r.Question)}</div><div class="r ${r.Reply ? '' : 'none'}">${r.Reply ? linkify(r.Reply) : 'No reply'}</div></div>`).join('')
+    : `<div class="empty">${H.qa.length ? 'No questions match.' : 'No questions were asked in this webinar.'}</div>`);
 }
 
 // ---------- launch ----------
@@ -1529,7 +1502,6 @@ function doGet(e) {
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
-    if (p.action === 'historyleads') return out(historyFor('Leads', p.id));
     return out({ error: 'Unknown action' });
   } catch (err) {
     return out({ error: String(err) });
@@ -1588,7 +1560,7 @@ function history() {
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
   return { header: v[0], rows: v.slice(1).slice(-300) };
 }
-// Q&A or Leads rows for one webinar (column A = Webinar ID).
+// Q&A rows for one webinar (column A = Webinar ID).
 function historyFor(tab, id) {
   const sh = historyBook().getSheetByName(tab);
   if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
@@ -1718,16 +1690,10 @@ $$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = 
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#launchBtn').addEventListener('click', onLaunchClick);
 $('#histList').addEventListener('click', (e) => { const b = e.target.closest('[data-wid]'); if (!b) return; H.sel = b.dataset.wid; renderHistList(); loadHistoryDetail(); });
-$('#qaTabs').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#qaTabs button').forEach((x) => x.classList.toggle('on', x === b)); H.view = b.dataset.qt; renderHistDetail(); });
-$('#qaFilters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#qaFilters button').forEach((x) => x.classList.toggle('on', x === b)); H.filter = b.dataset.qf; renderHistDetail(); });
 $('#qaSearch').addEventListener('input', (e) => { H.q = e.target.value.trim().toLowerCase(); renderHistDetail(); });
 $('#qaCopy').addEventListener('click', () => {
-  if (H.view === 'leads') {
-    if (!H.leads.length) return toast('No numbers to copy', true);
-    return copyText(H.leads.map((r) => contact(r.Name, r.Number)).join('\n'), `${H.leads.length} contacts copied as Name - Number`);
-  }
   if (!H.qa.length) return toast('No questions to copy', true);
-  copyText(['Attendee\tQuestion\tReply\tStatus', ...H.qa.map((r) => [r.Attendee, r.Question, r.Reply, r.Status].map((x) => String(x).replace(/[\t\n]+/g, ' ')).join('\t'))].join('\n'), `${H.qa.length} questions copied – paste into a sheet`);
+  copyText(['Question\tReply', ...H.qa.map((r) => [r.Question, r.Reply].map((x) => String(x).replace(/[\t\n]+/g, ' ')).join('\t'))].join('\n'), `${H.qa.length} questions copied – paste into a sheet`);
 });
 $('#joinUrl').addEventListener('input', (e) => {
   const v = e.target.value.trim();

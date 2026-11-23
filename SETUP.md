@@ -16,7 +16,7 @@ Everything you need to do, once, so the dashboard shows **real** data and the ag
 | **AI** | GitHub secret `OPENAI_API_KEY` | Writes every reply |
 | **Sheet access (agent)** | GitHub secret `GOOGLE_SERVICE_ACCOUNT_JSON` | Agent reads the chat tabs and writes Agent Log / Numbers |
 | **Sheet feed (dashboard)** | Apps Script web app in the sheet | Dashboard reads tabs, conversations, numbers and history |
-| **Webinar History sheet** | A separate Google Sheet | One row per webinar (attendees, engagement %, live lead %), every question + reply, every lead |
+| **Webinar History sheet** | A separate Google Sheet | One row per webinar (attendees, live leads, live lead %, engagement %) plus every question with its reply. Written when the webinar ends |
 | **Dashboard** | Vercel | Launch / stop / watch everything |
 
 ## Before you start
@@ -81,7 +81,7 @@ With the default model (`gpt-4o-mini`), a full webinar usually costs very little
 
 The agent needs **Editor** to create the **Agent Log** and **Numbers** tabs. It never edits your other tabs.
 
-7. **Webinar History sheet:** create a new Google Sheet named **Webinar History** and **share it with the same service-account email as Editor**. Leave it empty; the agent creates the **Summary**, **Q&A** and **Leads** tabs on its first run. Copy its ID from the URL (`/spreadsheets/d/`**`THIS_PART`**`/edit`) for step 8.
+7. **Webinar History sheet:** create a new Google Sheet named **Webinar History** and **share it with the same service-account email as Editor**. Leave it empty; the agent creates the **Summary** and **Q&A** tabs when the first webinar ends. Copy its ID from the URL (`/spreadsheets/d/`**`THIS_PART`**`/edit`) for step 8.
 
 ✅ Both the chat sheet and the Webinar History sheet show the service-account email as Editor. Keep the JSON file for step 7.
 
@@ -159,7 +159,7 @@ Same page → tab **Variables** → **New repository variable**.
 | Name | Value | Notes |
 |---|---|---|
 | `SHEET_ID` | The ID from the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` | required |
-| `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Recommended. If unset, the Summary / Q&A / Leads tabs go into the chat sheet |
+| `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Recommended. If unset, the Summary / Q&A tabs go into the chat sheet |
 | `AGENT_NAME` | Exactly the agent account's Zoom display name, e.g. `FlexiFunnels Team` | required, so it ignores its own messages |
 | `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of |
 | `TEAM_NAMES` | e.g. `Arman,Support` | Names whose chat messages are never answered (your team members in the webinar) |
@@ -249,20 +249,18 @@ Click **Test connection** → it should say `GitHub ✓ … · Sheet ✓ (N sche
 
 ## What the History section shows
 
-For every webinar, read from the Webinar History sheet. It updates every 5 minutes during the webinar and once more at the end.
+When a webinar ends, the agent adds it to the Webinar History sheet: one **Summary** row, plus its **Q&A** rows. The dashboard's History section shows:
 
 | Number | Meaning |
 |---|---|
 | **Attendees** | Highest attendee count Zoom showed during the webinar |
-| **Chatted / Engagement %** | People who sent at least one chat message ÷ attendees |
-| **Questions / Answered / Needs team** | Genuine questions only. "Type 1" / "Yes" answers aren't counted and aren't replied to |
-| **Numbers** | Unique phone numbers captured (also listed in the Leads tab) |
-| **Live lead %** | Numbers ÷ attendees |
-| **Numbers from chatters %** | How many of the people who chatted gave their number |
+| **Live leads** | Phone numbers captured (count only; the names and numbers stay in the chat sheet's **Numbers** tab for the team) |
+| **Live lead %** and **ratio** | Live leads ÷ attendees, e.g. *8% · 1 in 13 attendees* |
+| **Engagement %** | People who sent at least one chat message ÷ attendees |
 
-Below the numbers, the **Questions & replies** tab shows each question next to the exact reply that was sent, and the **Leads** tab shows every name and number. **Copy** pastes either straight into a sheet.
+Below that is **Questions & replies**: every genuine question asked and the reply it was given. "Type 1" / "Yes" answers aren't questions, so they aren't listed. **Copy** pastes it straight into a sheet.
 
-> If **Attendees** is blank, the agent couldn't read Zoom's participant counter. Type the number from aEvent / Zoom into the Summary row's *Attendees (peak)* cell, and the dashboard uses it. The percentages in the sheet itself won't recalculate, though.
+> If **Attendees** is blank, the agent couldn't read Zoom's participant counter. Type the number from aEvent / Zoom into that Summary row's *Attendees* cell, and the dashboard recalculates the percentages from it.
 
 ## Every webinar: 30-second checklist
 

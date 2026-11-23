@@ -19,7 +19,6 @@ function doGet(e) {
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
-    if (p.action === 'historyleads') return out(historyFor('Leads', p.id));
     return out({ error: 'Unknown action' });
   } catch (err) {
     return out({ error: String(err) });
@@ -78,7 +77,7 @@ function history() {
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
   return { header: v[0], rows: v.slice(1).slice(-300) };
 }
-// Q&A or Leads rows for one webinar (column A = Webinar ID).
+// Q&A rows for one webinar (column A = Webinar ID).
 function historyFor(tab, id) {
   const sh = historyBook().getSheetByName(tab);
   if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
