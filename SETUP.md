@@ -331,11 +331,3 @@ If it can't find it (for example, the saved Zoom session isn't the account that 
 Paste a Zoom webinar link (`zoom.us/j/…`, `/w/…`) or just the webinar ID. The agent then skips the universal link, the registration lookup and the launch window. It joins that webinar right away as the main (host) account in the saved session and stays until the webinar ends. Timed chats still follow the selected tab's times. Leave the box empty for normal webinars.
 
 The `JOIN_EARLY_MIN` variable is not needed. Without it, the agent joins 5 minutes before the tab's first chat.
-
-## Using Claude instead of OpenAI
-
-1. Get a key at https://console.anthropic.com → **Settings → API keys → Create key** (add credits under **Billing** first).
-2. GitHub → repo **Settings → Secrets and variables → Actions → Secrets → New repository secret**: name `ANTHROPIC_API_KEY`, value = the key (`sk-ant-…`).
-3. Optional variable `CLAUDE_MODEL` (default `claude-haiku-5-5`: fast and cheap; `claude-sonnet-5-5` gives richer replies).
-
-When `ANTHROPIC_API_KEY` exists, the agent uses Claude and `OPENAI_API_KEY` is no longer needed. The run log shows `AI: Claude (…)`. Delete the secret to switch back to OpenAI.

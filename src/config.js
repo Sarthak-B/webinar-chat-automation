@@ -49,10 +49,7 @@ export function loadConfig() {
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 
     // AI
-    // Claude is used when ANTHROPIC_API_KEY is set; otherwise OpenAI (OPENAI_API_KEY).
-    anthropicKey: env('ANTHROPIC_API_KEY', ''),
-    claudeModel: env('CLAUDE_MODEL', 'claude-haiku-5-5'),
-    openaiKey: env('ANTHROPIC_API_KEY', '') ? env('OPENAI_API_KEY', '') : req('OPENAI_API_KEY'),
+    openaiKey: req('OPENAI_API_KEY'),
     model: env('OPENAI_MODEL', 'gpt-4o-mini'),
     aiConcurrency: num('AI_CONCURRENCY', 4),
 
