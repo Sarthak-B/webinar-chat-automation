@@ -67,7 +67,7 @@ if (!numberBank.length) {
   ];
 }
 const brain = new Brain({ ...cfg, replies, objections, numberBank });
-log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName}`);
+log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName} · AI: ${brain.provider === 'claude' ? 'Claude (' + brain.model + ')' : 'OpenAI (' + brain.model + ')'}`);
 
 const scheduleRows = await sheet.read(cfg.scheduleTab, 'A1:D600');
 let schedule = parseSchedule(scheduleRows);

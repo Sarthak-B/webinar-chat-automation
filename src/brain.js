@@ -103,9 +103,10 @@ export const mentionsPrice = (t) =>
 const urlsIn = (s) => (String(s).match(/https?:\/\/[^\s)]+/g) || []).map((u) => u.replace(/[.,]+$/, ''));
 
 export class Brain {
-  constructor({ openaiKey, model, replies, objections, personaName, numberBank = [] }) {
-    this.key = openaiKey;
-    this.model = model;
+  constructor({ openaiKey, model, anthropicKey = '', claudeModel = 'claude-haiku-5-5', replies, objections, personaName, numberBank = [] }) {
+    this.provider = anthropicKey ? 'claude' : 'openai';
+    this.key = anthropicKey || openaiKey;
+    this.model = anthropicKey ? claudeModel : model;
     this.replies = replies;
     this.objections = objections;
     this.persona = personaName || 'Sir';
@@ -144,6 +145,7 @@ Respond with JSON only.`;
   }
 
   async #chat(user, temperature = 0.8) {
+    if (this.provider === 'claude') return this.#claude(user, temperature);
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
@@ -161,6 +163,27 @@ Respond with JSON only.`;
     if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     return JSON.parse(data.choices[0].message.content);
+  }
+
+  async #claude(user, temperature) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': this.key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: this.model,
+        max_tokens: 600,
+        temperature: Math.min(1, temperature),
+        system: `${this.system}\nReturn ONE JSON object and nothing else – no code fences, no text before or after.`,
+        messages: [{ role: 'user', content: user }],
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!res.ok) throw new Error(`Claude ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const data = await res.json();
+    const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const m = text.replace(/```(?:json)?/gi, '').match(/\{[\s\S]*\}/);
+    if (!m) throw new Error(`Claude returned no JSON: ${text.slice(0, 120)}`);
+    return JSON.parse(m[0]);
   }
 
   #context({ sender, lang, hasNumber, history = [], recent = [] }) {
