@@ -1057,7 +1057,7 @@ function renderLaunch() {
     } else if (now < w.opens) {
       label = 'Arm auto-launch'; winLabel = 'Window opens at';
       winText = `${fmtTime(new Date(w.opens))}<small>in ${countdown(w.opens - now)}</small>`; pct = 100 - Math.min(100, ((w.opens - now) / (3 * 3600e3)) * 100);
-      note = `GitHub jobs max out at 6 hours, so the agent can start at most ${LAUNCH_WINDOW_MIN} minutes before the first chat. Arm it and keep this tab open, or come back then.`;
+      note = 'GitHub starts the agent automatically every day at ~6:35 PM (7:30 PM webinar) and Sundays ~10:05 AM (11 AM webinar), using the tabs in the sheet\'s "Auto Schedule" tab. Nothing to do here. Arm is only for a one-off run at another time.';
     } else if (now < w.last) {
       winLabel = now < w.first ? 'Window open · first chat in' : 'Webinar in progress · ends'; pct = 100;
       winText = now < w.first ? `${countdown(w.first - now)}<small>at ${fmtTime(new Date(w.first))}</small>` : `${fmtTime(new Date(w.last))}<small>${countdown(w.last - now)} left</small>`;

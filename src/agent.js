@@ -48,6 +48,45 @@ async function chooseTab() {
     console.log('Not a valid number, try again.');
   }
 }
+// ---------- Automatic runs (GitHub schedule) ----------
+// AUTO_SLOT = evening (every day 7:30 PM) or morning (Sunday 11 AM). Which tab/mode each slot uses, and
+// whether it's on, lives in the sheet's "Auto Schedule" tab, so the team can change it without GitHub.
+const AUTO_TAB = 'Auto Schedule';
+const AUTO_HEADER = ['Slot', 'When', 'Tab to read', 'Mode (dry / timed / full)', 'On (yes / no)'];
+async function autoSlotSettings(slot) {
+  const tabs = await sheet.listScheduleTabs();
+  const guess = (re) => tabs.find((t) => re.test(t)) || '';
+  const defaults = {
+    evening: ['evening', 'Every day 7:30 PM (agent starts ~6:35 PM)', tabs.includes('Variant 4 – 7:30 PM') ? 'Variant 4 – 7:30 PM' : guess(/7[:.]?30\s*pm/i), 'full', 'yes'],
+    morning: ['morning', 'Sunday 11 AM (agent starts ~10:05 AM)', guess(/\b11\s*am\b/i), 'full', 'yes'],
+  };
+  let rows = [];
+  try {
+    rows = await sheet.read(AUTO_TAB, 'A1:E20');
+  } catch {
+    await sheet.ensureTab(AUTO_TAB, AUTO_HEADER);
+    await sheet.append(AUTO_TAB, [defaults.evening, defaults.morning], true);
+    log(`Created the "${AUTO_TAB}" tab in the sheet – edit it to change the automatic runs`);
+    rows = [AUTO_HEADER, defaults.evening, defaults.morning];
+  }
+  const row = rows.find((r) => String(r[0] || '').trim().toLowerCase() === slot) || defaults[slot];
+  return { tab: String(row[2] || '').trim(), mode: String(row[3] || 'full').trim().toLowerCase(), on: !/^(no|off|false|0)$/i.test(String(row[4] || 'yes').trim()) };
+}
+if (process.env.AUTO_SLOT) {
+  const slot = process.env.AUTO_SLOT;
+  const a = await autoSlotSettings(slot);
+  if (!a.on) {
+    log(`Automatic ${slot} run is switched OFF in the "${AUTO_TAB}" tab – nothing to do`);
+    process.exit(0);
+  }
+  if (!a.tab) throw new Error(`Automatic ${slot} run: no tab set. Write the tab name in the "${AUTO_TAB}" tab of the sheet (column C).`);
+  const mode = ['dry', 'timed', 'full'].includes(a.mode) ? a.mode : 'full';
+  cfg.scheduleTab = a.tab;
+  cfg.mode = mode;
+  cfg.dryRun = mode === 'dry';
+  cfg.autoReply = mode === 'full';
+  log(`Automatic ${slot} run → tab "${a.tab}", mode ${mode}`);
+}
 cfg.scheduleTab = await chooseTab();
 log(`Using tab "${cfg.scheduleTab}"`);
 

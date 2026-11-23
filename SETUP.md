@@ -331,3 +331,19 @@ If it can't find it (for example, the saved Zoom session isn't the account that 
 Paste a Zoom webinar link (`zoom.us/j/…`, `/w/…`) or just the webinar ID. The agent then skips the universal link, the registration lookup and the launch window. It joins that webinar right away as the main (host) account in the saved session and stays until the webinar ends. Timed chats still follow the selected tab's times. Leave the box empty for normal webinars.
 
 The `JOIN_EARLY_MIN` variable is not needed. Without it, the agent joins 5 minutes before the tab's first chat.
+
+## Automatic runs (no laptop needed)
+
+GitHub starts the agent by itself:
+
+| Webinar | Agent starts (IST) | Cron (UTC) |
+|---|---|---|
+| Every day 7:30 PM | ~6:35 PM | `5 13 * * *` |
+| Sunday 11 AM | ~10:05 AM | `35 4 * * 0` |
+
+The first automatic run creates an **Auto Schedule** tab in the chat sheet. Set these there for each slot:
+- **Tab to read** (column C): the exact tab name.
+- **Mode** (column D): `dry`, `timed` or `full`.
+- **On** (column E): `yes` or `no`. Set it to `no` to skip, for example on a holiday.
+
+GitHub can start scheduled runs 5–15 minutes late, which is why they start about an hour early. GitHub also pauses schedules in repos with no activity for 60 days, so make any small commit if that ever happens.
