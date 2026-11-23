@@ -19,6 +19,10 @@ on:
         description: 'Optional: a different join link OR the webinar ID (e.g. 812 3456 7890) for this run. Leave empty to use the universal link'
         required: false
         default: ''
+      direct_url:
+        description: 'Optional: direct Zoom webinar link or ID. Skips the universal link and the wait – joins right away as the host account, and stays until the webinar ends'
+        required: false
+        default: ''
 
 # One webinar at a time
 concurrency:
@@ -52,8 +56,13 @@ jobs:
           chmod 600 zoom-session.json
 
       - name: Hide pasted Zoom link from logs
-        if: inputs.join_url != ''
-        run: echo "::add-mask::${{ inputs.join_url }}"
+        if: inputs.join_url != '' || inputs.direct_url != ''
+        env:
+          J: ${{ inputs.join_url }}
+          D: ${{ inputs.direct_url }}
+        run: |
+          [ -n "$J" ] && echo "::add-mask::$J" || true
+          [ -n "$D" ] && echo "::add-mask::$D" || true
 
       - name: Run agent
         env:
@@ -62,6 +71,7 @@ jobs:
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
           # Optional: the agent account's personal panelist link (gives panelist powers)
           ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
+          ZOOM_DIRECT_URL: ${{ inputs.direct_url }}
           AGENT_EMAIL: ${{ vars.AGENT_EMAIL || secrets.AGENT_EMAIL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}

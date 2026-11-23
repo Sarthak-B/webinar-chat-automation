@@ -24,6 +24,7 @@ export function loadConfig() {
     joinUrl: env('ZOOM_JOIN_URL', 'https://sb.flexifunnels.com/genie-demo'),
     // Optional: the agent account's personal PANELIST link (Zoom emails it when you add the account as a panelist).
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
+    directUrl: env('ZOOM_DIRECT_URL', ''), // dashboard "Direct Zoom link": join this right away as the logged-in host
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered

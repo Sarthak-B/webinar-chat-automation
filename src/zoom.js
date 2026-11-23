@@ -203,7 +203,15 @@ export class Zoom {
   //  2. otherwise → the universal link, minus the audience token, joined as the logged-in account
   //     (works when that account is an alternative host); if Zoom asks to register, fall back to the
   //     audience link and the agent logs a WARNING (attendees can't read other people's chats).
-  async join(joinUrl, { panelistUrl = '' } = {}) {
+  async join(joinUrl, { panelistUrl = '', directUrl = '' } = {}) {
+    // Direct link from the dashboard: no redirect, no registration lookup, no audience token –
+    // straight into that webinar as the logged-in (host) account.
+    if (directUrl) {
+      const bare = String(directUrl).replace(/[\s-]/g, '');
+      const target = /^\d{9,12}$/.test(bare) ? `https://app.zoom.us/wc/${bare}/join` : asSelf(toWebClientUrl(directUrl.trim()));
+      await this.enter(target);
+      return 'direct link (host account)';
+    }
     if (panelistUrl) {
       await this.enter(toWebClientUrl(panelistUrl));
       return 'panelist link';

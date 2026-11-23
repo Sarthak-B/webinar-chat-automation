@@ -325,3 +325,9 @@ More details are in the [README](README.md).
 The universal link (or a link you paste) can end on `zoom.us/webinar/register/WN_…`. The agent doesn't register like an attendee. Instead it opens the logged-in host account's webinar list, finds the webinar that uses that registration link, and joins it by its ID as the host.
 
 If it can't find it (for example, the saved Zoom session isn't the account that hosts the webinar), the run stops with a clear message. Quick fix for a test: put the **webinar ID** (like `812 3456 7890`, shown in Zoom → Webinars) in the `join_url` box when you run the workflow.
+
+## Direct Zoom link (dashboard → Launch → step 03)
+
+Paste a Zoom webinar link (`zoom.us/j/…`, `/w/…`) or just the webinar ID. The agent then skips the universal link, the registration lookup and the launch window. It joins that webinar right away as the main (host) account in the saved session and stays until the webinar ends. Timed chats still follow the selected tab's times. Leave the box empty for normal webinars.
+
+The `JOIN_EARLY_MIN` variable is not needed. Without it, the agent joins 5 minutes before the tab's first chat.

@@ -102,7 +102,8 @@ const history = new History({ cfg, today, clock, log }); // written once, when t
 
 // ---------- Wait until it's time to join ----------
 const joinAt = schedule[0].at.getTime() - cfg.joinEarlyMin * 60_000;
-if (Date.now() < joinAt) {
+if (cfg.directUrl) log('Direct Zoom link given – joining right away as the host account');
+else if (Date.now() < joinAt) {
   log(`Waiting until ${clock(new Date(joinAt))} to join`);
   while (Date.now() < joinAt) await sleep(Math.min(30_000, joinAt - Date.now()));
 }
@@ -122,7 +123,7 @@ if (loggedIn) {
 async function joinWithRetry() {
   for (let i = 1; i <= 4; i++) {
     try {
-      const how = await zoom.join(cfg.joinUrl, { panelistUrl: cfg.panelistUrl });
+      const how = await zoom.join(cfg.joinUrl, { panelistUrl: cfg.panelistUrl, directUrl: cfg.directUrl });
       const role = await zoom.role().catch(() => 'unknown');
       log(`Joined the webinar via ${how} as ${role}`);
       record('JOINED', '', '', '', `via ${how} · role: ${role}`);
@@ -508,7 +509,8 @@ process.on('SIGINT', () => shutdown('SIGINT').then(() => process.exit(0)));
 while (running) {
   await sleep(15_000);
   const last = schedule.at(-1).at.getTime();
-  if (Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length) await shutdown('all timed chats done');
+  // With a direct link it stays until the webinar itself ends (handy for tests outside the tab's times)
+  if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length) await shutdown('all timed chats done');
   else if (Date.now() - startedAt > cfg.maxRuntimeMin * 60_000) await shutdown('max runtime reached');
   else if (await zoom.hasEnded().catch(() => false)) await shutdown('webinar ended');
 }
