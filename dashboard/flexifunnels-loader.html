@@ -19,16 +19,19 @@
   #wa-loading b { color: #D6F23C; }
 </style>
 <script>
+/* Safe for page builders that squash code onto one line: only block comments, every statement ends with a semicolon */
 (function () {
-  var REPO = 'Sarthak-B/webinar-chat-automation';                    // EDIT if the repo moves
-  var BRANCH = 'main';                                                // EDIT if the branch changes
-  var VERCEL_URL = 'https://webinar-chat-automation.vercel.app/';     // EDIT if the Vercel address changes ('' = don't use)
+  /* EDIT these three if the repo, branch or Vercel address ever changes ('' = don't use Vercel) */
+  var REPO = 'Sarthak-B/webinar-chat-automation';
+  var BRANCH = 'main';
+  var VERCEL_URL = 'https://webinar-chat-automation.vercel.app/';
   var FILE = 'dashboard/index.html';
 
   var root = document.getElementById('webinar-autopilot-root');
-  if (!root || root.getAttribute('data-ready')) return;
+  if (!root || root.getAttribute('data-ready')) { return; }
   root.setAttribute('data-ready', '1');
-  if (root.parentNode !== document.body) document.body.appendChild(root); // escape builder sections that clip/shrink
+  /* escape builder sections that clip or shrink */
+  if (root.parentNode !== document.body) { document.body.appendChild(root); }
   var m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex,nofollow'; document.head.appendChild(m);
   document.title = 'Webinar Autopilot | FlexiFunnels';
 
@@ -38,39 +41,37 @@
     f.setAttribute('allow', 'clipboard-read; clipboard-write');
     return f;
   }
-  function show(html) {       // same origin as this page -> settings, GitHub/Apps Script calls and copy buttons work
-    var f = frame(); f.srcdoc = html; root.innerHTML = ''; root.appendChild(f);
-  }
-  function showUrl(url) {
-    var f = frame(); f.src = url; root.innerHTML = ''; root.appendChild(f);
-  }
+  /* same origin as this page, so settings, GitHub / Apps Script calls and copy buttons work */
+  function show(html) { var f = frame(); f.srcdoc = html; root.innerHTML = ''; root.appendChild(f); }
+  function showUrl(url) { var f = frame(); f.src = url; root.innerHTML = ''; root.appendChild(f); }
   function fail() {
     root.innerHTML = '<div id="wa-loading">Could not load the dashboard.<br>Check that the repo <b>' + REPO +
       '</b> exists and is public, or open the dashboard once and save a GitHub token in its settings.</div>';
   }
-  function looksRight(t) { return t && t.indexOf('Webinar Autopilot') !== -1 && t.indexOf('<html') !== -1; }
+  function looksRight(t) { return !!t && t.indexOf('Webinar Autopilot') !== -1 && t.indexOf('<html') !== -1; }
   function savedToken() {
     try { var c = JSON.parse(localStorage.getItem('autopilot.cfg') || '{}'); return c.token || ''; } catch (e) { return ''; }
   }
+  function getText(url, opts) {
+    return fetch(url, opts).then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; });
+  }
 
-  // 1. public repo
-  fetch('https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + FILE + '?t=' + Date.now(), { cache: 'no-store' })
-    .then(function (r) { return r.ok ? r.text() : ''; })
-    .catch(function () { return ''; })
+  /* 1. public repo */
+  getText('https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/' + FILE + '?t=' + Date.now(), { cache: 'no-store' })
     .then(function (t) {
-      if (looksRight(t)) return show(t);
-      // 2. private repo, with the token saved in the dashboard's settings
+      if (looksRight(t)) { show(t); return; }
+      /* 2. private repo, with the token saved in the dashboard settings */
       var token = savedToken();
       var viaApi = token
-        ? fetch('https://api.github.com/repos/' + REPO + '/contents/' + FILE + '?ref=' + BRANCH, {
+        ? getText('https://api.github.com/repos/' + REPO + '/contents/' + FILE + '?ref=' + BRANCH, {
             headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github.raw+json', 'X-GitHub-Api-Version': '2022-11-28' },
-            cache: 'no-store',
-          }).then(function (r) { return r.ok ? r.text() : ''; }).catch(function () { return ''; })
+            cache: 'no-store'
+          })
         : Promise.resolve('');
       return viaApi.then(function (t2) {
-        if (looksRight(t2)) return show(t2);
-        // 3. Vercel
-        if (VERCEL_URL) return showUrl(VERCEL_URL);
+        if (looksRight(t2)) { show(t2); return; }
+        /* 3. Vercel */
+        if (VERCEL_URL) { showUrl(VERCEL_URL); return; }
         fail();
       });
     });

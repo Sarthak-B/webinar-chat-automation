@@ -28,16 +28,16 @@ const embed = `<!-- Webinar Autopilot dashboard - paste this whole block into a 
 <script>
 (function () {
   var root = document.getElementById('webinar-autopilot-root');
-  if (!root || root.getAttribute('data-ready')) return;
+  if (!root || root.getAttribute('data-ready')) { return; }
   root.setAttribute('data-ready', '1');
-  // move to the top of the page so builder sections (transforms, overflow, widths) can't clip or shrink it
-  if (root.parentNode !== document.body) document.body.appendChild(root);
+  /* move to the top of the page so builder sections (transforms, overflow, widths) can't clip or shrink it */
+  if (root.parentNode !== document.body) { document.body.appendChild(root); }
   var f = document.createElement('iframe');
   f.title = 'Webinar Autopilot';
   f.setAttribute('allow', 'clipboard-read; clipboard-write');
   f.srcdoc = ${payload};
   root.appendChild(f);
-  // keep the page itself out of search results
+  /* keep the page itself out of search results */
   var m = document.createElement('meta'); m.name = 'robots'; m.content = 'noindex,nofollow'; document.head.appendChild(m);
   document.title = 'Webinar Autopilot | FlexiFunnels';
 })();

@@ -235,6 +235,7 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 > **Private repo, new browser:** the first time, the page shows the Vercel copy. Settings saved there belong to Vercel's address, so to use the FlexiFunnels address with a private repo, open the page, save the token once in ⚙, and reload.
 
 Notes:
+- FlexiFunnels squashes custom code onto one line when it publishes. The loader is written to survive that (block comments only, every statement ends with a semicolon), so don't add `//` comments to it.
 - Settings (tokens and keys) are saved in your browser for that page's domain. Use a page on a domain without third-party scripts you don't trust.
 - `dashboard/flexifunnels-embed.html` is a full **offline snapshot** (no GitHub needed). It doesn't update by itself, so use the loader unless you specifically need that.
 
