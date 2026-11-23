@@ -522,13 +522,49 @@ export class Zoom {
     this.currentReceiver = name;
   }
 
-  async send(text, to = null) {
-    if (this.dryRun) {
-      console.log(`[DRY RUN] → ${to || 'Everyone'}: ${text.replace(/\n/g, ' ⏎ ')}`);
-      return;
+  // What the chat's "to:" currently says ('' if it can't be read)
+  async receiverLabel() {
+    const el = await first(this.root, ['.chat-receiver-list__receiver', '[class*="chat-receiver"] button', 'button[aria-label*="to:" i]', ...SEL.receiverButton]);
+    return el ? ((await el.innerText().catch(() => '')) || (await el.getAttribute('aria-label').catch(() => '')) || '').replace(/\s+/g, ' ').trim() : '';
+  }
+  isEveryoneLabel(t) {
+    return /(^|\b)(everyone|all panelists and attendees)\b/i.test(t || '');
+  }
+
+  // HARD RULE: after every private reply the chat goes straight back to "Everyone", and nothing is
+  // ever posted to Everyone unless "to:" really says Everyone. Otherwise timed chats would quietly
+  // go to one attendee only.
+  async ensureEveryone() {
+    for (let i = 0; i < 4; i++) {
+      const label = await this.receiverLabel();
+      if (this.isEveryoneLabel(label)) {
+        this.currentReceiver = null;
+        return true;
+      }
+      await this.setReceiverFromList(null).catch(() => {});
+      await this.page.waitForTimeout(400 + i * 400);
     }
-    await this.openChat();
-    if (this.currentReceiver !== to) await this.setReceiver(to);
+    const label = await this.receiverLabel();
+    // label unreadable = can't prove it's wrong; trust the switch we just made
+    if (!label || this.isEveryoneLabel(label)) {
+      this.currentReceiver = null;
+      return true;
+    }
+    return false;
+  }
+
+  // keep the chat scrolled to the newest message (clicking a name can scroll it up)
+  async scrollChatToBottom() {
+    await this.root
+      .evaluate(() => {
+        for (const el of document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')) {
+          if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
+        }
+      })
+      .catch(() => {});
+  }
+
+  async typeAndSend(text) {
     const box = await first(this.root, SEL.chatInput);
     if (!box) throw new Error('chat input not found');
     await box.click();
@@ -538,6 +574,36 @@ export class Zoom {
       if (lines[i]) await this.page.keyboard.insertText(lines[i]);
     }
     await this.page.keyboard.press('Enter');
+    await this.page.waitForTimeout(300);
+  }
+
+  // Flow for a private reply:  click attendee's name → check "to:" = attendee → send →
+  // scroll down → switch "to:" back to Everyone (checked).  Same loop for every reply.
+  async send(text, to = null) {
+    if (this.dryRun) {
+      console.log(`[DRY RUN] → ${to || 'Everyone'}: ${text.replace(/\n/g, ' ⏎ ')}`);
+      return;
+    }
+    await this.openChat();
+    if (to) {
+      await this.setReceiver(to); // always re-select – never trust an old selection
+      const label = await this.receiverLabel();
+      if (label && !label.toLowerCase().includes(to.toLowerCase())) {
+        await this.ensureEveryone();
+        throw new Error(`"to:" shows "${label}" instead of ${to} – private reply not sent`);
+      }
+      try {
+        await this.typeAndSend(text);
+      } finally {
+        await this.scrollChatToBottom();
+        if (!(await this.ensureEveryone())) throw new Error('sent privately, but could NOT switch "to:" back to Everyone');
+        await this.scrollChatToBottom();
+      }
+      return;
+    }
+    if (!(await this.ensureEveryone())) throw new Error('"to:" is not Everyone – message held so it doesn\'t go to one person');
+    await this.typeAndSend(text);
+    await this.scrollChatToBottom();
   }
 
   async saveSession() {

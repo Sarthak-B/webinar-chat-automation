@@ -221,8 +221,17 @@ async function senderLoop() {
         if (recentSent.length > 8) recentSent.shift();
       }
     } catch (e) {
-      log(`send failed (${job.kind} → ${job.to || 'Everyone'}): ${e.message}`);
-      record('FAILED', job.to, job.text, job.said || '', e.message);
+      if (/sent privately/i.test(e.message)) ownTexts.add(norm(job.text));
+      // a message for Everyone held because "to:" wasn't Everyone → try once more in a few seconds
+      if (!job.to && /held/i.test(e.message) && !job.retried) {
+        job.retried = true;
+        job.notBefore = Date.now() + 5000;
+        queue.push(job);
+        log(`"to:" wasn't Everyone – holding "${job.text.slice(0, 40)}…" and retrying`);
+      } else {
+        log(`send failed (${job.kind} → ${job.to || 'Everyone'}): ${e.message}`);
+        record('FAILED', job.to, job.text, job.said || '', e.message);
+      }
       zoom.currentReceiver = undefined; // force re-selecting the receiver next time
     }
     lastSend = Date.now();
