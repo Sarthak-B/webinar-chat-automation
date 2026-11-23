@@ -50,14 +50,15 @@ function schedule(ss, tab) {
   return { tab: tab, start: v[0][0], items: items };
 }
 
-// Rows of "Agent Log" / "Numbers" after row `from` (max 400 at a time).
+// Rows of "Agent Log" / "Numbers". First call (from=0): the latest 3000 rows. After that: only rows after `from`.
 function rows(ss, tab, from) {
   const sh = ss.getSheetByName(tab);
   if (!sh) return { total: 0, rows: [] };
   const last = sh.getLastRow();
-  const start = Math.max(2, from + 1, last - 399);
-  const data = last >= start ? sh.getRange(start, 1, last - start + 1, sh.getLastColumn()).getDisplayValues() : [];
-  return { total: last, from: start, rows: data };
+  const start = from > 0 ? Math.max(2, from + 1) : Math.max(2, last - 2999);
+  const end = Math.min(last, start + 2999);
+  const data = end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [];
+  return { total: end, from: start, rows: data };
 }
 
 function out(o) {

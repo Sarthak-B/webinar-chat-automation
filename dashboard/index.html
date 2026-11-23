@@ -268,6 +268,82 @@ section{padding:110px 0 30px}
 .copy{opacity:.5;transition:.3s;padding:6px;border-radius:8px}
 .copy:hover{opacity:1;background:var(--panel2)}
 
+/* conversations */
+.chat{display:grid;grid-template-columns:360px 1fr;height:720px;border-radius:26px;overflow:hidden;border:1px solid var(--line2);background:var(--panel);margin-bottom:16px;box-shadow:0 40px 80px -40px rgba(0,0,0,.6)}
+.convs{display:flex;flex-direction:column;background:var(--bg2);border-right:1px solid var(--line);min-height:0}
+.convs-h{padding:18px 18px 12px;border-bottom:1px solid var(--line)}
+.search{display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);transition:border-color .3s}
+.search:focus-within{border-color:rgba(214,242,60,.5)}
+.search input{flex:1;background:none;border:0;outline:none;font-size:14px}
+.search input::placeholder{color:var(--dim)}
+.cfilters{display:flex;gap:6px;margin-top:12px}
+.cfilters button{height:30px;padding:0 11px;white-space:nowrap;border-radius:99px;font-size:12.5px;font-weight:500;color:var(--muted);border:1px solid var(--line);transition:.3s var(--ease)}
+.cfilters button:hover{color:var(--ink);border-color:var(--line2)}
+.cfilters button.on{background:var(--ink);color:#0C0E13;border-color:var(--ink)}
+.cfilters button b{font:500 10.5px/1 var(--mono);margin-left:4px;opacity:.7}
+.conv-list{flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.conv{position:relative;display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:13px 18px;border-bottom:1px solid var(--line);transition:background .3s}
+.conv:hover{background:rgba(255,255,255,.025)}
+.conv.on{background:linear-gradient(90deg,rgba(214,242,60,.09),transparent 80%)}
+.conv.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--acid)}
+.conv.fresh{animation:fresh 1.6s var(--ease)}
+@keyframes fresh{0%{background:rgba(214,242,60,.18)}100%{background:transparent}}
+.av{position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 var(--display);flex:none}
+.av.bc{background:var(--acid);color:#0C0E13}
+.av .badge{position:absolute;right:-2px;bottom:-2px;width:17px;height:17px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--bg2);font:700 9px/1 var(--body);color:#0C0E13}
+.av .badge.team{background:var(--amber)}
+.av .badge.num{background:var(--lilac)}
+.ci{min-width:0;flex:1}
+.cr{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cr b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cr time{font:500 10.5px/1 var(--mono);color:var(--dim);flex:none}
+.cp{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:4px}
+.cp i{font-style:normal;color:var(--acid)}
+.cp.team{color:var(--amber)}
+.thread{display:flex;flex-direction:column;min-width:0;min-height:0}
+.thread-h{display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);background:rgba(20,24,33,.85);backdrop-filter:blur(10px)}
+.thread-h .tn{font:700 18px/1.1 var(--display);letter-spacing:-.02em}
+.thread-h .ts{font-size:12.5px;color:var(--muted);margin-top:3px}
+.thread-h .tr{margin-left:auto;display:flex;gap:8px;align-items:center}
+.numchip{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 13px;border-radius:99px;background:rgba(184,166,246,.12);border:1px solid rgba(184,166,246,.35);color:var(--lilac);font:500 13px/1 var(--mono)}
+.numchip button{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--lilac);transition:.3s}
+.numchip button:hover{background:var(--lilac);color:#0C0E13}
+.tstat{height:30px;padding:0 12px;border-radius:99px;display:inline-flex;align-items:center;font:500 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.tstat.team{background:rgba(245,184,75,.12);color:var(--amber);border:1px solid rgba(245,184,75,.35)}
+.tstat.ok{background:var(--acid-soft);color:var(--acid);border:1px solid rgba(214,242,60,.3)}
+.msgs{flex:1;overflow:auto;padding:26px 28px 18px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent;
+  background:radial-gradient(circle at 1px 1px,rgba(244,240,232,.045) 1px,transparent 0) 0 0/22px 22px}
+.bw{display:flex;flex-direction:column;max-width:70%}
+.bw.in{align-self:flex-start;align-items:flex-start}
+.bw.out{align-self:flex-end;align-items:flex-end}
+.bw + .bw.in:not(.cont),.bw + .bw.out:not(.cont){margin-top:12px}
+.bubble{padding:11px 15px;border-radius:18px;font-size:14.5px;line-height:1.5;white-space:pre-line;word-wrap:break-word;overflow-wrap:anywhere}
+.in .bubble{background:var(--panel2);border:1px solid var(--line2);border-bottom-left-radius:6px}
+.out .bubble{background:var(--acid);color:#0C0E13;border-bottom-right-radius:6px;font-weight:500}
+.out.dry .bubble{background:rgba(214,242,60,.06);color:var(--ink);border:1.5px dashed rgba(214,242,60,.55);font-weight:400}
+.bubble .tagl{display:block;font:500 9.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;opacity:.6;margin-bottom:6px}
+.bubble a{color:inherit}
+.meta{font:500 10.5px/1 var(--mono);color:var(--dim);margin:6px 6px 0;display:flex;gap:6px;align-items:center}
+.meta .tick{color:var(--acid)}
+.bw.new{animation:pop .55s var(--ease) both}
+.bw.in.new{transform-origin:left bottom}.bw.out.new{transform-origin:right bottom}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.94)}}
+.sys{align-self:center;margin:14px 0;padding:8px 14px;border-radius:99px;font-size:12.5px;background:var(--bg2);border:1px solid var(--line2);color:var(--muted);text-align:center;max-width:80%}
+.sys.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.07)}
+.sys.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.07)}
+.sys.new{animation:pop .55s var(--ease) both}
+.daysep{align-self:center;font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:4px 0 14px}
+.typing{display:flex;gap:5px;padding:14px 16px;border-radius:18px;border-bottom-right-radius:6px;background:rgba(214,242,60,.1);border:1px solid rgba(214,242,60,.25)}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--acid);animation:dots 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes dots{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+.thread-f{padding:12px 24px;border-top:1px solid var(--line);display:flex;gap:18px;font-size:12px;color:var(--muted);background:var(--bg2)}
+.thread-f span{display:flex;align-items:center;gap:7px}
+.thread-f i{display:inline-block;width:12px;height:12px;border-radius:4px}
+.chat-empty{margin:auto;text-align:center;color:var(--dim);max-width:320px}
+.chat-empty b{display:block;font:700 22px/1.2 var(--display);color:var(--muted);margin-bottom:8px;letter-spacing:-.02em}
+.fmt-hint{font:500 11px/1 var(--mono);color:var(--dim);margin:-8px 0 12px}
+
 /* workflows */
 .wf-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .wf{position:relative;padding:24px;border-radius:20px;background:var(--panel);border:1px solid var(--line);transition:transform .5s var(--ease),border-color .3s;transform-style:preserve-3d;overflow:hidden}
@@ -390,7 +466,7 @@ body.is-demo .demo-banner{display:block}
   <div class="wrap">
     <a class="brand" href="#top"><span class="mark"><i></i></span><span>Webinar Autopilot<small>FlexiFunnels · aEvent × Zoom</small></span></a>
     <nav class="nav">
-      <a href="#launch">Launch</a><a href="#live">Live</a><a href="#feed">Chat feed</a><a href="#automations">Automations</a><a href="#history">History</a>
+      <a href="#launch">Launch</a><a href="#live">Live</a><a href="#feed">Conversations</a><a href="#automations">Automations</a><a href="#history">History</a>
     </nav>
     <div class="pills">
       <span class="pill" id="pillGh"><i></i>GitHub</span>
@@ -509,12 +585,26 @@ body.is-demo .demo-banner{display:block}
   <section id="feed">
     <div class="wrap">
       <div class="shead">
-        <div><span class="label"><b>04</b> / Chat feed</span><h2 data-split>What it said, <em class="it">and to whom.</em></h2></div>
-        <p data-reveal>Every message the agent sent, skipped or handed to you, newest first. Numbers and "needs team" questions are pinned on the right so nobody gets missed.</p>
+        <div><span class="label"><b>04</b> / Conversations</span><h2 data-split>Every question. <em class="it">Every answer.</em></h2></div>
+        <p data-reveal>Each attendee gets their own thread: what they typed on the left, the agent's private reply on the right. Timed chats and broadcasts sit in the pinned Everyone thread.</p>
+      </div>
+      <div class="chat" data-reveal>
+        <aside class="convs">
+          <div class="convs-h">
+            <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="convSearch" placeholder="Search a name or message" aria-label="Search conversations"></label>
+            <div class="cfilters" id="cfilters"><button class="on" data-cf="all">All<b id="cfAll"></b></button><button data-cf="replied">Replied<b id="cfReplied"></b></button><button data-cf="team">Team<b id="cfTeam"></b></button><button data-cf="number">Numbers<b id="cfNumber"></b></button></div>
+          </div>
+          <div class="conv-list" id="convList"></div>
+        </aside>
+        <div class="thread">
+          <div class="thread-h" id="threadHead"></div>
+          <div class="msgs" id="msgs"><div class="chat-empty"><b>No conversations yet</b>When attendees start typing in the webinar chat, their threads appear here.</div></div>
+          <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent (sent privately)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
+        </div>
       </div>
       <div class="feed-grid">
         <div class="card" data-reveal>
-          <div class="card-h"><h3>Agent log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a></h3>
+          <div class="card-h"><h3>Activity log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a></h3>
             <div class="filters" id="filters"><span class="glider"></span>
               <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="team">Needs team</button><button data-f="fail">Failed</button>
             </div>
@@ -524,6 +614,7 @@ body.is-demo .demo-banner{display:block}
         <div>
           <div class="card" data-reveal style="margin-bottom:16px">
             <div class="card-h"><h3>Numbers today</h3><button class="btn ghost sm" id="copyNumbers">Copy all</button></div>
+            <div class="fmt-hint">Copies as: Name - Number</div>
             <div class="side-list" id="numbersList"><div class="empty">No numbers yet.</div></div>
           </div>
           <div class="card" data-reveal>
@@ -620,7 +711,7 @@ let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
-const S = { tabs: [], tab: null, slot: '11am', mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const S = { conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, slot: '11am', mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -696,23 +787,34 @@ const Demo = (() => {
     ['REPLY', 'price kya hai?', '{n}, it\'s just $447 (Rs. 36,999 incl. GST) today – here\'s the link: https://sb.flexifunnels.com/get?id=19029. Kindly share your contact number and our team will guide you.'],
     ['REPLY', 'Is EMI available?', '{n}, EMI is available on the same link starting at less than Rs. 1,800/month. Kindly share your contact number, our team will assist you.'],
     ['REPLY', 'recording milegi?', '{n}, sure – share your contact number and our team will send you the recording personally.'],
-    ['NUMBER', '98XXX XX421', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
+    ['NUMBER', '98XXXXX421', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
     ['REPLY', 'I have a job, can I do this?', '{n}, you don\'t need to leave your job. 60 minutes a day is enough to start. Share your contact number and our team will help you plan it.'],
     ['NEEDS TEAM', 'I paid yesterday but did not get login details', ''],
-    ['NUMBER', '91XXX XX077', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
+    ['NUMBER', '91XXXXX077', '{n}, thank you. We\'ve asked our senior mentoring team to connect with you.'],
   ];
-  let k = 0;
-  function event() {
-    const p = people[k % people.length]; const [kind, said, reply] = asks[k % asks.length]; k++;
-    const first = p.split(' ')[0];
-    return [todayStr(), fmtFull(new Date()), `DRY ${kind}`, p, reply.replace('{n}', first), said, kind === 'NEEDS TEAM' ? 'account/login problem – needs a human' : ''];
+  const trivial = ['Yes', 'YES 🔥', '1', 'Mumbai', 'Delhi se', 'T', 'F', 'Excited!', 'Hi sir 🙏', '🔥🔥🔥', 'Jaipur', 'Type 1 – 1'];
+  let k = 0, a = 0, pending = [];
+  const row = (kind, to, sent, said, note = '', at = new Date()) => [todayStr(), fmtFull(at), kind, to, sent, said, note];
+  // one "tick" of fake chat: someone types, and the agent answers on the next tick
+  function tick(at = new Date()) {
+    const out = pending.map((p) => (p[1] = fmtFull(at), p)); pending = [];
+    const p = people[k++ % people.length], first = p.split(' ')[0];
+    if (Math.random() < .4) { out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at)); return out; }
+    const [kind, said, reply] = asks[a++ % asks.length];
+    out.push(row('IN', p, '', said, '', at));
+    const said2 = kind === 'NUMBER' ? `9${(7 + (k % 3))}XXXXX${String(100 + ((k * 37) % 900))}` : said;
+    if (kind === 'NUMBER') out[out.length - 1][5] = said2;
+    pending.push(kind === 'NEEDS TEAM' ? row('DRY NEEDS TEAM', p, '', said, 'account/login problem – needs a human', at) : row(`DRY ${kind}`, p, reply.replace('{n}', first), said2, '', at));
+    return out;
   }
   const log = [];
   return {
-    tabs, rows, log, event, people,
+    tabs, rows, log, tick, people,
     seed() {
-      for (let i = 0; i < 9; i++) log.push(event());
-      toSchedule(rows).filter((x) => x.at < new Date()).slice(-6).forEach((x) => log.push([todayStr(), fmtFull(x.at), `DRY TIMED ${x.type}`, 'Everyone', x.text, '', `@ ${x.host}`]));
+      const now = Date.now();
+      for (let i = 22; i > 0; i--) log.push(...tick(new Date(now - i * 50e3)));
+      toSchedule(rows).filter((x) => x.at < new Date()).slice(-6).forEach((x) => log.push(row(`DRY TIMED ${x.type}`, 'Everyone', x.text, '', `@ ${x.host}`, x.at)));
+      log.sort((x, y) => parseClock(x[1]) - parseClock(y[1]));
     },
     run: { id: 1, name: 'Webinar agent · Variant 3 – 11 AM · dry', display_title: 'Webinar agent · Variant 3 – 11 AM · dry', status: 'in_progress', conclusion: null, created_at: new Date(start - 6 * 60e3).toISOString(), updated_at: new Date().toISOString(), html_url: '#', run_started_at: new Date(start - 6 * 60e3).toISOString() },
   };
@@ -972,14 +1074,15 @@ async function stopRun() {
 }
 
 // ---------- feed ----------
-const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NEEDS TEAM' || s === 'QUESTION') return 'team'; if (s === 'FAILED') return 'fail'; return 'other'; };
+const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NEEDS TEAM' || s === 'QUESTION') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
 async function loadFeed() {
   try {
     if (isDemo()) {
       if (!Demo.log.length) Demo.seed();
-      else if (S.active && Math.random() < .7) Demo.log.push(Demo.event());
+      else if (S.active && Math.random() < .8) Demo.log.push(...Demo.tick());
       S.log = Demo.log.slice();
       S.numbers = Demo.log.filter((r) => kindOf(r[2]) === 'number').map((r) => [r[0], r[1], r[3], r[5], r[5], S.tab?.name || '']);
+      S.numbers = S.numbers.filter((r, i) => S.numbers.findIndex((x) => x[2] === r[2]) === i);
     } else {
       const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal }), feed({ action: 'rows', tab: 'Numbers', from: S.numTotal })]);
       if (l.total < S.logTotal) S.log = []; // sheet was cleared
@@ -991,7 +1094,8 @@ async function loadFeed() {
 let shownLog = 0, firstPaint = true; const seenRows = new Set();
 function todays(rows) { const t = todayStr(); return rows.filter((r) => r[0] === t); }
 function renderFeed() {
-  const rows = todays(S.log).filter((r) => !/^(START|STOP)$/.test(String(r[2]).replace(/^DRY /, '')));
+  const rows = todays(S.log).filter((r) => !/^(START|STOP|IN)$/.test(String(r[2]).replace(/^DRY /, '')));
+  renderConversations();
   const list = $('#feedList');
   const vis = rows.filter((r) => S.filter === 'all' || kindOf(r[2]) === S.filter).slice(-150).reverse();
   const isNew = (r) => { const k = r.slice(1, 6).join('|'); if (seenRows.has(k)) return ''; seenRows.add(k); return firstPaint ? '' : 'new'; };
@@ -1005,12 +1109,111 @@ function renderFeed() {
   if (rows.length !== shownLog) shownLog = rows.length;
 
   const nums = todays(S.numbers).slice().reverse();
-  $('#numbersList').innerHTML = nums.length ? nums.map((r) => { const [, time, name, num] = r; return `<div class="person ${isNew(['n', ...r])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(num)}" aria-label="Copy number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
+  $('#numbersList').innerHTML = nums.length ? nums.map((r) => { const [, time, name, num] = r; return `<div class="person ${isNew(['n', ...r])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(contact(name, num))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
   const team = rows.filter((r) => kindOf(r[2]) === 'team').reverse();
   $('#teamCount').textContent = team.length;
   $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
   firstPaint = false;
 }
+// ---------- conversations ----------
+const contact = (name, num) => `${String(name).trim()} - ${String(num).trim()}`;
+function contactsToday() {
+  const seen = new Set(), out = [];
+  todays(S.numbers).forEach((r) => { const name = r[2], num = String(r[3]).replace(/\s+/g, ''); if (!num || seen.has(num)) return; seen.add(num); out.push({ name, num: r[3] }); });
+  return out;
+}
+function copyText(text, msg) {
+  const done = () => toast(msg);
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done)); else fallbackCopy(text, done);
+}
+function fallbackCopy(text, done) {
+  const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = 0; document.body.appendChild(t); t.select();
+  try { document.execCommand('copy'); done(); } catch { toast('Copy failed – select and copy manually', true); } t.remove();
+}
+function avatarStyle(name) {
+  let h = 0; for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return `background:hsl(${h} 38% 20%);color:hsl(${h} 85% 78%)`;
+}
+const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+const linkify = (t) => esc(t).replace(/https?:\/\/[^\s<]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+const shortTime = (t) => String(t).replace(/:\d\d(\s)/, '$1');
+
+function buildConversations() {
+  const map = new Map();
+  const get = (name) => { if (!map.has(name)) map.set(name, { name, ev: [], last: -1, preview: '', time: '', fromAgent: false, team: false, replied: false, hasIn: false }); return map.get(name); };
+  const all = get('Everyone'); all.broadcast = true;
+  todays(S.log).forEach((r, i) => {
+    const [, time, kind, to, sent, said, note] = r;
+    const s = String(kind).replace(/^DRY /, '').toUpperCase(), dry = /^DRY /.test(kind);
+    const touch = (c, text, fromAgent, teamLast = false) => { c.last = i; c.preview = text; c.time = time; c.fromAgent = fromAgent; c.teamLast = teamLast; };
+    if (['START', 'STOP', 'WARNING'].includes(s)) return;
+    if (s === 'IN') { const c = get(to); c.hasIn = true; c.ev.push({ side: 'in', text: said, time }); touch(c, said, false); return; }
+    if (s.startsWith('TIMED') || s === 'SOCIAL PROOF' || s === 'OBJECTION') {
+      all.ev.push({ side: 'out', text: sent, time, dry, tag: s.startsWith('TIMED') ? (s.slice(6).trim() || 'Timed chat') : s });
+      touch(all, sent, true); return;
+    }
+    if (s === 'SKIPPED') { all.ev.push({ side: 'sys', text: `Skipped, too late: ${sent.split('\n')[0]}`, time }); return; }
+    if (!to || to === 'Everyone') return;
+    const c = get(to);
+    if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
+    if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number thank-you' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
+    else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
+    else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
+  });
+  const nums = {}; contactsToday().forEach((x) => { nums[x.name] = x.num; });
+  map.forEach((c) => { c.number = nums[c.name] || null; });
+  if (!all.ev.length) map.delete('Everyone');
+  return [...map.values()].filter((c) => c.ev.length).sort((a, b) => (b.broadcast - a.broadcast) || (b.last - a.last));
+}
+const convSeen = {}, convListSeen = {}; let lastConv = null;
+function renderConversations(switched = false) {
+  const convs = buildConversations();
+  const people = convs.filter((c) => !c.broadcast);
+  $('#cfAll').textContent = people.length; $('#cfReplied').textContent = people.filter((c) => c.replied).length;
+  $('#cfTeam').textContent = people.filter((c) => c.team).length; $('#cfNumber').textContent = people.filter((c) => c.number).length;
+  const q = S.csearch || '';
+  const vis = convs.filter((c) => (S.cfilter === 'all' || (S.cfilter === 'replied' && c.replied) || (S.cfilter === 'team' && c.team) || (S.cfilter === 'number' && c.number)) && (S.cfilter === 'all' || !c.broadcast))
+    .filter((c) => !q || c.name.toLowerCase().includes(q) || c.ev.some((e) => String(e.text).toLowerCase().includes(q)));
+  if (!S.conv || !convs.some((c) => c.name === S.conv)) S.conv = (people[0] || convs[0] || {}).name || null;
+
+  $('#convList').innerHTML = vis.length ? vis.map((c) => {
+    const fresh = convListSeen[c.name] !== undefined && c.ev.length > convListSeen[c.name] && c.name !== S.conv;
+    convListSeen[c.name] = c.ev.length;
+    return `<button class="conv ${c.name === S.conv ? 'on' : ''} ${fresh ? 'fresh' : ''}" data-conv="${esc(c.name)}">
+      <span class="av ${c.broadcast ? 'bc' : ''}" ${c.broadcast ? '' : `style="${avatarStyle(c.name)}"`}>${c.broadcast ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>' : esc(initials(c.name))}
+        ${c.team ? '<span class="badge team">!</span>' : c.number ? '<span class="badge num"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.6a1 1 0 0 1-.25 1z"/></svg></span>' : ''}</span>
+      <span class="ci"><span class="cr"><b>${c.broadcast ? 'Everyone · timed chats' : esc(c.name)}</b><time>${esc(shortTime(c.time))}</time></span>
+      <span class="cp ${c.teamLast ? 'team' : ''}">${c.teamLast ? 'Needs the team · ' : c.fromAgent && !c.broadcast ? '<i>Agent:</i> ' : ''}${esc(String(c.preview).split('\n')[0])}</span></span>
+    </button>`;
+  }).join('') : '<div class="empty">No matching conversations.</div>';
+
+  const c = convs.find((x) => x.name === S.conv);
+  const head = $('#threadHead'), box = $('#msgs');
+  if (!c) { head.innerHTML = ''; box.innerHTML = '<div class="chat-empty"><b>No conversations yet</b>When attendees start typing in the webinar chat, their threads appear here.</div>'; return; }
+  const changed = switched || lastConv !== c.name; lastConv = c.name;
+  const sent = c.ev.filter((e) => e.side === 'out').length, got = c.ev.filter((e) => e.side === 'in').length;
+  head.innerHTML = `<span class="av ${c.broadcast ? 'bc' : ''}" ${c.broadcast ? '' : `style="${avatarStyle(c.name)}"`}>${c.broadcast ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>' : esc(initials(c.name))}</span>
+    <div><div class="tn">${c.broadcast ? 'Everyone' : esc(c.name)}</div><div class="ts">${c.broadcast ? `${sent} timed chats & broadcasts to all attendees` : `${got} message${got === 1 ? '' : 's'} from them · ${sent} repl${sent === 1 ? 'y' : 'ies'} from the agent`}</div></div>
+    <div class="tr">${c.number ? `<span class="numchip">${esc(c.number)}<button data-copy="${esc(contact(c.name, c.number))}" aria-label="Copy name and number" title="Copy as Name - Number"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : ''}
+    ${c.team ? '<span class="tstat team">Needs team</span>' : c.replied ? '<span class="tstat ok">Answered</span>' : ''}</div>`;
+
+  const prev = changed ? c.ev.length : (convSeen[c.name] ?? c.ev.length);
+  convSeen[c.name] = c.ev.length;
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
+  let html = '<div class="daysep">Today</div>';
+  c.ev.forEach((e, i) => {
+    const isNew = i >= prev ? 'new' : '';
+    if (e.side === 'sys') { html += `<div class="sys ${e.cls || ''} ${isNew}">${esc(e.text)} · ${esc(shortTime(e.time))}</div>`; return; }
+    const cont = i > 0 && c.ev[i - 1].side === e.side ? 'cont' : '';
+    html += `<div class="bw ${e.side} ${e.dry ? 'dry' : ''} ${cont} ${isNew}"><div class="bubble">${e.tag ? `<span class="tagl">${esc(e.tag)}</span>` : ''}${linkify(e.text)}</div>
+      <div class="meta">${esc(shortTime(e.time))}${e.side === 'out' ? (e.dry ? ' · dry run, not sent' : ` · ${c.broadcast ? 'to everyone' : 'private'} <span class="tick">✓✓</span>`) : ''}</div></div>`;
+  });
+  const lastEv = c.ev[c.ev.length - 1], lastAt = lastEv && parseClock(lastEv.time);
+  if (!c.broadcast && lastEv?.side === 'in' && !c.team && S.active && lastAt && Date.now() - lastAt < 25e3) html += '<div class="bw out"><div class="typing"><i></i><i></i><i></i></div></div>';
+  box.innerHTML = html;
+  if (changed || nearBottom) box.scrollTo({ top: box.scrollHeight, behavior: changed ? 'auto' : 'smooth' });
+}
+
 const prevK = {};
 function renderKpis() {
   const rows = todays(S.log); const c = { timed: 0, reply: 0, number: 0, team: 0 };
@@ -1105,11 +1308,13 @@ function schedule(ss, tab) {
   const h = headerIndex(v);
   return { tab: tab, start: v[0][0], items: h < 0 ? [] : v.slice(h + 1).filter(function (r) { return r[1] && r[2]; }) };
 }
+// First call (from=0): latest 3000 rows. After that: only rows after \`from\`.
 function rows(ss, tab, from) {
   const sh = ss.getSheetByName(tab);
   if (!sh) return { total: 0, rows: [] };
-  const last = sh.getLastRow(), start = Math.max(2, from + 1, last - 399);
-  return { total: last, from: start, rows: last >= start ? sh.getRange(start, 1, last - start + 1, sh.getLastColumn()).getDisplayValues() : [] };
+  const last = sh.getLastRow();
+  const start = from > 0 ? Math.max(2, from + 1) : Math.max(2, last - 2999), end = Math.min(last, start + 2999);
+  return { total: end, from: start, rows: end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [] };
 }
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }`;
 function openDrawer() {
@@ -1218,12 +1423,15 @@ $$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = 
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#launchBtn').addEventListener('click', onLaunchClick);
 $('#filters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#filters button').forEach((x) => x.classList.toggle('on', x === b)); S.filter = b.dataset.f; moveGlider(); renderFeed(); });
-document.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) navigator.clipboard?.writeText(c.dataset.copy).then(() => toast('Number copied')); });
+document.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy, `Copied: ${c.dataset.copy}`); });
 $('#copyNumbers').addEventListener('click', () => {
-  const t = todays(S.numbers).map((r) => `${r[2]}\t${r[3]}`).join('\n');
-  if (!t) return toast('No numbers yet', true);
-  navigator.clipboard?.writeText(t).then(() => toast('All numbers copied – paste into a sheet'));
+  const list = contactsToday();
+  if (!list.length) return toast('No numbers yet', true);
+  copyText(list.map((c) => contact(c.name, c.num)).join('\n'), `${list.length} contact${list.length > 1 ? 's' : ''} copied as Name - Number`);
 });
+$('#convSearch').addEventListener('input', (e) => { S.csearch = e.target.value.trim().toLowerCase(); renderConversations(); });
+$('#cfilters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#cfilters button').forEach((x) => x.classList.toggle('on', x === b)); S.cfilter = b.dataset.cf; renderConversations(); });
+$('#convList').addEventListener('click', (e) => { const b = e.target.closest('[data-conv]'); if (!b) return; S.conv = b.dataset.conv; renderConversations(true); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); $('#mNo').click(); } });
 window.addEventListener('resize', moveGlider);
 

@@ -28,7 +28,7 @@ It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats fro
 | **Private replies** | Answers each attendee question **privately** using only the **Attendee Replies** tab, with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
 | **Numbers** | Phone numbers typed in chat go to a **Numbers** tab, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
 | **Objections** | When 3+ different people raise the same objection within 5 min, it posts the matching line from **Objection Handling** to Everyone, at most once per 15 min per objection. |
-| **Logging** | Everything it sends, skips, fails or hands to the team goes into an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself and never edits your other tabs. |
+| **Logging** | Every attendee message (kind `IN`) and everything the agent sends, skips, fails or hands to the team goes into an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself and never edits your other tabs. |
 
 It ignores simple reactions without calling the AI: "Yes", "1", T/F answers, greetings and emojis. If one person sends several messages within a few seconds, they get one combined reply.
 
@@ -54,12 +54,13 @@ The control room for everything. Download the file and open it in Chrome. It run
 **Launch window:** GitHub jobs max out at 6 hours, so the agent can start at most **45 minutes before the first chat**. It then waits and joins 5 minutes early. Earlier than that, the button becomes **Arm**: keep the tab open and it launches itself when the window opens.
 
 While a run is going, the dashboard shows:
+- **Conversations**: a chat view with one thread per attendee. What they typed is on the left and the agent's private replies are on the right. Their number is in the thread header with a copy button. You can search and filter by Replied / Team / Numbers, and timed chats and broadcasts sit in a pinned **Everyone** thread.
 - Live status with a **Stop agent** button
 - Each step of the GitHub run
 - A countdown to the next timed chat, and a timeline of the whole tab
 - Counters: chats sent, replies, numbers, needs-team
 - The full chat feed with filters
-- Today's numbers (copy one or all) and the questions left for the team
+- Today's numbers, copied as `Name - Number`, one per line, duplicates removed (one or all), and the questions left for the team
 - Run history, and one-click buttons for the other workflows in the repo
 
 Until you connect it, it shows **demo data** with a banner. To connect, click **⚙**:
@@ -99,6 +100,8 @@ Use the same service account as the AiSensy sync. Share the chat sheet with its 
 5. Put the web-app URL and the key into the dashboard.
 
 The feed is read-only and answers only requests that carry the key.
+
+> **Updated the script?** Apps Script keeps serving the old code until you go to **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**. The URL stays the same.
 
 ### 5. Repo secrets and variables
 In the repo, go to [Settings → Secrets and variables → Actions](https://github.com/Sarthak-B/webinar-chat-automation/settings/secrets/actions).

@@ -17,7 +17,9 @@ const agentLog = new SheetLogger(sheet, cfg.logTab, ['Date', 'Time', 'Kind', 'To
 const numbers = new SheetLogger(sheet, cfg.numbersTab, ['Date', 'Time', 'Name', 'Number', 'Message', 'Webinar tab']);
 const today = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
 const record = (kind, to, sent, said = '', note = '') => {
-  agentLog.add([today, clock(), cfg.dryRun ? `DRY ${kind}` : kind, to || 'Everyone', sent || '', said, note]);
+  // "IN" rows are what attendees typed – not something the agent sends, so they never get the DRY prefix.
+  const k = cfg.dryRun && kind !== 'IN' ? `DRY ${kind}` : kind;
+  agentLog.add([today, clock(), k, to || 'Everyone', sent || '', said, note]);
 };
 
 // ---------- Step 1: which tab? (asked before any schedule data is read) ----------
@@ -250,6 +252,7 @@ async function chatLoop() {
       if (first) continue; // don't answer chat history from before we joined
       const { name, isTeam } = cleanSender(m.sender);
       if (!name || isTeam) continue;
+      record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
       queueAttendee(name, m.text);
     }
     first = false;
