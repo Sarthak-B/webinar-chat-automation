@@ -1,110 +1,218 @@
-# FlexiFunnels Webinar Chat Agent
+# Webinar Chat Agent · FlexiFunnels
 
-Joins the aEvent Zoom webinar as a logged-in Zoom account and does three jobs:
+An AI agent that runs the chat of FlexiFunnels' automated aEvent × Zoom webinars, controlled from one dashboard.
 
-1. **Timed chats.** It posts every row of the chosen variant tab (e.g. `Variant 3 – 11 AM`) at its **Host Time**, to Everyone. Host Time is the column your sheet already works out from the yellow cells. Change the yellow cells and the agent follows, since it re-reads the sheet every minute.
-2. **Private replies.** It reads attendee chats and answers each question **privately** with AI. The AI can only use the **Attendee Replies** tab, with `{Name}` replaced by the attendee's first name. It never sends a link that isn't in the sheet. Anything it can't answer is logged as **NEEDS TEAM** for a human to pick up.
-3. **Number drops.**
-   - Phone numbers in chat go to a **Numbers** tab, and the person gets the "Shared phone number" thank-you privately.
-   - Every 12 minutes it posts the social-proof line, *"Thank you A, B & C…"*, using only real names of people who shared a number.
-   - When 3+ different people raise the same objection within 5 minutes, it posts that line from **Objection Handling** to Everyone, at most once every 15 minutes per objection.
+It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
 
-Everything the agent sends, skips or can't handle is written to an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself, and never edits your existing tabs.
-
-Simple reactions like "Yes", "1", "T/F" answers and emojis are ignored without calling the AI. If someone sends several messages in a few seconds, they get one combined reply.
+```
+ ┌──────────────────────┐   launch (tab · link · mode)    ┌───────────────────────────┐
+ │  Autopilot dashboard │ ─────────────────────────────▶ │ GitHub Actions             │
+ │  dashboard/index.html│ ◀───── run status / stop ────── │ webinar-agent.yml          │
+ └──────────┬───────────┘                                 │  └ src/agent.js (Playwright)│
+            │ reads tabs, Agent Log, Numbers              └─────┬───────────────┬─────┘
+            ▼                                                   │ joins + chats │ reads / writes
+ ┌──────────────────────┐                                       ▼               ▼
+ │ Apps Script feed     │ ◀──────────── same Google Sheet ──── Zoom webinar   Google Sheet
+ │ apps-script/Code.gs  │                                      (aEvent)       (chat tabs)
+ └──────────────────────┘
+```
 
 ---
 
-## The dashboard (`dashboard/index.html`)
+## What the agent does
 
-This is the control room for the whole system. Open the file in Chrome. It runs from your computer and needs no hosting.
+| Job | How |
+|---|---|
+| **Asks for the tab first** | Before reading any schedule data it needs a tab. From the dashboard, that's the tab you click. From a terminal, it lists every tab with a `Video Time` header and asks you to pick a number. |
+| **Timed chats** | Posts every row of that tab at its **Host Time** (column B) to Everyone. Host Time is calculated by the sheet from the yellow cells. The agent re-reads the sheet every minute, so edits made during the webinar are picked up. Multi-line messages stay as one message. |
+| **Private replies** | Answers each attendee question **privately** using only the **Attendee Replies** tab, with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
+| **Numbers** | Phone numbers typed in chat go to a **Numbers** tab, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
+| **Objections** | When 3+ different people raise the same objection within 5 min, it posts the matching line from **Objection Handling** to Everyone, at most once per 15 min per objection. |
+| **Logging** | Everything it sends, skips, fails or hands to the team goes into an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself and never edits your other tabs. |
 
-1. **Pick the tab:** shows every tab with a "Video Time" header, read live from the sheet.
-2. **Pick the Zoom link:** chosen automatically from the tab name.
-3. **Pick the mode:** Dry run / Timed chats / Everything.
-4. **Launch.** You can launch up to 45 minutes before the first chat, because GitHub jobs max out at 6 hours. Before that, **Arm** it and keep the tab open, and it launches itself when the window opens.
+It ignores simple reactions without calling the AI: "Yes", "1", T/F answers, greetings and emojis. If one person sends several messages within a few seconds, they get one combined reply.
 
-While a run is going you get a live status orb with a **Stop** button, run progress, a timeline with a "next chat" countdown, counters, the full agent log with filters, today's numbers (copy one or all), the "needs the team" list, run history, and one-click buttons for the other workflows in the repo (e.g. the Zoom session check).
+### Modes (picked per launch)
 
-It opens in **demo mode** with sample data until you connect it with the ⚙ button:
-- **GitHub:** owner, repo, and a fine-grained token for this repo with *Actions: Read and write* and *Contents: Read*. The token is stored only in that browser.
-- **Sheet feed:** paste `apps-script/Code.gs` into the sheet (Extensions → Apps Script) and change `KEY`. Deploy it as a web app (Execute as: Me, Who has access: Anyone). Paste the URL and key into the dashboard. The key is what keeps strangers out, so make it long.
+| Mode | Timed chats | Number thank-yous | AI replies | Use it for |
+|---|---|---|---|---|
+| `dry` | logged only | logged only | logged only | First live test. The agent sends nothing; compare its log with what the team did. |
+| `timed` | ✅ | ✅ | ❌ | Once timing and Zoom selectors are confirmed. |
+| `full` | ✅ | ✅ | ✅ | Once the AI replies look right. Keep someone watching **Needs the team**. |
 
-The agent **always asks which tab first**. From the dashboard, it's the tab you picked. When you run it from a terminal without `SCHEDULE_TAB`, it lists the schedule tabs and asks for a number before reading anything.
+---
+
+## The dashboard: `dashboard/index.html`
+
+The control room for everything. Download the file and open it in Chrome. It runs from your computer, so there's nothing to host. It's built for desktop.
+
+1. **Pick the tab:** cards for every schedule tab, read live from the sheet, with chat count and first → last time.
+2. **Pick the Zoom link:** 11 AM or 7:30 PM, chosen automatically from the tab name.
+3. **Pick the mode:** dry / timed / full.
+4. **Launch**, or **Arm** it.
+
+**Launch window:** GitHub jobs max out at 6 hours, so the agent can start at most **45 minutes before the first chat**. It then waits and joins 5 minutes early. Earlier than that, the button becomes **Arm**: keep the tab open and it launches itself when the window opens.
+
+While a run is going, the dashboard shows:
+- Live status with a **Stop agent** button
+- Each step of the GitHub run
+- A countdown to the next timed chat, and a timeline of the whole tab
+- Counters: chats sent, replies, numbers, needs-team
+- The full chat feed with filters
+- Today's numbers (copy one or all) and the questions left for the team
+- Run history, and one-click buttons for the other workflows in the repo
+
+Until you connect it, it shows **demo data** with a banner. To connect, click **⚙**:
+
+| Field | Value |
+|---|---|
+| Owner / Repo | `Sarthak-B` / `webinar-chat-automation` |
+| Access token | Fine-grained token for **this repo only** with *Actions: Read and write* + *Contents: Read* ([create one](https://github.com/settings/personal-access-tokens/new)). Saved only in that browser. |
+| Agent workflow file | `webinar-agent.yml` |
+| Apps Script URL + key | From step 4 of the setup below |
 
 ---
 
 ## One-time setup
 
 ### 1. Zoom account for the agent
-Use a Zoom account that aEvent adds as an **alternative host or panelist**. Don't use the account aEvent's presenter bot runs on, because logging the same account in twice can kick the presenter out. Set its Zoom display name to whatever attendees should see, e.g. *FlexiFunnels Support*.
+Use a Zoom account that aEvent adds as an **alternative host or panelist**. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Support*.
 
-### 2. Save the Zoom login (on your laptop)
+### 2. Save the Zoom login (on your laptop, Node 20+)
 ```bash
+git clone https://github.com/Sarthak-B/webinar-chat-automation.git
+cd webinar-chat-automation
 npm install
 npx playwright install chromium
 npm run save-session
 ```
-A browser opens. Log into that Zoom account yourself, including the OTP, then press Enter in the terminal. You get `zoom-session.b64`. Put it in the secret (step 4), then **delete both session files from your laptop**. They work like the account password.
+A browser opens. Log into the agent's Zoom account yourself, including the OTP, and press Enter in the terminal. This creates `zoom-session.b64`. Save it as the `ZOOM_SESSION_B64` secret (step 5), then **delete `zoom-session.json` and `zoom-session.b64`**. They work like the account password.
 
-### 3. Google Sheet access
-Use the same service account as the AiSensy sync. Share the chat sheet with the service account's email as **Editor**. It needs Editor so it can add the Agent Log and Numbers tabs.
+### 3. Google service account
+Use the same service account as the AiSensy sync. Share the chat sheet with its email as **Editor**, so it can add the Agent Log and Numbers tabs.
 
-### 4. GitHub repo (private) → Settings → Secrets and variables → Actions
+### 4. Sheet feed for the dashboard
+1. Open the chat sheet → **Extensions → Apps Script**.
+2. Paste in `apps-script/Code.gs` (the dashboard's ⚙ panel also has it with a copy button).
+3. Change `KEY` to a long random string.
+4. **Deploy → New deployment → Web app**, with *Execute as: Me* and *Who has access: Anyone*.
+5. Put the web-app URL and the key into the dashboard.
+
+The feed is read-only and answers only requests that carry the key.
+
+### 5. Repo secrets and variables
+In the repo, go to [Settings → Secrets and variables → Actions](https://github.com/Sarthak-B/webinar-chat-automation/settings/secrets/actions).
 
 **Secrets**
 
 | Name | Value |
 |---|---|
-| `ZOOM_SESSION_B64` | contents of `zoom-session.b64` (`gh secret set ZOOM_SESSION_B64 < zoom-session.b64`) |
-| `ZOOM_JOIN_URL_11AM` | join link of the 11 AM webinar for the agent's account (panelist link, or the normal join link if it's an alternative host) |
-| `ZOOM_JOIN_URL_730PM` | same for 7:30 PM |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | the service-account JSON |
-| `OPENAI_API_KEY` | OpenAI key |
-| `SECRETS_PAT` | fine-grained personal access token for **this repo only**, permission **Secrets: Read and write**. Lets the agent save the refreshed Zoom login after each run. |
+| `ZOOM_SESSION_B64` | Contents of `zoom-session.b64`, or `gh secret set ZOOM_SESSION_B64 < zoom-session.b64` |
+| `ZOOM_JOIN_URL_11AM` | The 11 AM webinar join link for the agent's account (panelist link, or the normal link if it's an alternative host) |
+| `ZOOM_JOIN_URL_730PM` | Same for the 7:30 PM webinar |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | The service-account JSON key |
+| `OPENAI_API_KEY` | OpenAI API key (only used in `full` mode) |
+| `SECRETS_PAT` | Fine-grained token for this repo with **Secrets: Read and write**. Lets the agent save the refreshed Zoom login after each run, so it doesn't expire. |
 
 **Variables**
 
 | Name | Example | What it does |
 |---|---|---|
-| `SHEET_ID` | `1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8` | the chat sheet |
-| `SCHEDULE_TAB_11AM` | `Variant 3 – 11 AM` | tab used at 11 AM; must match the tab name exactly, en dash included |
-| `SCHEDULE_TAB_730PM` | `Variant 4 – 7:30 PM` | tab used at 7:30 PM |
-| `AGENT_NAME` | `FlexiFunnels Support` | the agent account's display name, so it ignores its own messages |
-| `TEAM_NAMES` | `Arman,Presenter` | comma-separated names whose chats are never answered |
-| `OPENAI_MODEL` | `gpt-4o-mini` | any OpenAI chat model |
+| `SHEET_ID` | the long ID in the sheet's URL | Which sheet to use |
+| `AGENT_NAME` | `FlexiFunnels Support` | The agent account's Zoom display name, so it ignores its own messages |
+| `TEAM_NAMES` | `Arman,Support` | Comma-separated names whose chats are never answered |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Any OpenAI chat model (default `gpt-4o-mini`) |
+
+### 6. Check the Zoom selectors once
+Zoom's web client changes its HTML now and then. Every selector the agent uses is in `SEL` at the top of `src/zoom.js`. Before the first real run, watch it on a live webinar:
+
+```bash
+cp .env.example .env    # fill it in; keep DRY_RUN=true and HEADLESS=false
+npm run agent:local     # leave SCHEDULE_TAB empty and it asks which tab
+```
+
+A visible Chrome joins the webinar. Send a chat from your phone; the terminal should print `[DRY RUN] → <your name>: …`. If nothing appears, right-click a chat message → **Inspect** and update `chatItem`, `chatSender` and `chatText`. On the first `timed` run, also check `chatInput` (the message box) and `receiverButton` (the "To:" dropdown).
 
 ---
 
 ## Running it
 
-- **From the dashboard** (normal way): pick tab → link → mode → Launch. The mode sets dry run and auto-reply for that run.
-- **From GitHub:** Actions → *Webinar chat agent* → Run workflow. Type the exact tab name, then pick the slot and mode.
-- **Session check:** runs every morning at 8:05 AM, and you can also run it from the dashboard's Automations section. If the Zoom login has expired, it fails and GitHub emails you. Run `npm run save-session` again and update the secret.
+- **Dashboard** (normal way): tab → link → mode → **Launch**.
+- **GitHub:** [Actions → Webinar chat agent → Run workflow](https://github.com/Sarthak-B/webinar-chat-automation/actions/workflows/webinar-agent.yml). Type the exact tab name (en dash included, e.g. `Variant 3 – 11 AM`), then pick the slot and mode.
+- **Stop:** **Stop agent** in the dashboard, or cancel the run on GitHub. Either way it leaves the webinar and saves the refreshed login.
+- **Zoom login check:** `session-check.yml` runs daily at 8:05 AM IST, or on demand from the dashboard. If the login has expired, the run fails and GitHub emails you. Run `npm run save-session` again and update `ZOOM_SESSION_B64`.
 
-### Rollout plan
-1. **Dry run** on one live webinar while the team handles chat as usual. Afterwards, compare the dashboard's feed (or the Agent Log tab) with what the team actually did.
-2. **Timed chats** mode once the timing and Zoom selectors are confirmed.
-3. **Everything** once the AI replies look right. Keep one person watching "Needs the team".
+Launch at least 10 minutes before the first chat, because GitHub runners take 1–3 minutes to start.
 
 ---
 
-## Checking selectors (do this before the first dry run)
+## Sheet layout it expects
 
-Zoom's web client changes its HTML now and then. Every selector the agent uses is in `SEL` at the top of `src/zoom.js`. To check them on a real session:
+**Schedule tabs** (any tab with a `Video Time` header row):
 
-```bash
-cp .env.example .env     # fill it in, keep DRY_RUN=true and HEADLESS=false
-npm run agent:local        # leave SCHEDULE_TAB empty and it asks which tab
+| A: Video Time | B: Host Time | C: Chat | D: Type |
+|---|---|---|---|
+| `Pre-session` | `10:45:00 am` | Welcome! We start in 15 minutes… | Hype |
+| `00:07:35` | `11:02:37 am` | Hi everyone | Engagement |
+
+The agent sends column C at the clock time in column B. Rows with an empty B or C are skipped.
+
+**Attendee Replies:** a `When the attendee says… | Reply` table. The agent needs the **Shared phone number** row for number thank-yous.
+
+**Objection Handling:** an `Objection | Chat to post` table.
+
+After changing the layout, run `npm test -- <exported sheet file>` to confirm every tab still parses.
+
+---
+
+## Project map
+
 ```
-
-A visible Chrome joins the webinar. Send a test chat from your phone and watch the terminal: you should see `[DRY RUN] → <your name>: …`. If nothing shows up, right-click a chat message → Inspect, and update `chatItem` / `chatSender` / `chatText` in `src/zoom.js`. Do the same for the message box (`chatInput`) and the "To:" dropdown (`receiverButton`) on the first non-dry run.
+.github/workflows/
+  webinar-agent.yml     runs the agent (started from the dashboard: tab, slot, mode)
+  session-check.yml     daily Zoom login check + refresh
+dashboard/index.html    Autopilot dashboard (single self-contained file)
+apps-script/Code.gs     keyed, read-only sheet feed for the dashboard
+src/
+  agent.js              main loop: asks for the tab, timed chats, replies, numbers, logging
+  brain.js              AI reply logic, phone detection, safety checks on links
+  zoom.js               Playwright: join, read chat, send (all selectors in SEL)
+  schedule.js           parses schedule / replies / objection tabs
+  sheets.js             Google Sheets read + batched log writes
+  config.js             all settings (env vars)
+scripts/
+  save-session.js       one-time Zoom login → zoom-session.b64
+  check-session.js      verifies the saved login
+test/schedule.test.js   parser tests (pass an exported sheet to test real tabs)
+```
 
 ## Tuning (optional env vars)
 
-`LATE_GRACE_SEC` (90): skip timed chats more overdue than this, e.g. after a restart · `SEND_GAP_MS` (2500): gap between sends · `ATTENDEE_COOLDOWN_SEC` (45) · `SOCIAL_PROOF_EVERY_MIN` (12) · `OBJECTION_THRESHOLD` (3) · `OBJECTION_COOLDOWN_MIN` (15) · `JOIN_EARLY_MIN` (5)
+| Var | Default | Meaning |
+|---|---|---|
+| `LATE_GRACE_SEC` | 90 | Skip timed chats more overdue than this (e.g. after a restart) |
+| `SEND_GAP_MS` | 2500 | Minimum gap between any two messages |
+| `ATTENDEE_COOLDOWN_SEC` | 45 | Minimum gap between two AI replies to the same person |
+| `SOCIAL_PROOF_EVERY_MIN` | 12 | How often the "Thank you A, B & C" line is posted |
+| `OBJECTION_THRESHOLD` | 3 | People raising one objection within 5 min before it's posted |
+| `OBJECTION_COOLDOWN_MIN` | 15 | Minimum gap between two posts of the same objection |
+| `JOIN_EARLY_MIN` | 5 | Minutes before the first chat to join |
 
-## Safety notes
-- The Zoom session file gives full access to that account. It only ever lives in the GitHub secret and is deleted at the end of each job. No screenshots or traces are uploaded. Keep the repo private.
-- GitHub runners usually take 1–3 minutes to start, so launch at least 10 minutes before the first chat.
-- `npm test -- <exported sheet file>` checks that all tabs still parse after you edit the sheet's layout.
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Dashboard: "Sheet: Wrong key" | The key in ⚙ doesn't match `KEY` in the Apps Script. After editing the script, deploy a **new version**. |
+| Dashboard: "GitHub: Bad credentials" / 404 | Token expired, or it doesn't cover this repo with *Actions: Read and write*. |
+| Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` is missing or broken. Run `npm run save-session` again. |
+| Log says "Zoom session logged out" | The login expired. Run `save-session` again. Joining still works through the link, but without the account's powers. |
+| Joins but nothing appears in the log | Chat selectors have changed. See setup step 6. |
+| Messages logged as FAILED · "attendee not found" | Selector for the "To:" dropdown or its search box. See step 6. |
+| "Tab not found" | The tab name must match exactly, including the en dash `–`. Pick it from the dashboard instead of typing it. |
+
+## Security
+
+- **Make this repo private** (Settings → General → Danger zone → Change visibility). It contains your webinar flow and sheet structure. Secrets are never in the code.
+- The saved Zoom login gives full access to that account. It only lives in the `ZOOM_SESSION_B64` secret, and each job deletes it at the end. No screenshots, traces or logs with it are uploaded.
+- Dashboard tokens are saved only in the browser you enter them in. Use it on your own computer.
+- Messages from attendees are treated as data. The AI is told to ignore instructions inside them, and any link it writes that isn't in the sheet blocks the reply.

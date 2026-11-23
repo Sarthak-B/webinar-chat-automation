@@ -615,7 +615,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_CFG = { owner: '', repo: '', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: 'https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit', demo: null };
+const DEFAULT_CFG = { owner: '', repo: '', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', demo: null };
 let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
