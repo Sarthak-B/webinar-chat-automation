@@ -218,16 +218,25 @@ Optional tuning (number asks per person, messages per minute, etc.) can also be 
 
 ---
 
-## Step 10b: Host the dashboard on FlexiFunnels (optional, instead of Vercel)
+## Step 10b: Host the dashboard on FlexiFunnels (optional, instead of or alongside Vercel)
 
 1. In FlexiFunnels, create a page (e.g. *Webinar Automation Dashboard*) and add a **Custom Code** element.
-2. Open [`dashboard/flexifunnels-embed.html`](dashboard/flexifunnels-embed.html), copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**.
-3. Open the published page. The dashboard fills the whole screen, and everything works as on Vercel: launch, stop, conversations, history, workflows and copy buttons.
+2. Open [`dashboard/flexifunnels-loader.html`](dashboard/flexifunnels-loader.html), copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**. You only do this **once**.
+3. Open the published page or **Preview**. The editor canvas may only show the placeholder. The dashboard fills the screen.
+
+**It stays connected to GitHub.** Every time the page opens, the loader fetches the **latest** `dashboard/index.html` from the repo, so every push shows up within about 5 minutes, with no re-pasting. It tries, in order:
+
+| Order | Source | When it's used |
+|---|---|---|
+| 1 | GitHub, public file (`raw.githubusercontent.com`) | the repo is public |
+| 2 | GitHub API with the token saved in the dashboard's ⚙ settings | the repo is private (token B needs *Contents: Read*, which it already has) |
+| 3 | The Vercel deployment | neither of the above worked (e.g. a private repo, opened for the first time on a new browser) |
+
+> **Private repo, new browser:** the first time, the page shows the Vercel copy. Settings saved there belong to Vercel's address, so to use the FlexiFunnels address with a private repo, open the page, save the token once in ⚙, and reload.
 
 Notes:
-- The editor canvas may only show the "Custom Code" placeholder. Check it on **Preview** or the published page.
-- Settings (tokens and keys) are saved in your browser for that page's domain. Use a page on a domain with no third-party scripts you don't trust, and keep token B limited to this repo (step 6).
-- When the dashboard changes, the repo's `flexifunnels-embed.html` is rebuilt (`npm run build:embed`), and you paste it again.
+- Settings (tokens and keys) are saved in your browser for that page's domain. Use a page on a domain without third-party scripts you don't trust.
+- `dashboard/flexifunnels-embed.html` is a full **offline snapshot** (no GitHub needed). It doesn't update by itself, so use the loader unless you specifically need that.
 
 ## Step 11: Connect the dashboard (3 min)
 
