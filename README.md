@@ -4,7 +4,7 @@ An AI agent that runs the chat of FlexiFunnels' automated aEvent × Zoom webinar
 
 > **Setting it up?** Follow **[SETUP.md](SETUP.md)**: the step-by-step guide to go from demo to live (Zoom, OpenAI, Google, GitHub secrets and variables, dashboard).
 
-It joins every webinar through the universal link **https://sb.flexifunnels.com/genie-demo**, logged in as a Zoom account that's an alternative host. It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
+It finds the live webinar through the universal link **https://sb.flexifunnels.com/genie-demo** (an attendee link), then joins with **host or panelist powers**: either as its own logged-in account (an alternative host), or through its personal panelist link (`ZOOM_PANELIST_URL`). It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
 
 ```
  ┌──────────────────────┐   launch (tab · link · mode)    ┌───────────────────────────┐
@@ -61,7 +61,7 @@ The control room for everything. It's deployed on **Vercel** (the repo's `vercel
 2. **Pick the mode:** dry / timed / full.
 3. **Launch**, or **Arm** it.
 
-There's no link to choose: every webinar is joined through the universal link **https://sb.flexifunnels.com/genie-demo**. The agent follows its redirect into Zoom. Only one webinar runs at a time.
+There's no link to choose: the agent finds the live webinar through **https://sb.flexifunnels.com/genie-demo**, then joins as alternative host or panelist. Only one webinar runs at a time.
 
 **Launch window:** GitHub jobs max out at 6 hours, so the agent can start at most **45 minutes before the first chat**. It then waits and joins 5 minutes early. Earlier than that, the button becomes **Arm**: keep the tab open and it launches itself when the window opens.
 
@@ -91,7 +91,7 @@ Until you connect it, it shows **demo data** with a banner. To connect, click **
 ## One-time setup
 
 ### 1. Zoom account for the agent
-Use a Zoom account that's an **alternative host** of the webinar. The universal link is the audience link, and host powers come from the login. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Team*, and set `AGENT_NAME` to the same.
+Use a Zoom account that's an **alternative host** (licensed, same Zoom organisation) or a **panelist** of the webinar. The universal link is an attendee link, and attendees can't read other people's chats. See SETUP.md step 2. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Team*, and set `AGENT_NAME` to the same.
 
 ### 2. Save the Zoom login (on your laptop, Node 20+)
 ```bash
@@ -127,6 +127,7 @@ In the repo, go to [Settings → Secrets and variables → Actions](https://gith
 | `ZOOM_SESSION_B64` | Contents of `zoom-session.b64`, or `gh secret set ZOOM_SESSION_B64 < zoom-session.b64` |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | The service-account JSON key |
 | `OPENAI_API_KEY` | OpenAI API key (only used in `full` mode) |
+| `ZOOM_PANELIST_URL` | *Optional.* The agent account's personal panelist link, if it's a panelist rather than an alternative host |
 | `SECRETS_PAT` | Fine-grained token for this repo with **Secrets: Read and write**. Lets the agent save the refreshed Zoom login after each run, so it doesn't expire. |
 
 **Variables**
@@ -238,7 +239,7 @@ Set any of these as a repo **Variable** ([Settings → Secrets and variables →
 | Dashboard: "GitHub: Bad credentials" / 404 | Token expired, or it doesn't cover this repo with *Actions: Read and write*. |
 | Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` is missing or broken. Run `npm run save-session` again. |
 | Log says "Zoom session logged out" | The login expired. Run `save-session` again. Joining still works through the link, but without the account's powers. |
-| Agent Log WARNING "Joined as an ATTENDEE" | Make the agent's Zoom account an alternative host of the webinar |
+| Agent Log WARNING "Joined as an ATTENDEE" | Make the agent's Zoom account an alternative host, or a panelist with `ZOOM_PANELIST_URL` set (SETUP.md step 2) |
 | Joins but nothing appears in the log | Chat selectors have changed. See setup step 6. |
 | Messages logged as FAILED · "attendee not found" | Selector for the "To:" dropdown or its search box. See step 6. |
 | "Tab not found" | The tab name must match exactly, including the en dash `–`. Pick it from the dashboard instead of typing it. |

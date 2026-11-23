@@ -60,6 +60,8 @@ jobs:
           SCHEDULE_TAB: ${{ inputs.tab }}
           # Universal link https://sb.flexifunnels.com/genie-demo is the built-in default; a ZOOM_JOIN_URL variable or the join_url input overrides it
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
+          # Optional: the agent account's personal panelist link (gives panelist powers)
+          ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
           SHEET_ID: ${{ vars.SHEET_ID }}

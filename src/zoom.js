@@ -22,6 +22,7 @@ export const SEL = {
   receiverEveryone: ['text=/^(Everyone|All panelists and attendees)$/i'],
   // the number on the footer "Participants" button (webinar attendee count, as the panelist/host sees it)
   participantCount: ['.footer-button__participants-icon .footer-button__number-counter', '.footer-button__number-counter', 'button[aria-label*="participant" i] [class*="counter"]', 'button[aria-label*="participant" i]'],
+  registration: ['input[type="email"]:visible', 'input[name*="email" i]:visible', 'button:has-text("Register")'],
   meetingEnded: ['text=/meeting has been ended|webinar has ended|This meeting has ended/i'],
 };
 
@@ -45,6 +46,14 @@ export function toWebClientUrl(url) {
   if (!m) return url;
   const params = new URLSearchParams(u.search);
   return `https://app.zoom.us/wc/${m[1]}/join?${params.toString()}`;
+}
+
+// The universal link carries the *audience's* registration token (tk). Without it, Zoom identifies the
+// agent by its logged-in account – so an alternative host joins with host powers.
+export function asSelf(url) {
+  const u = new URL(url);
+  ['tk', 'uname', 'un'].forEach((k) => u.searchParams.delete(k));
+  return u.toString();
 }
 
 export class Zoom {
@@ -99,9 +108,32 @@ export class Zoom {
     throw new Error(`The join link didn't lead to a Zoom meeting (ended on ${page.url()})`);
   }
 
-  async join(joinUrl) {
+  // How the agent gets in (it needs host or panelist powers to read every chat and reply privately):
+  //  1. ZOOM_PANELIST_URL set → its personal panelist link (Zoom gives panelist powers)
+  //  2. otherwise → the universal link, minus the audience token, joined as the logged-in account
+  //     (works when that account is an alternative host); if Zoom asks to register, fall back to the
+  //     audience link and the agent logs a WARNING (attendees can't read other people's chats).
+  async join(joinUrl, { panelistUrl = '' } = {}) {
+    if (panelistUrl) {
+      await this.enter(toWebClientUrl(panelistUrl));
+      return 'panelist link';
+    }
+    const audience = await this.resolveZoomUrl(joinUrl);
+    const self = asSelf(audience);
+    if (self !== audience) {
+      try {
+        await this.enter(self, { failOnRegistration: true });
+        return 'logged-in account';
+      } catch (e) {
+        if (!/registration/i.test(e.message)) throw e;
+      }
+    }
+    await this.enter(audience);
+    return 'audience link';
+  }
+
+  async enter(zoomUrl, { failOnRegistration = false } = {}) {
     const page = this.page;
-    const zoomUrl = await this.resolveZoomUrl(joinUrl);
     await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const name = await first(page, SEL.nameInput, { timeout: 8000 });
@@ -115,6 +147,7 @@ export class Zoom {
     for (let i = 0; i < 120; i++) {
       const chat = await first(page, SEL.chatToggle);
       if (chat && (await chat.isVisible().catch(() => false))) break;
+      if (failOnRegistration && i < 6 && (await first(page, SEL.registration))) throw new Error('registration required');
       await page.waitForTimeout(5000);
       if (i === 119) throw new Error('Timed out waiting to get into the webinar');
     }

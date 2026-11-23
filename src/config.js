@@ -17,6 +17,8 @@ export function loadConfig() {
     // Zoom
     // One universal link for every webinar (redirects to the live Zoom webinar). Override with the ZOOM_JOIN_URL variable if it ever changes.
     joinUrl: env('ZOOM_JOIN_URL', 'https://sb.flexifunnels.com/genie-demo'),
+    // Optional: the agent account's personal PANELIST link (Zoom emails it when you add the account as a panelist).
+    panelistUrl: env('ZOOM_PANELIST_URL', ''),
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered

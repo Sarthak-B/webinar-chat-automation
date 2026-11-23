@@ -41,14 +41,28 @@ Secrets stay hidden either way, but the repo shows your webinar flow and sheet s
 
 ## Step 2: Zoom account for the agent (10 min)
 
-The agent always joins through the universal webinar link **https://sb.flexifunnels.com/genie-demo**. It's built in, so there's nothing to set or update per webinar. The page redirects to the live Zoom webinar, and the agent follows the redirect.
+The universal link **https://sb.flexifunnels.com/genie-demo** is an **attendee** link. Attendees can't see other people's chats, can't reply privately and can't see the participant count. So the agent needs **host or panelist access**. Pick **one** of these two options:
 
-1. **Pick the account.** Use a separate Zoom account, **not** the one aEvent's presenter bot runs on. Logging the same account in twice can kick the presenter out of the webinar.
-2. **Set its display name** to what attendees will see, e.g. **FlexiFunnels Team**. Zoom web → Profile → Edit name.
-3. **Make it an alternative host** of the webinar(s) in aEvent / Zoom. This matters: the universal link is the audience link, and the agent only gets host powers (seeing every attendee message, replying privately, the attendee count) because it's logged in as an alternative host. As a plain attendee it can't read other people's chats.
-4. In Zoom web settings for this account, make sure **"Join from your browser"** is allowed.
+**Option A: alternative host (nothing to update per webinar)**
+1. The agent's Zoom account must be a **licensed user in the same Zoom account/organisation** as the webinar's host. That's Zoom's rule for alternative hosts.
+2. Add it as an **alternative host** of the webinar. If aEvent uses a recurring webinar or a template, set it there once.
+3. How it works: the agent opens the universal link to find the live webinar, then joins it **as its own logged-in account** instead of as the audience. Zoom recognises the alternative host and gives it host powers.
 
-✅ Logged in as this account in Chrome, opening https://sb.flexifunnels.com/genie-demo during a webinar takes you in **as a host** (you see the Participants button). On the first run, the agent writes "Joined the webinar as host/panelist" in its log. If it ever joins as an attendee, the **Agent Log** gets a WARNING row telling you to fix step 2.3.
+**Option B: panelist (works with any Zoom account)**
+1. Add the agent account's email as a **panelist** of the webinar (in aEvent / Zoom → Invitations → Panelists).
+2. Zoom emails it a personal **panelist join link**. Save that link as the GitHub secret **`ZOOM_PANELIST_URL`** (step 7).
+3. If the webinar is recurring with the same ID, the link stays the same. If aEvent creates a new webinar each time, the panelist link changes and you'd update the secret. In that case Option A is easier.
+
+For either option:
+- Use a separate Zoom account, **not** the one aEvent's presenter bot runs on. Logging the same account in twice can kick the presenter out.
+- Set its display name to what attendees will see, e.g. **FlexiFunnels Team**.
+- Allow **"Join from your browser"** in its Zoom web settings.
+
+✅ Check during a live webinar, logged in as the agent account in Chrome:
+- **Option A:** open https://sb.flexifunnels.com/genie-demo, note the webinar ID in the Zoom page's URL, then open `https://app.zoom.us/wc/<ID>/join`.
+- **Option B:** open the panelist link.
+
+You should see the **Participants** button, which means host or panelist powers. On every run, the **Agent Log** gets a `JOINED` row (how it joined + role). If it ever gets in only as an attendee, a **WARNING** row tells you.
 
 ## Step 3: OpenAI API key (5 min)
 
@@ -141,7 +155,9 @@ GitHub repo → **Settings** → **Secrets and variables** → **Actions** → t
 | `OPENAI_API_KEY` | The `sk-…` key from step 3 |
 | `SECRETS_PAT` | Token A from step 6 |
 
-✅ The Secrets tab lists all 4 names. (No Zoom link secrets are needed; the universal link is built in.)
+| `ZOOM_PANELIST_URL` | **Only for Option B** (step 2): the agent account's personal panelist link |
+
+✅ The Secrets tab lists the 4 required names, plus `ZOOM_PANELIST_URL` if you chose Option B. The universal link is built in.
 
 ---
 
@@ -278,7 +294,7 @@ Below that is **Questions & replies**: every genuine question asked and the repl
 | "GitHub: Bad credentials" / "Not Found" | Token B expired, or doesn't cover this repo with Actions read and write |
 | Launch fails with "Unexpected inputs" | The workflow file on GitHub is outdated. Pull the latest `main` |
 | Run fails at "Restore Zoom session" | `ZOOM_SESSION_B64` missing or broken → step 5 |
-| Agent Log has a WARNING "Joined as an ATTENDEE" | Make the agent's Zoom account an alternative host (step 2.3) |
+| Agent Log has a WARNING "Joined as an ATTENDEE" | The account isn't an alternative host / panelist of this webinar → step 2 (Option A or B) |
 | Agent joins but nothing in Conversations | Zoom selectors changed → see step 12.4 |
 | Replies FAILED · "attendee not found" | Zoom's "To:" dropdown changed → send me the Inspect HTML of it |
 | "Tab not found" | Pick the tab from the dashboard (names must match exactly, including the `–` dash) |
