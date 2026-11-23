@@ -171,8 +171,8 @@ Same page → tab **Variables** → **New repository variable**.
 
 | Name | Value | Notes |
 |---|---|---|
-| `SHEET_ID` | The ID from the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` | required |
-| `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Recommended. If unset, the Summary / Q&A tabs go into the chat sheet |
+| `SHEET_ID` | The ID from the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` | Optional: the FlexiGenie chat sheet is built in |
+| `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Optional: your Webinar History sheet is built in |
 | `AGENT_NAME` | Exactly the agent account's Zoom display name, e.g. `FlexiFunnels Team` | required, so it ignores its own messages |
 | `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of |
 | `TEAM_NAMES` | e.g. `Arman,Support` | Names whose chat messages are never answered (your team members in the webinar) |
@@ -180,7 +180,7 @@ Same page → tab **Variables** → **New repository variable**.
 
 Optional tuning (number asks per person, messages per minute, etc.) can also be set here. See **Tuning** in the README. Leave them unset to use the defaults.
 
-✅ The Variables tab shows at least `SHEET_ID` and `AGENT_NAME`.
+✅ The Variables tab shows at least `AGENT_NAME`. Every variable also works if you added it under **Secrets** by mistake; the workflow checks both.
 
 ---
 

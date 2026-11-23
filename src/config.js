@@ -2,7 +2,12 @@
 const env = (k, d) => (process.env[k] ?? '').trim() || d;
 const req = (k) => {
   const v = env(k);
-  if (!v) throw new Error(`Missing required env var ${k}`);
+  if (!v) {
+    throw new Error(
+      `Missing setting ${k}. Add it in GitHub → repo Settings → Secrets and variables → Actions ` +
+        `(${/KEY|JSON|TOKEN|SESSION/.test(k) ? 'Secrets' : 'Variables'} tab), name exactly "${k}".`,
+    );
+  }
   return v;
 };
 const num = (k, d) => Number(env(k, String(d)));
@@ -26,7 +31,8 @@ export function loadConfig() {
     joinEarlyMin: num('JOIN_EARLY_MIN', 5), // join this many minutes before the first chat row
 
     // Google Sheet
-    sheetId: req('SHEET_ID'),
+    // FlexiGenie chat sheet (built-in default; a SHEET_ID variable overrides it). The ID alone gives no access.
+    sheetId: env('SHEET_ID', '1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8'),
     googleCreds: req('GOOGLE_SERVICE_ACCOUNT_JSON'),
     scheduleTab: env('SCHEDULE_TAB', ''), // empty = ask which tab (terminal) – the dashboard always passes one
     repliesTab: env('REPLIES_TAB', 'Attendee Replies'),
@@ -36,7 +42,7 @@ export function loadConfig() {
     numbersTab: env('NUMBERS_TAB', 'Numbers'),
 
     // Webinar History sheet (Summary / Q&A / Leads tabs). Empty = use the main chat sheet.
-    historySheetId: env('HISTORY_SHEET_ID', ''),
+    historySheetId: env('HISTORY_SHEET_ID', '1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno'),
     mode: env('MODE', ''),
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 

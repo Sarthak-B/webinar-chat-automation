@@ -64,15 +64,15 @@ jobs:
           ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
-          SHEET_ID: ${{ vars.SHEET_ID }}
-          HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID }}
+          SHEET_ID: ${{ vars.SHEET_ID || secrets.SHEET_ID }}
+          HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID || secrets.HISTORY_SHEET_ID }}
           MODE: ${{ inputs.mode }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
-          PERSONA_NAME: ${{ vars.PERSONA_NAME }}
-          AGENT_NAME: ${{ vars.AGENT_NAME }}
-          TEAM_NAMES: ${{ vars.TEAM_NAMES }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || secrets.OPENAI_MODEL }}
+          PERSONA_NAME: ${{ vars.PERSONA_NAME || secrets.PERSONA_NAME }}
+          AGENT_NAME: ${{ vars.AGENT_NAME || secrets.AGENT_NAME }}
+          TEAM_NAMES: ${{ vars.TEAM_NAMES || secrets.TEAM_NAMES }}
           MAX_RUNTIME_MIN: 345
           # Optional tuning – set any of these as repo Variables to override the defaults (empty = default)
           HUMANIZE: ${{ vars.HUMANIZE }}

@@ -112,6 +112,8 @@ main,header,footer{position:relative;z-index:1}
 .orb-card[data-state=live] .core i{background:#0C0E13}
 .orb-card[data-state=live] .pulse{animation:pulse 2.4s var(--ease) infinite}
 .orb-card[data-state=live] .pulse.p2{animation-delay:1.2s}
+.orb-card[data-state=failed] .core{background:radial-gradient(circle at 35% 30%,#FF9A8D,#B2372A);box-shadow:0 0 50px rgba(255,107,91,.45)}
+.orb-card[data-state=failed] .core i{background:#2A0E0A}
 .orb-card[data-state=queued] .core,.orb-card[data-state=armed] .core{background:radial-gradient(circle at 35% 30%,#FFD889,#B9811E);box-shadow:0 0 50px rgba(245,184,75,.4)}
 .orb-card[data-state=queued] .sweep,.orb-card[data-state=armed] .sweep{opacity:.6;filter:hue-rotate(-40deg)}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -1097,6 +1099,10 @@ function renderOrb() {
   const card = $('#orbCard'), r = S.active;
   let state = 'idle', title = 'Idle', sub = 'No webinar agent running right now';
   if (S.armed) { state = 'armed'; title = 'Armed'; sub = `Auto-launches ${S.armed.tab} at ${fmtTime(new Date(S.armed.at))}`; }
+  // Show a run that just failed (last 30 min) instead of silently going back to Idle
+  const last = !r && S.runs[0];
+  const recentFail = last && last.status === 'completed' && ['failure', 'timed_out', 'startup_failure'].includes(last.conclusion) && Date.now() - new Date(last.updated_at) < 30 * 60e3;
+  if (recentFail) { state = 'failed'; title = 'Last run failed'; sub = `${runTitle(last).replace(/^Webinar agent · /, '')} · ${fmtTime(new Date(last.updated_at))} – open the run to see why`; }
   if (r) {
     state = r.status === 'in_progress' ? 'live' : 'queued';
     title = r.status === 'in_progress' ? 'Live' : 'Starting…';
@@ -1107,6 +1113,7 @@ function renderOrb() {
   const acts = $('#orbActions');
   if (r) acts.innerHTML = `<button class="btn danger sm" id="stopBtn">Stop agent</button>${r.html_url && r.html_url !== '#' ? `<a class="btn ghost sm" href="${esc(r.html_url)}" target="_blank" rel="noopener">Open run</a>` : ''}`;
   else if (S.armed) acts.innerHTML = '<button class="btn ghost sm" id="disarmBtn">Disarm</button>';
+  else if (recentFail && last.html_url) acts.innerHTML = `<a class="btn danger sm" href="${esc(last.html_url)}" target="_blank" rel="noopener">Open failed run ↗</a><a class="btn ghost sm" href="#launch">Launch again</a>`;
   else acts.innerHTML = '<a class="btn ghost sm" href="#launch">Go to launch</a>';
   $('#stopBtn')?.addEventListener('click', stopRun); $('#disarmBtn')?.addEventListener('click', disarm);
 }
