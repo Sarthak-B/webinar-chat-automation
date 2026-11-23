@@ -2,6 +2,8 @@
 
 An AI agent that runs the chat of FlexiFunnels' automated aEvent × Zoom webinars, controlled from one dashboard.
 
+> **Setting it up?** Follow **[SETUP.md](SETUP.md)**: the step-by-step guide to go from demo to live (Zoom, OpenAI, Google, GitHub secrets and variables, dashboard).
+
 It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats from the Google Sheet on cue, replies privately to attendees' questions, and collects phone numbers, so the team doesn't have to work the chat by hand.
 
 ```
@@ -52,10 +54,10 @@ It doesn't call the AI for simple reactions (they get a number ask instead, if n
 
 ## The dashboard: `dashboard/index.html`
 
-The control room for everything. Download the file and open it in Chrome. It runs from your computer, so there's nothing to host. It's built for desktop.
+The control room for everything. It's deployed on **Vercel** (the repo's `vercel.json` serves the `dashboard/` folder as a static site, with nothing to build), or you can open the file directly in Chrome. It's built for desktop.
 
 1. **Pick the tab:** cards for every schedule tab, read live from the sheet, with chat count and first → last time.
-2. **Pick the Zoom link:** 11 AM or 7:30 PM, chosen automatically from the tab name.
+2. **Pick the Zoom link:** 11 AM or 7:30 PM, chosen automatically from the tab name. If aEvent gives a new link per session, paste it instead.
 3. **Pick the mode:** dry / timed / full.
 4. **Launch**, or **Arm** it.
 

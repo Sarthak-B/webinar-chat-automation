@@ -528,6 +528,7 @@ body.is-demo .demo-banner{display:block}
               <button class="opt" data-slot="11am"><b>11 AM webinar</b><span>Joins with the secret <code>ZOOM_JOIN_URL_11AM</code></span></button>
               <button class="opt" data-slot="730pm"><b>7:30 PM webinar</b><span>Joins with the secret <code>ZOOM_JOIN_URL_730PM</code></span></button>
             </div>
+            <div class="field" style="margin-top:16px"><label for="joinUrl">Or paste this session's Zoom link <span>(optional – use it when aEvent gives a new link per session)</span></label><input id="joinUrl" placeholder="https://us06web.zoom.us/w/…  (leave empty to use the saved link above)" autocomplete="off"></div>
           </div>
           <div class="step" id="step3" data-reveal>
             <div class="step-h"><span class="step-n">03</span><div><h3>How much should it do?</h3><p>Start with a dry run on your first live webinar.</p></div></div>
@@ -680,7 +681,7 @@ body.is-demo .demo-banner{display:block}
     </div>
   </div>
   <div class="drawer-f">
-    <label class="toggle"><input type="checkbox" id="cDemo"><span class="sw"></span>Demo data</label>
+    <label class="toggle" title="Turn on only to preview with sample data"><input type="checkbox" id="cDemo"><span class="sw"></span>Use demo data</label>
     <button class="btn ghost" id="testConn">Test connection</button>
     <button class="btn acid" id="saveCfg">Save</button>
   </div>
@@ -708,7 +709,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_CFG = { owner: '', repo: '', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', demo: null };
+const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', demo: null };
 let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.token && cfg.script && cfg.key;
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
@@ -900,7 +901,7 @@ function renderLaunch() {
   $('#sumTab').textContent = t ? t.name : '-';
   $('#sumCount').textContent = S.schedule.length ? `${S.schedule.length}` : '-';
   $('#sumSpan').textContent = S.schedule.length ? `${fmtTime(S.schedule[0].at)} → ${fmtTime(S.schedule.at(-1).at)}` : '-';
-  $('#sumSlot').textContent = t ? (S.slot === '11am' ? '11 AM link' : '7:30 PM link') : '-';
+  $('#sumSlot').textContent = t ? (S.joinUrl ? 'Pasted link' : S.slot === '11am' ? '11 AM link' : '7:30 PM link') : '-';
   $('#sumMode').textContent = t ? modeName[S.mode] : '-';
   const w = launchWindow(); const now = Date.now(); const busy = S.active && ['queued', 'in_progress'].includes(S.active.status);
   let label = 'Launch the agent', note = 'Runs on GitHub Actions. You can stop it any time from here.', winLabel = 'Launch window', winText = '-', pct = 0, disabled = !t || !w;
@@ -1054,7 +1055,7 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
-    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, slot: S.slot, mode: S.mode } }) });
+    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, slot: S.slot, mode: S.mode, join_url: S.joinUrl || '' } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
@@ -1363,7 +1364,7 @@ function rows(ss, tab, from) {
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }`;
 function openDrawer() {
   $('#cOwner').value = cfg.owner; $('#cRepo').value = cfg.repo; $('#cToken').value = cfg.token; $('#cWorkflow').value = cfg.workflow;
-  $('#cScript').value = cfg.script; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cDemo').checked = isDemo();
+  $('#cScript').value = cfg.script; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cDemo').checked = cfg.demo === true;
   $('#scriptCode').value = SCRIPT_CODE;
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
 }
@@ -1379,8 +1380,12 @@ async function testConn() {
 }
 async function saveCfg() {
   const f = readForm();
-  if (!f.demo && !(f.owner && f.repo && f.token && f.script && f.key)) { toast('Fill in all GitHub and Sheet fields, or turn on demo data', true); return; }
-  cfg = { ...cfg, ...f }; store.set('autopilot.cfg', cfg); closeDrawer(); toast('Saved'); boot();
+  const filled = f.owner && f.repo && f.token && f.script && f.key;
+  if (!f.demo && !filled) { toast('Fill in all GitHub and Sheet fields (or turn on demo data to preview)', true); return; }
+  if (f.script && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(f.script)) { toast('The Apps Script URL should look like https://script.google.com/macros/s/…/exec', true); return; }
+  // Live data as soon as everything is filled in – demo only if explicitly switched on.
+  cfg = { ...cfg, ...f, demo: f.demo ? true : false };
+  store.set('autopilot.cfg', cfg); closeDrawer(); toast(cfg.demo ? 'Saved – showing demo data' : 'Saved – connected to live data'); boot();
 }
 
 // ---------- UI helpers ----------
@@ -1466,6 +1471,12 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = b.dataset.slot; renderChoices(); renderLaunch(); }));
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#launchBtn').addEventListener('click', onLaunchClick);
+$('#joinUrl').addEventListener('input', (e) => {
+  const v = e.target.value.trim();
+  S.joinUrl = /^https:\/\/([\w-]+\.)*zoom\.us\//i.test(v) ? v : '';
+  e.target.style.borderColor = v && !S.joinUrl ? 'var(--red)' : '';
+  renderLaunch();
+});
 $('#filters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#filters button').forEach((x) => x.classList.toggle('on', x === b)); S.filter = b.dataset.f; moveGlider(); renderFeed(); });
 document.addEventListener('click', (e) => { const c = e.target.closest('[data-copy]'); if (c) copyText(c.dataset.copy, `Copied: ${c.dataset.copy}`); });
 $('#copyNumbers').addEventListener('click', () => {

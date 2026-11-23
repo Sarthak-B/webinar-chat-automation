@@ -19,6 +19,10 @@ on:
         type: choice
         options: ['dry', 'timed', 'full']
         default: 'dry'
+      join_url:
+        description: 'Optional: this session''s Zoom link (overrides the saved 11 AM / 7:30 PM secret)'
+        required: false
+        default: ''
 
 concurrency:
   group: webinar-agent-${{ inputs.slot }}
@@ -50,10 +54,14 @@ jobs:
           echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json
           chmod 600 zoom-session.json
 
+      - name: Hide pasted Zoom link from logs
+        if: inputs.join_url != ''
+        run: echo "::add-mask::${{ inputs.join_url }}"
+
       - name: Run agent
         env:
           SCHEDULE_TAB: ${{ inputs.tab }}
-          ZOOM_JOIN_URL: ${{ inputs.slot == '11am' && secrets.ZOOM_JOIN_URL_11AM || secrets.ZOOM_JOIN_URL_730PM }}
+          ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || (inputs.slot == '11am' && secrets.ZOOM_JOIN_URL_11AM || secrets.ZOOM_JOIN_URL_730PM) }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
           SHEET_ID: ${{ vars.SHEET_ID }}
