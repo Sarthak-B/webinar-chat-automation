@@ -90,22 +90,112 @@ export class Zoom {
   }
 
   // Follows redirect links (e.g. https://sb.flexifunnels.com/genie-demo → zoom.us/…) and opens the
-  // Zoom *web client* for the meeting it lands on.
+  // Zoom *web client* for the meeting it lands on. Also accepts a bare webinar ID ("812 3456 7890").
+  // If the link ends on a Zoom *registration* page (zoom.us/webinar/register/WN_…), the agent finds
+  // the webinar's ID itself (see webinarIdFromRegistration) instead of registering like an attendee.
   async resolveZoomUrl(link) {
     const page = this.page;
+    const bare = String(link).replace(/[\s-]/g, '');
+    if (/^\d{9,12}$/.test(bare)) return `https://app.zoom.us/wc/${bare}/join`;
+    const reg = (u) => (String(u).match(/webinar\/register\/(WN_[\w-]+)/) || [])[1];
+    if (reg(link)) return this.webinarIdFromRegistration(link, reg(link));
     if (/zoom\.us\//i.test(link)) return toWebClientUrl(link);
     await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     for (let i = 0; i < 60; i++) {
       // JS redirects can take a moment; some pages open Zoom via a link/button or a zoommtg:// handoff
       const url = page.url();
+      if (reg(url)) return this.webinarIdFromRegistration(url, reg(url));
       if (/zoom\.us\/(j|w|s|wc)\//i.test(url)) return toWebClientUrl(url);
       const href = await page
         .evaluate(() => [...document.querySelectorAll('a[href*="zoom.us/"], iframe[src*="zoom.us/"]')].map((a) => a.href || a.src)[0] || '')
         .catch(() => '');
+      if (reg(href)) return this.webinarIdFromRegistration(href, reg(href));
       if (/zoom\.us\/(j|w|s|wc)\//i.test(href)) return toWebClientUrl(href);
       await page.waitForTimeout(1000);
     }
     throw new Error(`The join link didn't lead to a Zoom meeting (ended on ${page.url()})`);
+  }
+
+  // A registration link (WN_…) doesn't contain the webinar's number. Three ways to find it, in order:
+  //  1. the registration page's own data (Zoom often embeds the number)
+  //  2. the logged-in account's webinar list – open each upcoming webinar and match the WN_ code
+  //     (works because the agent is logged in as the account that hosts the webinar)
+  //  3. if AGENT_EMAIL is set, register with it and take the number from the confirmation link
+  async webinarIdFromRegistration(regUrl, code) {
+    const page = this.page;
+    const wc = (id) => `https://app.zoom.us/wc/${id}/join`;
+    const log = (m) => console.log(`[${new Date().toLocaleTimeString('en-IN')}] ${m}`);
+    log(`Join link is a registration page (${code}) – looking up the webinar ID as the host account…`);
+
+    // 1. embedded on the registration page
+    await page.goto(regUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+    await page.waitForTimeout(4000);
+    const html = await page.content().catch(() => '');
+    const m = html.match(/["']?(?:meetingNumber|meetingId|mtgNumber|webinarNumber|webinarId|meeting_number|number)["']?\s*[:=]\s*["']?(\d{9,12})\b/i);
+    if (m) {
+      log(`Found webinar ID on the registration page`);
+      return wc(m[1]);
+    }
+
+    // 2. the host's own webinar list
+    const ids = new Set();
+    for (const list of ['https://zoom.us/webinar/list', 'https://zoom.us/webinar/list?type=live', 'https://zoom.us/webinar/list?type=previous']) {
+      await page.goto(list, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      await page.waitForTimeout(5000);
+      const found = await page
+        .evaluate(() => [...document.querySelectorAll('a[href]')].map((a) => (a.href.match(/\/webinar\/(\d{9,12})(?:[/?#]|$)/) || [])[1]).filter(Boolean))
+        .catch(() => []);
+      const text = await page.content().catch(() => '');
+      if (text.includes(code)) {
+        // the list itself sometimes shows the registration link next to the ID
+        const near = text.slice(Math.max(0, text.indexOf(code) - 3000), text.indexOf(code) + 3000).match(/\b(\d{3}\s?\d{4}\s?\d{4})\b/);
+        if (near) return wc(near[1].replace(/\s/g, ''));
+      }
+      found.forEach((id) => ids.add(id));
+      if (ids.size >= 15) break;
+    }
+    for (const id of [...ids].slice(0, 15)) {
+      await page.goto(`https://zoom.us/webinar/${id}`, { waitUntil: 'domcontentloaded', timeout: 45_000 }).catch(() => {});
+      await page.waitForTimeout(3000);
+      if ((await page.content().catch(() => '')).includes(code)) {
+        log(`Matched the registration link to webinar ${id.slice(0, 3)}…${id.slice(-2)} in the host account`);
+        return wc(id);
+      }
+    }
+    if (ids.size) log(`Checked ${ids.size} webinar(s) in this Zoom account – none uses ${code}`);
+    else log(`This Zoom account's webinar list is empty or unreadable (is the saved session the host account?)`);
+
+    // 3. register with AGENT_EMAIL
+    const email = process.env.AGENT_EMAIL || '';
+    if (email) {
+      await page.goto(regUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      await page.waitForTimeout(4000);
+      const fill = async (sels, v) => {
+        const el = await first(page, sels);
+        if (el) await el.fill(v).catch(() => {});
+      };
+      const [fn, ...ln] = (this.agentName || 'FlexiFunnels Support').split(' ');
+      await fill(['#question_first_name', 'input[name="first_name"]', 'input[aria-label*="first name" i]'], fn);
+      await fill(['#question_last_name', 'input[name="last_name"]', 'input[aria-label*="last name" i]'], ln.join(' ') || 'Team');
+      await fill(['#question_email', 'input[name="email"]', 'input[type="email"]'], email);
+      await fill(['#question_confirm_email', 'input[name="confirm_email"]', 'input[aria-label*="confirm" i]'], email);
+      const btn = await first(page, ['#btnSubmit', 'button[type="submit"]', 'button:has-text("Register")']);
+      if (btn) await btn.click().catch(() => {});
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(1500);
+        const href = await page
+          .evaluate(() => [...document.querySelectorAll('a[href]')].map((a) => a.href).find((h) => /zoom\.us\/(w|j)\/\d+/.test(h)) || '')
+          .catch(() => '');
+        if (href) {
+          log('Registered with AGENT_EMAIL and got the webinar link');
+          return toWebClientUrl(href);
+        }
+      }
+    }
+    throw new Error(
+      `The join link opens a Zoom registration page (${code}) and the agent couldn't find that webinar in the logged-in Zoom account. ` +
+        `Fix: make sure the saved Zoom session is the account that HOSTS this webinar, or paste the webinar ID (e.g. 812 3456 7890) in the join_url box when you run the workflow.`
+    );
   }
 
   // How the agent gets in (it needs host or panelist powers to read every chat and reply privately):
@@ -129,7 +219,8 @@ export class Zoom {
       }
     }
     await this.enter(audience);
-    return 'audience link';
+    // no audience token in the link → Zoom sees the logged-in account (host/alt host) anyway
+    return self === audience ? 'logged-in account' : 'audience link';
   }
 
   async enter(zoomUrl, { failOnRegistration = false } = {}) {

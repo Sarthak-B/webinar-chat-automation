@@ -174,6 +174,7 @@ Same page → tab **Variables** → **New repository variable**.
 | `SHEET_ID` | The ID from the sheet's URL: `docs.google.com/spreadsheets/d/`**`THIS_PART`**`/edit` | Optional: the FlexiGenie chat sheet is built in |
 | `HISTORY_SHEET_ID` | The **Webinar History** sheet's ID (step 4.7) | Optional: your Webinar History sheet is built in |
 | `AGENT_NAME` | Exactly the agent account's Zoom display name, e.g. `FlexiFunnels Team` | required, so it ignores its own messages |
+| `AGENT_EMAIL` | Optional. An email the agent can register with if it can't find the webinar in the host account (last-resort fallback) | optional |
 | `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of |
 | `TEAM_NAMES` | e.g. `Arman,Support` | Names whose chat messages are never answered (your team members in the webinar) |
 | `OPENAI_MODEL` | e.g. `gpt-4o-mini` | Optional. Leave unset to use the default |
@@ -317,3 +318,10 @@ Below that is **Questions & replies**: every genuine question asked and the repl
 | "Tab not found" | Pick the tab from the dashboard (names must match exactly, including the `–` dash) |
 
 More details are in the [README](README.md).
+
+
+## If the join link is a Zoom registration page
+
+The universal link (or a link you paste) can end on `zoom.us/webinar/register/WN_…`. The agent doesn't register like an attendee. Instead it opens the logged-in host account's webinar list, finds the webinar that uses that registration link, and joins it by its ID as the host.
+
+If it can't find it (for example, the saved Zoom session isn't the account that hosts the webinar), the run stops with a clear message. Quick fix for a test: put the **webinar ID** (like `812 3456 7890`, shown in Zoom → Webinars) in the `join_url` box when you run the workflow.

@@ -16,7 +16,7 @@ on:
         options: ['dry', 'timed', 'full']
         default: 'dry'
       join_url:
-        description: 'Optional: a different join link for this run (normally leave empty – the universal link is used)'
+        description: 'Optional: a different join link OR the webinar ID (e.g. 812 3456 7890) for this run. Leave empty to use the universal link'
         required: false
         default: ''
 
@@ -62,6 +62,7 @@ jobs:
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
           # Optional: the agent account's personal panelist link (gives panelist powers)
           ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
+          AGENT_EMAIL: ${{ vars.AGENT_EMAIL || secrets.AGENT_EMAIL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}
           SHEET_ID: ${{ vars.SHEET_ID || secrets.SHEET_ID }}
