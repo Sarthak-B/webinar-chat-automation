@@ -1230,7 +1230,7 @@ async function launch(e) {
     if (isDemo()) { Demo.run.status = 'in_progress'; Demo.run.display_title = `Webinar agent · ${S.tab.name} · ${S.mode}`; }
     S.armed = null; store.set('autopilot.armed', null);
     for (let i = 0; i < 6; i++) { await loadRuns(); if (S.active) break; await sleep(3000); }
-    $('#live').scrollIntoView({ behavior: 'smooth' });
+    window.scrollTo({ top: $('#live').getBoundingClientRect().top + window.scrollY - ($('.top')?.offsetHeight || 0) + 1, behavior: 'smooth' });
   }
 }
 function arm(at) {
@@ -1706,6 +1706,18 @@ $('#cfilters').addEventListener('click', (e) => { const b = e.target.closest('bu
 $('#convList').addEventListener('click', (e) => { const b = e.target.closest('[data-conv]'); if (!b) return; S.conv = b.dataset.conv; renderConversations(true); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDrawer(); $('#mNo').click(); } });
 window.addEventListener('resize', moveGlider);
+// In-page links (#launch, #live …) scroll here ourselves. Inside a frame (e.g. the FlexiFunnels page) the browser
+// would resolve "#launch" against the host page's address and the click would do nothing.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  const id = a.getAttribute('href').slice(1);
+  const el = id ? document.getElementById(id) : document.body;
+  if (!el) return;
+  e.preventDefault();
+  const top = el.getBoundingClientRect().top + window.scrollY - ($('.top')?.offsetHeight || 0) + 1;
+  window.scrollTo({ top: id === 'top' ? 0 : top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+});
 
 // arrival
 S.armed = store.get('autopilot.armed', null);
