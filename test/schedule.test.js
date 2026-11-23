@@ -2,7 +2,7 @@
 // The export has "## Sheet name: X" headers followed by CSV rows for each tab.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { parseSchedule, parseReplies, parseObjections, parseNumberBank, parseClock } from '../src/schedule.js';
+import { parseSchedule, parseReplies, parseObjections, parseNumberBank, parseClock, parseSessionStart, isPricingChat } from '../src/schedule.js';
 import { findPhone, isTrivial, firstName, asksForNumber } from '../src/brain.js';
 import { toWebClientUrl } from '../src/zoom.js';
 
@@ -58,6 +58,15 @@ if (file) {
     const multi = s.filter((x) => x.text.includes('\n')).length;
     console.log(`  ${name}: ${s.length} timed chats, ${s[0].host} → ${s.at(-1).host}, ${multi} multi-line`);
     for (let i = 1; i < s.length; i++) assert.ok(s[i].at >= s[i - 1].at, `${name}: times out of order at row ${s[i].row}`);
+    // pricing lock: session start from the top-left cell; nothing priced in the first 75 min except what's held to the unlock
+    const start = parseSessionStart(t[name], base);
+    assert.ok(start, `${name}: session start not readable`);
+    const unlock = new Date(start.getTime() + 75 * 60e3);
+    const priced = s.filter(isPricingChat);
+    const early = priced.filter((x) => x.at < unlock);
+    assert.ok(early.every((x) => unlock - x.at <= 5 * 60e3), `${name}: pricing chat more than 5 min before unlock`);
+    assert.ok(!s.some((x) => /^proof$/i.test(x.type) && isPricingChat(x)), `${name}: a Proof row was treated as pricing`);
+    console.log(`    pricing unlocks ${unlock.toLocaleTimeString('en-IN', { hour12: true })} · ${priced.length} pricing chats · ${early.length} held to the unlock (${early.map((x) => x.text.split('\n')[0].slice(0, 24)).join(' | ')})`);
   }
   const r = parseReplies(t['Attendee Replies']);
   const o = parseObjections(t['Objection Handling']);

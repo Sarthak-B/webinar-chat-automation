@@ -96,3 +96,16 @@ export function parseNumberBank(rows) {
   }
   return out;
 }
+
+// ---------- pricing lock ----------
+// Session start = the tab's top-left cell ("11:00:00 am" / "7:30:00 pm" / "11:00:00").
+export function parseSessionStart(rows, baseDate = new Date()) {
+  return parseClock(String(rows?.[0]?.[0] ?? '').trim(), baseDate);
+}
+const MONEY = /₹\s?\d|\$\s?\d|\brs\.?\s?\d|\binr\s?\d|\b\d[\d,.]*\s?(rupees|rupaye|lakh|lac|k)\b/i;
+const CHECKOUT = /get\?id=|reserve2k|\/checkout|\benrol(l)?\s*(here|now)\b/i;
+// Timed chats that are part of the price pitch: "Price" rows, money in a "Pitch" row, or checkout links.
+// ("Proof" rows with result numbers like "₹8,435 >> ₹12 Lakh" are not pricing.)
+export function isPricingChat(item) {
+  return /^price$/i.test(item.type) || (/^pitch$/i.test(item.type) && MONEY.test(item.text)) || CHECKOUT.test(item.text);
+}

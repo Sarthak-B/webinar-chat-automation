@@ -232,6 +232,8 @@ section{padding:110px 0 30px}
 .timeline .dot[data-type="Price"]{width:10px;height:10px;margin:-5px 0 0 -5px;background:var(--amber)}
 .timeline .now{position:absolute;top:0;bottom:0;width:2px;background:var(--acid);box-shadow:0 0 14px var(--acid);transition:left 1s linear}
 .timeline .now::after{content:"NOW";position:absolute;top:8px;left:6px;font:500 9px/1 var(--mono);letter-spacing:.14em;color:var(--acid)}
+.timeline .pricemark{position:absolute;top:6px;bottom:6px;width:0;border-left:2px dashed var(--amber)}
+.timeline .pricemark::after{content:"₹ UNLOCK";position:absolute;bottom:2px;left:5px;font:500 9px/1 var(--mono);letter-spacing:.12em;color:var(--amber);white-space:nowrap}
 .timeline .ends{position:absolute;bottom:8px;left:12px;right:12px;display:flex;justify-content:space-between;font:500 10.5px/1 var(--mono);color:var(--dim)}
 .legend{display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
@@ -602,6 +604,7 @@ body.is-demo .demo-banner{display:block}
           <div class="sum-row"><span>First → last</span><b id="sumSpan">-</b></div>
           <div class="sum-row"><span>Joins via</span><b title="https://sb.flexifunnels.com/genie-demo">sb.flexifunnels.com/genie-demo</b></div>
           <div class="sum-row"><span>Mode</span><b id="sumMode">-</b></div>
+          <div class="sum-row" title="Hard rule: no prices, EMI, offers or payment links before 1h15m into the session"><span>Pricing unlocks</span><b id="sumPrice">-</b></div>
           <div class="window"><span class="label" id="winLabel">Launch window</span><div class="wt" id="winText">-</div><div class="wbar"><i id="winBar"></i></div></div>
           <button class="btn acid" id="launchBtn" disabled>Launch the agent <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <div class="note" id="launchNote">Runs on GitHub Actions. You can stop it any time from here.</div>
@@ -632,7 +635,7 @@ body.is-demo .demo-banner{display:block}
           <div class="card-h"><h3>Timed chats</h3><span class="label" id="tlTab">-</span></div>
           <div class="nextup"><div class="row"><span class="label">Next chat in</span><span class="label" id="nextType"></span></div><div class="row" style="margin-top:12px"><div class="cd" id="nextCd">--:--</div><span class="label" id="nextAt"></span></div><div class="msg" id="nextMsg">Pick a tab to see the schedule.</div></div>
           <div class="timeline" id="timeline"><div class="ends"><span id="tlStart"></span><span id="tlEnd"></span></div></div>
-          <div class="legend"><span><i style="background:var(--acid)"></i>Sent / past</span><span><i style="background:var(--dim)"></i>Upcoming</span><span><i style="background:var(--lilac)"></i>Number drop</span><span><i style="background:var(--amber)"></i>Price</span></div>
+          <div class="legend"><span><i style="background:var(--acid)"></i>Sent / past</span><span><i style="background:var(--dim)"></i>Upcoming</span><span><i style="background:var(--lilac)"></i>Number drop</span><span><i style="background:var(--amber)"></i>Price</span><span><i style="border-left:2px dashed var(--amber);border-radius:0;width:0;height:10px"></i>Pricing unlocks (1h 15m)</span></div>
         </div>
       </div>
     </div>
@@ -919,8 +922,11 @@ async function selectTab(name) {
   store.set('autopilot.lastTab', name);
   renderTabs(); renderChoices();
   try {
-    const rows = isDemo() ? Demo.rows : (await feed({ action: 'schedule', tab: name })).items;
-    S.schedule = toSchedule(rows);
+    const d = isDemo() ? { items: Demo.rows, start: '' } : await feed({ action: 'schedule', tab: name });
+    S.schedule = toSchedule(d.items);
+    // HARD RULE mirror: pricing unlocks 1h15m after the tab's session start (top-left cell)
+    const st = parseClock(d.start) || (S.schedule[0] ? new Date(S.schedule[0].at.getTime() + 15 * 60e3) : null);
+    S.priceUnlock = st ? new Date(st.getTime() + 75 * 60e3) : null;
   } catch (e) { S.schedule = []; toast(e.message, true); }
   renderSchedule(); renderLaunch(); renderKpis();
 }
@@ -963,6 +969,7 @@ function renderLaunch() {
   $('#sumCount').textContent = S.schedule.length ? `${S.schedule.length}` : '-';
   $('#sumSpan').textContent = S.schedule.length ? `${fmtTime(S.schedule[0].at)} → ${fmtTime(S.schedule.at(-1).at)}` : '-';
   $('#sumMode').textContent = t ? modeName[S.mode] : '-';
+  $('#sumPrice').textContent = S.priceUnlock ? `${fmtTime(S.priceUnlock)} (1h 15m in)` : '-';
   const w = launchWindow(); const now = Date.now(); const busy = S.active && ['queued', 'in_progress'].includes(S.active.status);
   let label = 'Launch the agent', note = 'Runs on GitHub Actions. You can stop it any time from here.', winLabel = 'Launch window', winText = '-', pct = 0, disabled = !t || !w;
   if (w) {
@@ -1007,6 +1014,10 @@ function renderSchedule() {
     d.style.left = `calc(12px + (100% - 24px) * ${(x.at.getTime() - a) / span})`;
     d.style.top = `${38 + ((x.i * 37) % 22) - 11}%`; d.title = `${x.host} · ${x.text}`; frag.appendChild(d);
   });
+  if (S.priceUnlock && S.priceUnlock.getTime() > a && S.priceUnlock.getTime() < b) {
+    const pl = document.createElement('span'); pl.className = 'pricemark'; pl.title = `Pricing unlocks ${fmtTime(S.priceUnlock)}`;
+    pl.style.left = `calc(12px + (100% - 24px) * ${(S.priceUnlock.getTime() - a) / span})`; frag.appendChild(pl);
+  }
   const now = document.createElement('span'); now.className = 'now'; now.id = 'nowLine'; frag.appendChild(now);
   tl.appendChild(frag); renderRibbon(); tickSchedule();
 }

@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
-import { parseSchedule, parseReplies, parseObjections, parseNumberBank } from './schedule.js';
-import { Brain, findPhone, isTrivial, firstName, asksForNumber, detectLang } from './brain.js';
+import { parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
+import { Brain, findPhone, isTrivial, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
 import { Zoom } from './zoom.js';
 import { History } from './history.js';
 
@@ -69,14 +69,27 @@ if (!numberBank.length) {
 const brain = new Brain({ ...cfg, replies, objections, numberBank });
 log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName}`);
 
-let schedule = parseSchedule(await sheet.read(cfg.scheduleTab, 'A1:D600'));
+const scheduleRows = await sheet.read(cfg.scheduleTab, 'A1:D600');
+let schedule = parseSchedule(scheduleRows);
 if (!schedule.length) throw new Error(`No timed chats found in "${cfg.scheduleTab}"`);
 log(`"${cfg.scheduleTab}": ${schedule.length} timed chats, ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
+
+// ---------- HARD RULE: no pricing before 1h15m into the session ----------
+let sessionStart = parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
+let unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
+const pricingLocked = () => Date.now() < unlockAt.getTime();
+log(`Session start ${clock(sessionStart)} → pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
 const sentKeys = new Set();
 
 async function reloadSchedule() {
   try {
-    schedule = parseSchedule(await sheet.read(cfg.scheduleTab, 'A1:D600'));
+    const rows = await sheet.read(cfg.scheduleTab, 'A1:D600');
+    schedule = parseSchedule(rows);
+    const st = parseSessionStart(rows);
+    if (st) {
+      sessionStart = st;
+      unlockAt = new Date(st.getTime() + cfg.priceUnlockMin * 60_000);
+    }
   } catch (e) {
     log('schedule reload failed, keeping previous copy:', e.message);
   }
@@ -84,7 +97,7 @@ async function reloadSchedule() {
 
 await agentLog.init();
 await numbers.init();
-record('START', '', '', '', `tab="${cfg.scheduleTab}" dryRun=${cfg.dryRun} autoReply=${cfg.autoReply}`);
+record('START', '', '', '', `tab="${cfg.scheduleTab}" dryRun=${cfg.dryRun} autoReply=${cfg.autoReply} · pricing unlocks ${clock(unlockAt)}`);
 const history = new History({ cfg, today, clock, log }); // written once, when the webinar ends
 
 // ---------- Wait until it's time to join ----------
@@ -197,19 +210,37 @@ async function senderLoop() {
 }
 
 // ---------- Timed chats from the sheet ----------
+// When a timed chat goes out. Pricing chats (Price rows, money in Pitch rows, checkout links) never go out
+// before the unlock: a few minutes early → held and posted at the unlock, in order; earlier → skipped.
+function sendTime(item) {
+  if (!isPricingChat(item) || item.at >= unlockAt) return item.at;
+  const early = unlockAt - item.at;
+  return early <= cfg.priceDeferMin * 60_000 ? new Date(unlockAt.getTime() + Math.max(0, cfg.priceDeferMin * 60_000 - early) / 60) : null;
+}
+
 async function scheduleLoop() {
   let lastReload = Date.now();
   while (running) {
     const now = Date.now();
     for (const item of schedule) {
-      if (sentKeys.has(item.key) || item.at.getTime() > now) continue;
+      if (sentKeys.has(item.key)) continue;
+      const at = sendTime(item);
+      if (!at) {
+        if (item.at.getTime() <= now) {
+          sentKeys.add(item.key);
+          record('SKIPPED', '', item.text, '', `row ${item.row} @ ${item.host}: pricing is locked until ${clock(unlockAt)}`);
+        }
+        continue;
+      }
+      if (at.getTime() > now) continue;
       sentKeys.add(item.key);
-      const lateSec = (now - item.at.getTime()) / 1000;
+      const lateSec = (now - at.getTime()) / 1000;
       if (lateSec > cfg.lateGraceSec) {
         record('SKIPPED', '', item.text, '', `row ${item.row} was ${Math.round(lateSec)}s overdue`);
         continue;
       }
-      enqueue({ prio: 0, text: item.text, to: null, kind: `TIMED ${item.type}`.trim(), note: `row ${item.row} @ ${item.host}` });
+      const held = at.getTime() !== item.at.getTime() ? ` · held until pricing unlock ${clock(unlockAt)}` : '';
+      enqueue({ prio: 0, text: item.text, to: null, kind: `TIMED ${item.type}`.trim(), note: `row ${item.row} @ ${item.host}${held}` });
     }
     if (now - lastReload > 60_000) {
       lastReload = now;
@@ -282,7 +313,7 @@ async function askForNumber(sender, said, reason) {
   if (person(sender).msgs < cfg.nudgeAfterMessages) return; // one "Yes" isn't enough – don't bomb everyone
   noteAsk(sender);
   const angle = numberBank.length ? numberBank[bankIdx++ % numberBank.length] : null;
-  const text = await brain.compose({ purpose: 'ask', sender, said, lang: langOf(sender), history: person(sender).history, recent: recentSent, angle: angle && `${angle.angle} – ${angle.line}` });
+  const text = await brain.compose({ purpose: 'ask', sender, said, lang: langOf(sender), history: person(sender).history, recent: recentSent, angle: angle && `${angle.angle} – ${angle.line}`, pricingLocked: pricingLocked() });
   const queuedAt = Date.now();
   const skipIf = () => {
     if (hasNumber.has(sender)) return true;
@@ -322,7 +353,7 @@ async function aiSlot(fn) {
 async function handle(sender, text) {
   const phone = findPhone(text);
   const lang = langOf(sender);
-  const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent });
+  const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent, pricingLocked: pricingLocked() });
   const rest = phone ? text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim() : text;
 
   if (!cfg.autoReply) {
@@ -396,6 +427,7 @@ function noteObjection(key, sender) {
   const cooled = now - (objectionPosted.get(key) || 0) > cfg.objectionCooldownMin * 60_000;
   if (people.size >= cfg.objectionThreshold && cooled) {
     const o = objections.find((x) => x.key === key);
+    if (pricingLocked() && mentionsPrice(o.chat)) return; // e.g. "EMI from Rs. 59/day" – not before the pricing section
     objectionPosted.set(key, now);
     enqueue({ prio: 3, text: o.chat, to: null, kind: 'OBJECTION', note: `${people.size} people: ${o.objection}` });
   }

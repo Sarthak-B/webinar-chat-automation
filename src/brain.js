@@ -72,6 +72,12 @@ export const FALLBACK = {
     hinglish: (n) => `${n ? `${n} ji, ` : ''}kripya apna contact number share kijiye – humari team aapko call karke guide karegi.`,
     hindi: (n) => `${n ? `${n} जी, ` : ''}कृपया अपना संपर्क नंबर शेयर करें – हमारी टीम आपको कॉल करके मार्गदर्शन करेगी।`,
   },
+  // Before the pricing section: never reveal numbers – point them to later in the session.
+  pricelock: {
+    english: () => `Sir will share the complete offer and pricing details later in this session – please stay till then.`,
+    hinglish: () => `Sir is session mein aage poora offer aur pricing detail mein batayenge – kripya tab tak bane rahiye.`,
+    hindi: () => `सर इस सेशन में आगे पूरा ऑफ़र और प्राइसिंग विस्तार से बताएंगे – कृपया तब तक जुड़े रहिए।`,
+  },
   thanks: {
     english: (n) => `Thank you${n ? ` ${n}` : ''}. Our team will contact you on this number shortly.`,
     hinglish: (n) => `Dhanyavaad${n ? ` ${n} ji` : ''}. Humari team jaldi hi aapse is number par sampark karegi.`,
@@ -86,6 +92,13 @@ export function teamVoice(t) {
     .replace(/\bmeri team\b/gi, (m) => (m[0] === 'M' ? 'Humari team' : 'humari team'))
     .replace(/मेरी टीम/g, 'हमारी टीम');
 }
+
+// Does this text REVEAL pricing? Money amounts, EMI / token / discount, offer deadlines, checkout links.
+// (Saying "Sir will share the pricing later" is fine – it reveals nothing.)
+export const mentionsPrice = (t) =>
+  /₹|\$\s?\d|\brs\.?\s?\d|\binr\s?\d|\b\d[\d,.]*\s?(rupees|rupaye|rupay|lakh|lac|\/-|\/day|\/month|per day|per month)|\bemi\b|\bईएमआई\b|\btoken\b|\bdiscount|\d+\s?%\s?off|today only|aaj hi|get\?id=|reserve2k|\/checkout/i.test(
+    String(t),
+  );
 
 const urlsIn = (s) => (String(s).match(/https?:\/\/[^\s)]+/g) || []).map((u) => u.replace(/[.,]+$/, ''));
 
@@ -163,23 +176,28 @@ Respond with JSON only.`;
       .join('\n');
   }
 
-  #guard(reply, { hasNumber, lang, sender, needsAsk = true }) {
+  #guard(reply, { hasNumber, lang, sender, needsAsk = true, pricingLocked = false }) {
     let r = teamVoice(String(reply || '').trim());
     if (!r) return null;
+    // HARD RULE: no pricing before the pricing section – replace the whole reply with a safe one.
+    if (pricingLocked && mentionsPrice(r)) r = (FALLBACK.pricelock[lang] || FALLBACK.pricelock.english)();
     if (urlsIn(r).some((u) => !this.allowedUrls.has(u))) return null; // never send a link that isn't in the sheet
     if (needsAsk && !hasNumber && !asksForNumber(r)) {
       // Number first: the AI forgot the ask – add a natural one in their language.
       const ask = FALLBACK.ask[lang] || FALLBACK.ask.english;
-      r = `${r.replace(/[.!]?$/, '.')} ${ask('').replace(/^./, (c) => c.toUpperCase())}`;
+      r = `${/[.!?।]$/.test(r) ? r : `${r}.`} ${ask('').replace(/^./, (c) => c.toUpperCase())}`;
     }
     return r;
   }
 
   // A question/message → { action: reply|ignore|escalate, reply, objection, safe_to_ask, reason }
-  async decide({ sender, text, hasNumber = false, lang, history, recent }) {
+  async decide({ sender, text, hasNumber = false, lang, history, recent, pricingLocked = false }) {
     lang = lang || detectLang(text) || 'english';
     const objKeys = this.objections.map((o) => o.key).join(', ');
-    const user = `${this.#context({ sender, lang, hasNumber, history, recent })}
+    const lock = pricingLocked
+      ? `\nPRICING IS LOCKED RIGHT NOW (hard rule): do NOT mention any price, amount, ₹/$ figure, EMI, token, discount, offer validity or purchase/payment link – not even if they ask directly. If they ask about price/EMI/payment, say politely that Sir will share the complete offer and pricing details later in this session and ask them to stay till then${hasNumber ? '' : ', then ask for their number'}.`
+      : '';
+    const user = `${this.#context({ sender, lang, hasNumber, history, recent })}${lock}
 
 Their new message: """${String(text).slice(0, 800)}"""
 
@@ -201,7 +219,7 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
     out.safe_to_ask = out.safe_to_ask !== false;
     out.lang = lang;
     if (out.action !== 'ignore' && out.safe_to_ask) {
-      const guarded = this.#guard(out.reply, { hasNumber, lang, sender });
+      const guarded = this.#guard(out.reply, { hasNumber, lang, sender, pricingLocked });
       if (out.reply && !guarded && out.action === 'reply') {
         return { ...out, action: 'escalate', reply: null, reason: 'blocked a link that is not in the sheet' };
       }
@@ -213,7 +231,7 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
   }
 
   // AI-written short messages: purpose = 'thanks' (they just shared their number) | 'ask' (nudge for the number)
-  async compose({ purpose, sender, said, lang = 'english', history, recent, angle }) {
+  async compose({ purpose, sender, said, lang = 'english', history, recent, angle, pricingLocked = false }) {
     const name = firstName(sender);
     const task =
       purpose === 'thanks'
@@ -221,10 +239,10 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
         : `They're taking part in the chat but haven't shared their number. Write ONE short, polite, professional line asking them to share their contact number so our team can call and guide them.${angle ? ` Angle to use: ${angle}.` : ''} Do not comment on their message or mood; no salesy hype.`;
     try {
       const out = await this.#chat(
-        `${this.#context({ sender, lang, hasNumber: purpose === 'thanks', history, recent })}\n\nTheir latest message: """${String(said || '').slice(0, 300)}"""\n\nTask: ${task}\nJSON: {"message": string}`,
+        `${this.#context({ sender, lang, hasNumber: purpose === 'thanks', history, recent })}${pricingLocked ? '\nPRICING IS LOCKED: no prices, amounts, EMI, token, offers or payment links.' : ''}\n\nTheir latest message: """${String(said || '').slice(0, 300)}"""\n\nTask: ${task}\nJSON: {"message": string}`,
         0.9,
       );
-      const msg = this.#guard(out.message, { hasNumber: purpose === 'thanks', lang, sender, needsAsk: purpose === 'ask' });
+      const msg = this.#guard(out.message, { hasNumber: purpose === 'thanks', lang, sender, needsAsk: purpose === 'ask', pricingLocked });
       if (msg) return msg;
     } catch {
       /* fall through */

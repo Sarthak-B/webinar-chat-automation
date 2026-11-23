@@ -25,7 +25,13 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 
 > **Getting the phone number is the #1 goal. Clearing doubts comes second.** Every interaction is used to get the attendee's number, so a senior mentor can call them.
 >
-> **Professional, not a bot.** Every private message is written fresh by AI as the FlexiFunnels team, on behalf of the presenter (`PERSONA_NAME`). It speaks as "our team" / "humari team" / "हमारी टीम", is polite ("aap"/"आप", no slang), answers in the attendee's own language, keeps it short and varied, and is sent at a human pace. No templates are pasted and no bursts of replies go out.
+> **HARD RULE: no pricing before 1h 15m.** Nothing that reveals pricing goes out in the first 1 hour 15 minutes of the session, counted from the tab's session start cell (e.g. `11:00:00 am` → unlocks at 12:15 pm). That covers ₹/$ amounts, EMI, token, discounts, "today only" offers and enrol/payment links.
+> - **AI replies:** a price question gets "Sir will share the complete offer and pricing details later in this session", plus the number ask. Code replaces any reply that reveals pricing, even if the AI slips.
+> - **Timed chats:** "Price" rows, money in "Pitch" rows, and checkout links are held. Up to 5 min early → posted in order right at the unlock; earlier → skipped and logged. "Proof" rows with result numbers are not pricing.
+> - **Objection lines:** any that reveal pricing (e.g. "EMI from Rs. 59/day") wait until the unlock.
+> - **Dashboard:** shows the unlock time in the flight plan and on the timeline.
+>
+ Every private message is written fresh by AI as the FlexiFunnels team, on behalf of the presenter (`PERSONA_NAME`). It speaks as "our team" / "humari team" / "हमारी टीम", is polite ("aap"/"आप", no slang), answers in the attendee's own language, keeps it short and varied, and is sent at a human pace. No templates are pasted and no bursts of replies go out.
 
 
 | Job | How |
@@ -222,6 +228,8 @@ Set any of these as a repo **Variable** ([Settings → Secrets and variables →
 | `OBJECTION_THRESHOLD` | 3 | People raising one objection within 5 min before it's posted |
 | `OBJECTION_COOLDOWN_MIN` | 15 | Minimum gap between two posts of the same objection |
 | `JOIN_EARLY_MIN` | 5 | Minutes before the first chat to join |
+| `PRICE_UNLOCK_MIN` | 75 | **Hard rule:** minutes into the session before any pricing may appear |
+| `PRICE_DEFER_MIN` | 5 | Pricing timed chats at most this many minutes early are held and posted at the unlock (earlier ones are skipped) |
 | `PERSONA_NAME` | Sir | The presenter the team is replying on behalf of (e.g. `Saurabh Sir`) |
 | `HUMANIZE` | true | Wait a human read + type time before each private message |
 | `MAX_PRIVATE_PER_MIN` | 6 | Cap on private messages per minute |

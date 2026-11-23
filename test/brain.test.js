@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Brain, detectLang, asksForNumber, firstName, teamVoice } from '../src/brain.js';
+import { Brain, detectLang, asksForNumber, firstName, teamVoice, mentionsPrice } from '../src/brain.js';
 
 // language detection
 const cases = {
@@ -48,4 +48,17 @@ console.log('AI down, ask fallback   →', await b.compose({ purpose: 'ask', sen
 console.log('AI down, thanks fallback→', await b.compose({ purpose: 'thanks', sender: 'Mike', said: '9876543210', lang: 'english' }));
 d = await b.decide({ sender: 'Mike', text: 'what about refunds?', hasNumber: false });
 console.log('AI down, decide         →', d.action, '·', d.reason);
+// ---- pricing lock (hard rule: no pricing before 1h15m) ----
+for (const t of ['It is $447 today', 'Rs. 59/day EMI', '₹36,999 incl. GST', 'EMI available hai', 'link: https://sb.flexifunnels.com/get?id=19029', 'token payment of 2,000 rupees', '$447 is today only', 'EMI उपलब्ध है'])
+  assert.ok(mentionsPrice(t), `should be price: ${t}`);
+for (const t of ['Our team will call you shortly.', 'Yes, you can connect your own domain.', '60 minutes a day is enough', 'Kripya apna number share kijiye', 'Sir will share the complete offer and pricing details later in this session'])
+  assert.ok(!mentionsPrice(t), `not price: ${t}`);
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ action: 'reply', reply: 'Ji, aaj ka offer $447 hai – https://sb.flexifunnels.com/get?id=19029', safe_to_ask: true }) } }] }) });
+let locked = await b.decide({ sender: 'Rahul', text: 'price kya hai?', hasNumber: false, lang: 'hinglish', pricingLocked: true });
+console.log('price asked, LOCKED     →', locked.reply); assert.ok(!mentionsPrice(locked.reply)); assert.ok(asksForNumber(locked.reply));
+let open = await b.decide({ sender: 'Rahul', text: 'price kya hai?', hasNumber: false, lang: 'hinglish', pricingLocked: false });
+console.log('price asked, unlocked   →', open.reply); assert.match(open.reply, /\$447/);
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ message: 'EMI ₹59/day se, apna number share kijiye' }) } }] }) });
+const ask = await b.compose({ purpose: 'ask', sender: 'सुनीता', said: 'जी', lang: 'hindi', pricingLocked: true });
+console.log('number ask, LOCKED      →', ask); assert.ok(!mentionsPrice(ask));
 console.log('✓ brain tests passed');

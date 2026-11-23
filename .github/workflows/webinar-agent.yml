@@ -89,6 +89,8 @@ jobs:
           OBJECTION_COOLDOWN_MIN: ${{ vars.OBJECTION_COOLDOWN_MIN }}
           JOIN_EARLY_MIN: ${{ vars.JOIN_EARLY_MIN }}
           LATE_GRACE_SEC: ${{ vars.LATE_GRACE_SEC }}
+          PRICE_UNLOCK_MIN: ${{ vars.PRICE_UNLOCK_MIN }}
+          PRICE_DEFER_MIN: ${{ vars.PRICE_DEFER_MIN }}
         # Zoom's web client behaves better in a real (virtual) display than in headless mode.
         run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent
 
