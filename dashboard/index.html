@@ -801,7 +801,10 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml', script: '', key: '', sheetUrl: '', historyUrl: '', demo: null };
+const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml',
+  // Shared backend (protected by the team password – the URL alone gives no access)
+  script: 'https://script.google.com/macros/s/AKfycbxTem-HRvv5rgihalWUA35SCYDe9q4AVGp-cZbibWqPNxdooE0uTxeOb4YgBLVS-FcQ/exec', key: '',
+  sheetUrl: 'https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit', historyUrl: 'https://docs.google.com/spreadsheets/d/1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno/edit', demo: null };
 // Shared defaults (Apps Script URL, sheet links) are written by the FlexiFunnels loader, so teammates only need the team password.
 let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.defaults', {}), ...store.get('autopilot.cfg', {}) };
 const configured = () => cfg.owner && cfg.repo && cfg.script && cfg.key; // GitHub token optional: the Apps Script holds it

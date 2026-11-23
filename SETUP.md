@@ -224,7 +224,7 @@ The Apps Script feeds the dashboard from your sheets **and** makes the GitHub ca
 ## Step 10b: Host the dashboard on FlexiFunnels (optional, instead of or alongside Vercel)
 
 1. In FlexiFunnels, create a page (e.g. *Webinar Automation Dashboard*) and add a **Custom Code** element.
-2. Open [`dashboard/flexifunnels-loader.html`](dashboard/flexifunnels-loader.html) and put your Apps Script `/exec` URL into the line `var APPS_SCRIPT_URL = '';`. Copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**. You only do this **once**.
+2. Open [`dashboard/flexifunnels-loader.html`](dashboard/flexifunnels-loader.html). Your Apps Script `/exec` URL is already set in `APPS_SCRIPT_URL` (change it only if you redeploy as a *new* deployment). Copy **all** of it, paste it into the Custom Code box → **Save** → **Publish**. You only do this **once**.
    Anyone who opens the page then sees just a **team password** screen, once per browser. No tokens or links to set up.
 3. Open the published page or **Preview**. The editor canvas may only show the placeholder. The dashboard fills the screen.
 
@@ -246,7 +246,7 @@ Notes:
 ## Step 11: Open the dashboard (1 min)
 
 - **FlexiFunnels page (loader with `APPS_SCRIPT_URL` set):** type the **team password** → **Unlock**. Done. The DEMO badge disappears, the dots turn green, and your real tabs appear.
-- **Vercel / opened as a file:** click **⚙** and fill in the Apps Script web-app URL and the team password. Leave the GitHub token empty, because the Apps Script holds it. Then **Test connection → Save**.
+- **Vercel / opened as a file:** same password screen. The Apps Script URL is built into the dashboard too.
 - **Sign out** (in ⚙) forgets the password on that browser, e.g. on a shared computer.
 
 ✅ No DEMO badge, GitHub and Sheet dots green, real tabs in Launch.
