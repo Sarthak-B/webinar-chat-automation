@@ -126,8 +126,14 @@ if (loggedIn) {
   fs.writeFileSync('.session-ok', 'ok'); // tells the workflow it's safe to save the refreshed session
   log('Zoom session is logged in');
 } else {
-  log('WARNING: Zoom session is logged out. Joining with the link only; re-run save-session soon.');
-  record('WARNING', '', '', '', 'Zoom session logged out – run save-session again');
+  // Logged out = Zoom would let it in only as an attendee, who can't see other people's chats or
+  // reply privately. Stop with a clear message instead of sitting in the webinar doing nothing.
+  const msg = 'Zoom login has expired. On your Mac run: npm run save-session, then update the ZOOM_SESSION_B64 secret (SETUP.md step 4) and launch again.';
+  log(`ERROR: ${msg}`);
+  record('ERROR', '', '', '', msg);
+  await agentLog.close().catch(() => {});
+  await zoom.close();
+  process.exit(1);
 }
 
 async function joinWithRetry() {
@@ -519,7 +525,13 @@ async function shutdown(reason) {
   running = false;
   log('Stopping:', reason);
   record('STOP', '', '', '', reason);
-  await zoom.saveSession().catch((e) => log('could not save session', e.message));
+  // Only keep the refreshed session if it's still logged in – never overwrite the good saved login
+  // with a logged-out one.
+  if (await zoom.isLoggedIn().catch(() => false)) await zoom.saveSession().catch((e) => log('could not save session', e.message));
+  else {
+    fs.rmSync('.session-ok', { force: true });
+    log('WARNING: Zoom session is no longer logged in – not saving it (run save-session again)');
+  }
   await Promise.all([agentLog.close(), numbers.close(), history.write()]);
   await zoom.close();
 }
