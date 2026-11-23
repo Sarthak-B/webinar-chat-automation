@@ -1380,8 +1380,15 @@ async function testConn() {
 }
 async function saveCfg() {
   const f = readForm();
-  const filled = f.owner && f.repo && f.token && f.script && f.key;
-  if (!f.demo && !filled) { toast('Fill in all GitHub and Sheet fields (or turn on demo data to preview)', true); return; }
+  const need = [['#cOwner', 'Owner', f.owner], ['#cRepo', 'Repo', f.repo], ['#cToken', 'Access token', f.token], ['#cScript', 'Apps Script web-app URL', f.script], ['#cKey', 'Feed key', f.key]];
+  need.forEach(([sel, , v]) => { $(sel).style.borderColor = v || f.demo ? '' : 'var(--red)'; });
+  const missing = need.filter(([, , v]) => !v).map(([, label]) => label);
+  const filled = !missing.length;
+  if (!f.demo && !filled) {
+    const first = need.find(([, , v]) => !v)[0];
+    $(first).scrollIntoView({ behavior: 'smooth', block: 'center' }); $(first).focus();
+    toast(`Still empty: ${missing.join(', ')}`, true); return;
+  }
   if (f.script && !/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec/.test(f.script)) { toast('The Apps Script URL should look like https://script.google.com/macros/s/…/exec', true); return; }
   // Live data as soon as everything is filled in – demo only if explicitly switched on.
   cfg = { ...cfg, ...f, demo: f.demo ? true : false };
@@ -1465,7 +1472,8 @@ setInterval(() => {
 $$('[data-open-settings]').forEach((b) => b.addEventListener('click', openDrawer));
 $('#closeDrawer').addEventListener('click', closeDrawer);
 $('#scrim').addEventListener('click', () => { if (!$('#modal').classList.contains('on')) closeDrawer(); });
-$('#saveCfg').addEventListener('click', saveCfg); $('#testConn').addEventListener('click', testConn);
+$('#saveCfg').addEventListener('click', saveCfg);
+['#cOwner', '#cRepo', '#cToken', '#cScript', '#cKey'].forEach((sel) => $(sel).addEventListener('input', (e) => { e.target.style.borderColor = ''; })); $('#testConn').addEventListener('click', testConn);
 $('#copyScript').addEventListener('click', () => { navigator.clipboard?.writeText(SCRIPT_CODE).then(() => toast('Apps Script code copied')); });
 $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (S.tab) selectTab(S.tab.name); toast('Tabs refreshed'); });
 $$('#slotSeg .opt').forEach((b) => b.addEventListener('click', () => { S.slot = b.dataset.slot; renderChoices(); renderLaunch(); }));
