@@ -188,6 +188,13 @@ section{padding:110px 0 30px}
 .direct input{flex:1;height:48px;padding:0 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--line2);font:500 13px var(--mono);color:inherit;transition:border-color .3s,box-shadow .3s}
 .direct input:focus{outline:none;border-color:var(--acid);box-shadow:0 0 0 4px rgba(214,242,60,.12)}
 .direct input.bad{border-color:var(--red)}
+.testnow{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 16px;border-radius:12px;border:1px dashed var(--line2);cursor:pointer}
+.testnow input{position:absolute;opacity:0;pointer-events:none}
+.testnow .box{flex:none;width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line2);margin-top:1px;transition:.25s}
+.testnow input:checked+.box{background:var(--acid);border-color:var(--acid);box-shadow:inset 0 0 0 4px var(--bg2)}
+.testnow b{display:block;font-size:14px}
+.testnow small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
+.testnow:has(input:checked){border-color:var(--acid)}
 .opt-tag{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px}
 #directHint:empty{display:none}
 .sum-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px dashed var(--line2);font-size:14px}
@@ -623,6 +630,7 @@ body.is-demo .demo-banner{display:block}
               <button class="btn ghost sm" id="directClear" type="button">Clear</button>
             </div>
             <div class="hint" id="directHint"></div>
+            <label class="testnow"><input type="checkbox" id="testNow"><span class="box"></span><span><b>Test: play the tab's chats from now</b><small>The tab's timed chats start about 2 minutes after launch instead of at their real times. The 1h 15m pricing lock moves with them. Use only for tests.</small></span></label>
           </div>
         </div>
         <aside class="summary" data-reveal>
@@ -1059,6 +1067,7 @@ function renderLaunch() {
     }
   }
   const d = directState();
+  if (t && !d.on && $('#testNow')?.checked) { disabled = false; label = 'Launch test now'; winLabel = 'Test mode'; winText = 'Chats start in ~2 min<small>pricing lock moves too</small>'; pct = 100; note = 'Joins through the universal link right away and plays the tab from now.'; }
   if (t && d.on) {
     if (d.ok) { disabled = false; label = 'Join now via direct link'; winLabel = 'Direct link'; winText = 'Right away<small>no launch window</small>'; pct = 100; note = 'Joins the pasted webinar as the host account as soon as GitHub starts, and stays until it ends. Timed chats still follow the tab\'s times.'; }
     else { disabled = true; note = 'Fix the direct Zoom link (or clear it) to launch.'; }
@@ -1285,8 +1294,9 @@ async function onLaunchClick(e) {
   const w = launchWindow(); if (!S.tab || !w) return;
   const d = directState();
   if (d.on && !d.ok) return toast(d.msg, true);
-  if (!d.on && Date.now() < w.opens) return arm(w.opens);
-  const ok = await confirmBox(`Launch on "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : 'sb.flexifunnels.com/genie-demo'} · ${S.schedule.length} timed chats.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
+  const testNow = $('#testNow').checked;
+  if (!d.on && !testNow && Date.now() < w.opens) return arm(w.opens);
+  const ok = await confirmBox(`Launch on "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : 'sb.flexifunnels.com/genie-demo'} · ${S.schedule.length} timed chats${testNow ? ' starting ~2 min from now (TEST)' : ''}.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
   if (ok) launch(e);
 }
 async function launch(e) {
@@ -1295,7 +1305,7 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
-    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}) } }) });
+    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}) } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
@@ -1823,6 +1833,7 @@ $('#copyScript').addEventListener('click', () => { navigator.clipboard?.writeTex
 $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (S.tab) selectTab(S.tab.name); toast('Tabs refreshed'); });
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
+$('#testNow').addEventListener('change', renderLaunch);
 $('#directClear').addEventListener('click', () => { $('#directUrl').value = ''; renderDirect(); renderLaunch(); });
 $('#launchBtn').addEventListener('click', onLaunchClick);
 $('#histList').addEventListener('click', (e) => { const b = e.target.closest('[data-wid]'); if (!b) return; H.sel = b.dataset.wid; renderHistList(); loadHistoryDetail(); });

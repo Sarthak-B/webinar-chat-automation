@@ -74,8 +74,18 @@ let schedule = parseSchedule(scheduleRows);
 if (!schedule.length) throw new Error(`No timed chats found in "${cfg.scheduleTab}"`);
 log(`"${cfg.scheduleTab}": ${schedule.length} timed chats, ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
 
+// TEST MODE (dashboard "Play the tab's chats from now"): the whole tab is moved so its first chat goes
+// out ~2 minutes after start. The pricing lock moves with it, so the 1h15m rule still holds.
+const testShiftMs = cfg.testFromNow ? Date.now() + 2 * 60_000 - schedule[0].at.getTime() : 0;
+const shiftRows = (list) => list.map((x) => ({ ...x, at: new Date(x.at.getTime() + testShiftMs) }));
+if (testShiftMs) {
+  schedule = shiftRows(schedule);
+  log(`TEST MODE: chats moved to start from now → ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
+}
+
 // ---------- HARD RULE: no pricing before 1h15m into the session ----------
 let sessionStart = parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
+if (testShiftMs && parseSessionStart(scheduleRows)) sessionStart = new Date(sessionStart.getTime() + testShiftMs);
 let unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
 const pricingLocked = () => Date.now() < unlockAt.getTime();
 log(`Session start ${clock(sessionStart)} → pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
@@ -84,11 +94,11 @@ const sentKeys = new Set();
 async function reloadSchedule() {
   try {
     const rows = await sheet.read(cfg.scheduleTab, 'A1:D600');
-    schedule = parseSchedule(rows);
+    schedule = shiftRows(parseSchedule(rows));
     const st = parseSessionStart(rows);
     if (st) {
-      sessionStart = st;
-      unlockAt = new Date(st.getTime() + cfg.priceUnlockMin * 60_000);
+      sessionStart = new Date(st.getTime() + testShiftMs);
+      unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
     }
   } catch (e) {
     log('schedule reload failed, keeping previous copy:', e.message);
@@ -127,6 +137,8 @@ async function joinWithRetry() {
       const role = await zoom.role().catch(() => 'unknown');
       log(`Joined the webinar via ${how} as ${role}`);
       record('JOINED', '', '', '', `via ${how} · role: ${role}`);
+      const probe = await zoom.readChat().catch(() => []);
+      log(`Chat check: ${probe.length} message(s) visible · ${await zoom.diagnose('after-join').catch((e) => 'diag failed ' + e.message)}`);
       if (role === 'attendee' || how === 'audience link') {
         const msg = 'Joined as an ATTENDEE – attendees can\'t see other people\'s chats or reply privately. Make the agent\'s Zoom account an alternative host of the webinar, or add it as a panelist and save its panelist link as the ZOOM_PANELIST_URL secret.';
         log(`WARNING: ${msg}`);
@@ -436,12 +448,21 @@ function noteObjection(key, sender) {
 
 async function chatLoop() {
   let first = true;
+  let emptySince = Date.now();
+  let diagN = 0;
   while (running) {
     let msgs = [];
     try {
       msgs = await zoom.readChat();
     } catch (e) {
       log('readChat failed:', e.message);
+    }
+    // Nothing readable for 5 min → log what the page looks like (max 3 times) so selectors can be fixed
+    if (msgs.length) emptySince = Date.now();
+    else if (Date.now() - emptySince > 5 * 60_000 && diagN < 3) {
+      emptySince = Date.now();
+      diagN++;
+      log(`Chat panel still shows 0 messages · ${await zoom.diagnose(`empty-chat-${diagN}`).catch(() => 'diag failed')}`);
     }
     const now = Date.now();
     for (const m of msgs) {

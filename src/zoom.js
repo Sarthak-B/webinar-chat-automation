@@ -9,15 +9,18 @@ export const SEL = {
   nameInput: ['#input-for-name', 'input[placeholder*="name" i]'],
   joinButton: ['button.preview-join-button', 'button:has-text("Join")'],
   audioDialogClose: ['.join-dialog button[aria-label*="close" i]', 'button:has-text("Continue without audio")', 'button:has-text("Join Audio by Computer")'],
-  chatToggle: ['button[aria-label*="chat" i]', 'button:has-text("Chat")', '.footer-button__button[aria-label*="Chat" i]'],
+  // meeting footer Chat button (NOT the Workplace sidebar "Chat" = team chat)
+  chatToggle: ['.footer-button-base__button[aria-label*="chat" i]', '.footer-button__button[aria-label*="chat" i]', 'button[aria-label*="open the chat" i]', 'button[aria-label*="chat panel" i]', '#foot-bar button:has-text("Chat")', 'footer button:has-text("Chat")'],
+  // only present once you're really inside the meeting
+  inMeeting: ['button[aria-label*="leave" i]', '.footer__leave-btn', 'button.footer__leave-btn-container', '#foot-bar', '.footer-button-base__button', 'button:has-text("Leave")'],
   chatPanel: ['.chat-container', '#chat-list-content', '[class*="chat-list"]'],
   // one rendered message block
-  chatItem: ['.chat-item-container', '.new-chat-item__container', '[class*="chat-item"][class*="container"]'],
-  chatSender: ['.chat-item__sender', '.new-chat-message__sender', '[class*="chat-item__sender"]'],
+  chatItem: ['.chat-item-container', '.new-chat-item__container', '[class*="chat-item"][class*="container"]', '[class*="chat-message"][class*="container"]', '[role="listitem"][class*="chat"]'],
+  chatSender: ['.chat-item__sender', '.new-chat-message__sender', '[class*="chat-item__sender"]', '[class*="sender"]'],
   chatText: ['.new-chat-message__text-content', '.chat-message__text-content', '[class*="text-content"]'],
   chatReceiverLabel: ['.chat-receiver-list__receiver', '.chat-receiver-list__chat-control-receiver', '[class*="receiver"]'],
-  chatInput: ['.chat-rtf-box__editor-outer [contenteditable="true"]', '.chat-box__chat-textarea', 'div[contenteditable="true"][class*="chat"]', 'textarea[class*="chat"]'],
-  receiverButton: ['.chat-receiver-list__receiver', 'button[aria-label*="send to" i]', '#chatReceiverMenu', '[class*="chat-receiver"] button'],
+  chatInput: ['.chat-rtf-box__editor-outer [contenteditable="true"]', '.chat-box__chat-textarea', 'div[contenteditable="true"][class*="chat"]', 'textarea[class*="chat"]', '[contenteditable="true"][aria-label*="message" i]', 'textarea[placeholder*="message" i]', '[data-placeholder*="Type message" i]', '[placeholder*="Type message" i]'],
+  receiverButton: ['.chat-receiver-list__receiver', 'button[aria-label*="to:" i]', '[class*="receiver"] button', 'button:has-text("Everyone")', 'button:has-text("Hosts and Panelists")', 'button[aria-label*="send to" i]', '#chatReceiverMenu', '[class*="chat-receiver"] button'],
   receiverSearch: ['.chat-receiver-list__search input', 'input[placeholder*="search" i]'],
   receiverEveryone: ['text=/^(Everyone|All panelists and attendees)$/i'],
   // the number on the footer "Participants" button (webinar attendee count, as the panelist/host sees it)
@@ -60,6 +63,58 @@ export class Zoom {
   constructor({ sessionFile, agentName, headless, dryRun }) {
     Object.assign(this, { sessionFile, agentName, headless, dryRun });
     this.currentReceiver = null;
+    this.ui = null; // the frame that holds the meeting UI (Zoom Workplace puts it inside an iframe)
+  }
+
+  // Zoom's new web app (app.zoom.us/wc/…) shows the meeting inside an iframe next to the Workplace
+  // sidebar. Everything meeting-related (chat, participants, footer) must be searched in that frame.
+  async findMeetingFrame() {
+    const frames = this.page.frames();
+    for (const f of [...frames].reverse()) {
+      for (const s of SEL.inMeeting) {
+        const el = f.locator(s).first();
+        if ((await el.count().catch(() => 0)) && (await el.isVisible().catch(() => false))) return f;
+      }
+    }
+    return null;
+  }
+  get root() {
+    return this.ui && !this.ui.isDetached() ? this.ui : this.page.mainFrame();
+  }
+
+  // One-line summary for the run log + files for the "debug" artifact – so selector problems can be
+  // fixed from the run instead of guessing.
+  async diagnose(tag = 'diag') {
+    const out = { tag, url: this.page.url(), frames: [], chosen: this.root.url() };
+    for (const f of this.page.frames()) {
+      const info = await f
+        .evaluate(() => ({
+          buttons: [...document.querySelectorAll('button,[role="button"]')]
+            .filter((b) => b.offsetParent)
+            .map((b) => (b.getAttribute('aria-label') || b.innerText || '').trim().replace(/\s+/g, ' ').slice(0, 40))
+            .filter(Boolean)
+            .slice(0, 60),
+          editable: [...document.querySelectorAll('[contenteditable="true"],textarea')].map((e) => `${e.tagName}.${e.className}`.slice(0, 80)),
+          chatish: [...new Set([...document.querySelectorAll('[class*="chat" i]')].map((e) => String(e.className).split(' ')[0]))].slice(0, 60),
+        }))
+        .catch(() => null);
+      out.frames.push({ url: f.url().slice(0, 120), ...info });
+    }
+    try {
+      const fs = await import('node:fs');
+      fs.mkdirSync('debug', { recursive: true });
+      fs.writeFileSync(`debug/${tag}.json`, JSON.stringify(out, null, 2));
+      await this.page.screenshot({ path: `debug/${tag}.png` }).catch(() => {});
+      const chatHtml = await this.root
+        .evaluate(() => {
+          const el = document.querySelector('[class*="chat-list"], [class*="chat-container"], [class*="chat-content"], [aria-label*="chat" i]');
+          return (el?.closest('[class*="chat"]')?.outerHTML || el?.outerHTML || '').slice(0, 60000);
+        })
+        .catch(() => '');
+      if (chatHtml) fs.writeFileSync(`debug/${tag}-chat.html`, chatHtml);
+    } catch {}
+    const f = out.frames.find((x) => x.url === out.chosen.slice(0, 120)) || out.frames[0] || {};
+    return `frames=${out.frames.length} meetingFrame=${this.ui ? 'yes' : 'no'} chatClasses=${(f.chatish || []).slice(0, 8).join(',') || 'none'} editable=${(f.editable || []).length}`;
   }
 
   async launch() {
@@ -242,43 +297,74 @@ export class Zoom {
     const join = await first(page, SEL.joinButton, { timeout: 5000 });
     if (join) await join.click().catch(() => {});
 
-    // Wait for the meeting UI (footer with Chat button). Webinars that haven't started show a waiting page.
+    // Wait for the meeting UI (footer with Leave/End). Webinars that haven't started show a waiting page.
+    // The join form / join button can also be inside the iframe, so try those in every frame too.
+    this.ui = null;
     for (let i = 0; i < 120; i++) {
-      const chat = await first(page, SEL.chatToggle);
-      if (chat && (await chat.isVisible().catch(() => false))) break;
+      this.ui = await this.findMeetingFrame();
+      if (this.ui) break;
+      for (const f of page.frames()) {
+        const n = await first(f, SEL.nameInput);
+        if (n && (await n.isVisible().catch(() => false)) && !(await n.inputValue().catch(() => ''))) await n.fill(this.agentName).catch(() => {});
+        const j = await first(f, SEL.joinButton);
+        if (j && (await j.isVisible().catch(() => false))) await j.click().catch(() => {});
+      }
       if (failOnRegistration && i < 6 && (await first(page, SEL.registration))) throw new Error('registration required');
       await page.waitForTimeout(5000);
       if (i === 119) throw new Error('Timed out waiting to get into the webinar');
     }
-    const audio = await first(page, SEL.audioDialogClose);
+    await page.waitForTimeout(3000);
+    const audio = await first(this.root, SEL.audioDialogClose);
     if (audio) await audio.click().catch(() => {});
+    for (const ok of ['button:has-text("OK")', 'button:has-text("Got it")']) {
+      const b = this.root.locator(ok).first();
+      if (await b.isVisible().catch(() => false)) await b.click().catch(() => {});
+    }
     await this.openChat();
   }
 
   // Attendees get a "Raise Hand" button and no Participants list; hosts/panelists see the Participants button.
   async role() {
-    const participants = await first(this.page, SEL.participantCount);
-    const raiseHand = await first(this.page, ['button[aria-label*="raise hand" i]', 'button:has-text("Raise Hand")']);
+    if (!this.ui) this.ui = await this.findMeetingFrame();
+    const participants = await first(this.root, SEL.participantCount);
+    const raiseHand = await first(this.root, ['button[aria-label*="raise hand" i]', 'button:has-text("Raise Hand")']);
     if (participants && (await participants.isVisible().catch(() => false))) return 'host/panelist';
     if (raiseHand && (await raiseHand.isVisible().catch(() => false))) return 'attendee';
+    const parts = this.root.locator('button:has-text("Participants")').first();
+    if (await parts.isVisible().catch(() => false)) return 'host/panelist';
     return 'unknown';
   }
 
   async openChat() {
-    if (await first(this.page, SEL.chatInput)) return;
-    const btn = await first(this.page, SEL.chatToggle);
+    if (!this.ui) this.ui = await this.findMeetingFrame();
+    const input = await first(this.root, SEL.chatInput);
+    if (input && (await input.isVisible().catch(() => false))) return;
+    let btn = await first(this.root, SEL.chatToggle);
+    if (!btn) {
+      // last resort: a visible "Chat" button in the bottom part of the meeting (the footer)
+      const all = this.root.locator('button:has-text("Chat"), [role="button"]:has-text("Chat")');
+      const n = await all.count().catch(() => 0);
+      const vh = this.page.viewportSize()?.height || 900;
+      for (let i = n - 1; i >= 0; i--) {
+        const box = await all.nth(i).boundingBox().catch(() => null);
+        if (box && box.y > vh * 0.6) {
+          btn = all.nth(i);
+          break;
+        }
+      }
+    }
     if (btn) await btn.click().catch(() => {});
     await this.page.waitForTimeout(1500);
   }
 
   async hasEnded() {
-    return Boolean(await first(this.page, SEL.meetingEnded)) || this.page.isClosed();
+    return this.page.isClosed() || Boolean(await first(this.root, SEL.meetingEnded)) || Boolean(await first(this.page, SEL.meetingEnded));
   }
 
   // Current attendee count shown in Zoom (null if it can't be read).
   async participantCount() {
     for (const sel of SEL.participantCount) {
-      const el = this.page.locator(sel).first();
+      const el = this.root.locator(sel).first();
       if (!(await el.count().catch(() => 0))) continue;
       const text = `${(await el.textContent().catch(() => '')) || ''} ${(await el.getAttribute('aria-label').catch(() => '')) || ''}`;
       const m = text.replace(/,/g, '').match(/\d+/);
@@ -290,7 +376,7 @@ export class Zoom {
   // Returns the messages currently rendered in the chat panel: [{ sender, text }]
   async readChat() {
     await this.openChat();
-    return this.page.evaluate((SEL) => {
+    return this.root.evaluate((SEL) => {
       const q = (root, list) => {
         for (const s of list) {
           const el = root.querySelector(s);
@@ -310,7 +396,8 @@ export class Zoom {
       for (const item of qa(SEL.chatItem)) {
         const senderEl = q(item, SEL.chatSender);
         // Zoom groups consecutive messages from one person and shows the name only once.
-        const sender = (senderEl?.textContent || lastSender).trim();
+        let sender = (senderEl?.textContent || lastSender).trim().replace(/\s+/g, ' ');
+        sender = sender.replace(/\s+to\s+(Everyone|Hosts? and Panelists|All Panelists.*|Me|You)\b.*$/i, '').replace(/\s*\((Privately|Direct Message)\)\s*$/i, '').trim();
         lastSender = sender;
         const textEls = [];
         for (const s of SEL.chatText) {
@@ -331,7 +418,7 @@ export class Zoom {
 
   // Picks who the next message goes to: null = everyone, otherwise an attendee's display name.
   async setReceiver(name) {
-    const page = this.page;
+    const page = this.root;
     const btn = await first(page, SEL.receiverButton);
     if (!btn) throw new Error('chat receiver button not found');
     await btn.click();
@@ -342,14 +429,14 @@ export class Zoom {
       await page.waitForTimeout(500);
       const opt = page.getByRole('menuitem', { name, exact: false }).or(page.locator(`[role="option"]:has-text("${name.replace(/"/g, '\\"')}")`)).first();
       if (!(await opt.count())) {
-        await page.keyboard.press('Escape');
+        await this.page.keyboard.press('Escape');
         throw new Error(`attendee "${name}" not found in receiver list`);
       }
       await opt.click();
     } else {
       const all = await first(page, SEL.receiverEveryone);
       if (!all) {
-        await page.keyboard.press('Escape');
+        await this.page.keyboard.press('Escape');
         throw new Error('"Everyone" option not found');
       }
       await all.click();
@@ -364,7 +451,7 @@ export class Zoom {
     }
     await this.openChat();
     if (this.currentReceiver !== to) await this.setReceiver(to);
-    const box = await first(this.page, SEL.chatInput);
+    const box = await first(this.root, SEL.chatInput);
     if (!box) throw new Error('chat input not found');
     await box.click();
     const lines = text.split('\n');
