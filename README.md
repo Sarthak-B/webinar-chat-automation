@@ -23,7 +23,7 @@ It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats fro
 
 > **Getting the phone number is the #1 goal. Clearing doubts comes second.** Every interaction is used to get the attendee's number, so a senior mentor can call them.
 >
-> **It should feel like Sir replying, not a bot.** Every private message is written fresh by AI in the presenter's first-person voice (`PERSONA_NAME`), in the attendee's own language, short and varied, and sent at a human pace. No templates are pasted and no bursts of replies go out.
+> **Professional, not a bot.** Every private message is written fresh by AI as the FlexiFunnels team, on behalf of the presenter (`PERSONA_NAME`). It speaks as "our team" / "humari team" / "हमारी टीम", is polite ("aap"/"आप", no slang), answers in the attendee's own language, keeps it short and varied, and is sent at a human pace. No templates are pasted and no bursts of replies go out.
 
 
 | Job | How |
@@ -31,7 +31,7 @@ It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats fro
 | **Asks for the tab first** | Before reading any schedule data it needs a tab. From the dashboard, that's the tab you click. From a terminal, it lists every tab with a `Video Time` header and asks you to pick a number. |
 | **Timed chats** | Posts every row of that tab at its **Host Time** (column B) to Everyone. Host Time is calculated by the sheet from the yellow cells. The agent re-reads the sheet every minute, so edits made during the webinar are picked up. Multi-line messages stay as one message. |
 | **Language** | **Hindi → Hindi** (Devanagari), **English → English**, **Hinglish → Hinglish**. It's detected from what each person writes and remembered, so a Hinglish speaker who later types "Yes" still gets Hinglish. |
-| **Private replies (all AI)** | Answers each question **privately**, in 1–2 chat-style sentences in Sir's voice ("I", "my team"), using only the facts in the **Attendee Replies** tab, reworded every time. It **always ends by asking for their number** (the code adds an ask in their language if the AI forgets). Once they've shared it, replies say the team will call instead. It sees the last few messages with that person and avoids phrasing it just used with others. If asked "is this a bot?", it says Sir's team is helping in the chat. Thank-yous for numbers are AI-written too. with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
+| **Private replies (all AI)** | Answers each question **privately**, in 1–2 short, professional sentences in the team's voice ("our team will send the recording to your number" / "humari team aapke number par bhejwa degi"; never "I" or "meri team"; the code corrects it if the AI slips), using only the facts in the **Attendee Replies** tab, reworded every time. It **always ends by asking for their number** (the code adds an ask in their language if the AI forgets). Once they've shared it, replies say the team will call instead. It sees the last few messages with that person and avoids phrasing it just used with others. If asked "is this a bot?", it says the FlexiFunnels team is assisting on Sir's behalf. Thank-yous for numbers are AI-written too. with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
 | **Numbers (top priority)** | A number typed in chat is saved to the **Numbers** tab the moment the agent reads it, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
 | **Number asks** | People who keep engaging (2+ messages, e.g. "Yes", their city, "1") without sharing a number get one natural, AI-written private ask in their language. The angle is inspired by your **Number Drop Bank** tab, never copied. Each person gets at most 2 asks, 20+ min apart, and the asks stop the moment they share a number. People with a problem for the team get a reply saying the team will sort it out, plus a number ask, so the team can call. |
 | **Pacing (no bombing)** | Timed chats go out exactly on cue. Every private message waits a human "read + type" time (about 5–30 s, depending on length). Private messages are capped at 6 a minute, and unprompted number asks at 2 a minute. Replies that would arrive more than 15 min late are dropped. |
@@ -86,7 +86,7 @@ Until you connect it, it shows **demo data** with a banner. To connect, click **
 ## One-time setup
 
 ### 1. Zoom account for the agent
-Use a Zoom account that aEvent adds as an **alternative host or panelist**. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see. To match the replies' voice, use Sir's name, and set `PERSONA_NAME` the same.
+Use a Zoom account that aEvent adds as an **alternative host or panelist**. Don't use the account aEvent's presenter bot runs on: logging the same account in twice can kick the presenter out. Set the account's display name to what attendees should see, e.g. *FlexiFunnels Team*, and set `AGENT_NAME` to the same.
 
 ### 2. Save the Zoom login (on your laptop, Node 20+)
 ```bash
@@ -131,8 +131,8 @@ In the repo, go to [Settings → Secrets and variables → Actions](https://gith
 | Name | Example | What it does |
 |---|---|---|
 | `SHEET_ID` | the long ID in the sheet's URL | Which sheet to use |
-| `AGENT_NAME` | `Saurabh Bhatnagar` | The agent account's Zoom display name (match the voice in `PERSONA_NAME`), so it ignores its own messages |
-| `PERSONA_NAME` | `Saurabh Sir` | Whose voice the AI writes in (default `Sir`) |
+| `AGENT_NAME` | `FlexiFunnels Team` | The agent account's Zoom display name, so it ignores its own messages |
+| `PERSONA_NAME` | `Saurabh Sir` | The presenter the team replies on behalf of (default `Sir`) |
 | `TEAM_NAMES` | `Arman,Support` | Comma-separated names whose chats are never answered |
 | `OPENAI_MODEL` | `gpt-4o-mini` | Any OpenAI chat model (default `gpt-4o-mini`) |
 
@@ -190,7 +190,7 @@ dashboard/index.html    Autopilot dashboard (single self-contained file)
 apps-script/Code.gs     keyed, read-only sheet feed for the dashboard
 src/
   agent.js              main loop: asks for the tab, timed chats, replies, numbers, logging
-  brain.js              AI writing in Sir's voice, language detection, phone detection, safety checks
+  brain.js              AI writing in a professional team voice, language detection, phone detection, safety checks
   zoom.js               Playwright: join, read chat, send (all selectors in SEL)
   schedule.js           parses schedule / replies / objection tabs
   sheets.js             Google Sheets read + batched log writes
@@ -215,7 +215,7 @@ Set any of these as a repo **Variable** ([Settings → Secrets and variables →
 | `OBJECTION_THRESHOLD` | 3 | People raising one objection within 5 min before it's posted |
 | `OBJECTION_COOLDOWN_MIN` | 15 | Minimum gap between two posts of the same objection |
 | `JOIN_EARLY_MIN` | 5 | Minutes before the first chat to join |
-| `PERSONA_NAME` | Sir | Whose voice the replies are written in (first person). Set the agent's Zoom display name to match. |
+| `PERSONA_NAME` | Sir | The presenter the team is replying on behalf of (e.g. `Saurabh Sir`) |
 | `HUMANIZE` | true | Wait a human read + type time before each private message |
 | `MAX_PRIVATE_PER_MIN` | 6 | Cap on private messages per minute |
 | `MAX_ASKS_PER_MIN` | 2 | Cap on unprompted number asks per minute |

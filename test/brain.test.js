@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Brain, detectLang, asksForNumber, firstName } from '../src/brain.js';
+import { Brain, detectLang, asksForNumber, firstName, teamVoice } from '../src/brain.js';
 
 // language detection
 const cases = {
@@ -17,7 +17,8 @@ globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ mes
 const b = new Brain({ openaiKey: 'x', model: 'x', personaName: 'Saurabh Sir',
   replies: [{ when: 'price', reply: '{Name}, $447 today – https://sb.flexifunnels.com/get?id=19029' }], objections: [{ key: 'obj1', objection: 'not technical', chat: 'No coding' }],
   numberBank: [{ angle: 'Trust', line: 'No spam. Drop your number 📞' }] });
-assert.match(b.system, /Saurabh Sir/); assert.match(b.system, /Never say you are AI/);
+assert.match(b.system, /on behalf of Saurabh Sir/); assert.match(b.system, /Never say you are AI/); assert.match(b.system, /our team/);
+assert.equal(teamVoice('My team will call. Meri team call karegi. मेरी टीम कॉल करेगी'), 'Our team will call. Humari team call karegi. हमारी टीम कॉल करेगी');
 
 next = { action: 'reply', reply: 'Haan bilkul, EMI ₹59/day se start hai', objection: null, safe_to_ask: true };
 let d = await b.decide({ sender: 'Rahul', text: 'EMI milega kya', hasNumber: false });
@@ -39,8 +40,9 @@ next = { action: 'escalate', reply: 'You are an idiot', safe_to_ask: false };
 d = await b.decide({ sender: 'Troll', text: 'scam!!', hasNumber: false });
 console.log('abusive                 →', d.action, '· reply:', d.reply); assert.equal(d.reply, null);
 
-next = { message: 'Aapka number drop kar do, meri team call karke sab samjha degi 🙏' };
-console.log('compose ask (hinglish)  →', await b.compose({ purpose: 'ask', sender: 'Ankit', said: 'haan', lang: 'hinglish' }));
+next = { message: 'Aap apna number share kijiye, meri team call karke sab samjha degi.' };
+const ca = await b.compose({ purpose: 'ask', sender: 'Ankit', said: 'haan', lang: 'hinglish' });
+console.log('compose ask (hinglish)  →', ca); assert.match(ca, /humari team/); assert.doesNotMatch(ca, /meri team/);
 globalThis.fetch = async () => { throw new Error('network down'); };
 console.log('AI down, ask fallback   →', await b.compose({ purpose: 'ask', sender: 'सुनीता', said: 'जी', lang: 'hindi' }));
 console.log('AI down, thanks fallback→', await b.compose({ purpose: 'thanks', sender: 'Mike', said: '9876543210', lang: 'english' }));

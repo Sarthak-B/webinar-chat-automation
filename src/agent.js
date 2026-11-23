@@ -420,9 +420,9 @@ async function socialProofLoop() {
     if (!names.length) continue;
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} & ${names.at(-1)}`;
     const lines = [
-      `Thank you ${list} 🙏 my team is calling you shortly. Anyone else who wants help, drop your number here`,
-      `${list} – got your numbers, my team will call you soon. Baaki sab bhi apna number drop karo 👇`,
-      `Thanks ${list}! Team will connect with you shortly. If you also want a call, just type your number 📞`,
+      `Thank you ${list} 🙏 Our team will contact you shortly. Anyone else who would like guidance, please share your contact number here.`,
+      `${list} – thank you, our team will call you shortly. Baaki sabhi bhi guidance ke liye apna contact number share kar sakte hain.`,
+      `Thank you ${list}. Our team will get in touch with you soon. Others who would like a call can share their number in the chat.`,
     ];
     enqueue({ prio: 3, text: lines[Math.floor(Math.random() * lines.length)], to: null, kind: 'SOCIAL PROOF' });
   }

@@ -238,7 +238,7 @@ section{padding:110px 0 30px}
 /* feed */
 .feed-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:16px}
 .filters{display:flex;gap:6px;padding:5px;border-radius:99px;background:var(--bg2);border:1px solid var(--line);position:relative}
-.filters button{position:relative;z-index:1;padding:8px 14px;border-radius:99px;font-size:13px;font-weight:500;color:var(--muted);transition:color .3s}
+.filters button{position:relative;z-index:1;white-space:nowrap;padding:8px 12px;border-radius:99px;font-size:13px;font-weight:500;color:var(--muted);transition:color .3s}
 .filters button.on{color:#0C0E13}
 .filters .glider{position:absolute;top:5px;bottom:5px;border-radius:99px;background:var(--acid);transition:left .45s var(--ease),width .45s var(--ease);z-index:0}
 .feed{max-height:620px;overflow:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
@@ -534,7 +534,7 @@ body.is-demo .demo-banner{display:block}
             <div class="seg three" id="modeSeg">
               <button class="opt" data-mode="dry"><span class="tag">Safe</span><b>Dry run</b><span>Joins and reads everything, logs what it would send. Sends nothing.</span></button>
               <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue and saves every number typed in chat. No private messages. Your team answers.</span></button>
-              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, plus private replies written by AI in Sir's voice and the attendee's language. Every reply goes for the number.</span></button>
+              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, plus polite private replies written by AI as "our team", in the attendee's language. Every reply goes for the number.</span></button>
             </div>
             <div class="hint" id="modeHint"></div>
           </div>
@@ -601,14 +601,14 @@ body.is-demo .demo-banner{display:block}
         <div class="thread">
           <div class="thread-h" id="threadHead"></div>
           <div class="msgs" id="msgs"><div class="chat-empty"><b>No conversations yet</b>When attendees start typing in the webinar chat, their threads appear here.</div></div>
-          <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent, as Sir (private)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
+          <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent · our team (private)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
         </div>
       </div>
       <div class="feed-grid">
         <div class="card" data-reveal>
           <div class="card-h"><h3>Activity log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a></h3>
             <div class="filters" id="filters"><span class="glider"></span>
-              <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="ask">Number asks</button><button data-f="team">Needs team</button><button data-f="fail">Failed</button>
+              <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="ask">Asks</button><button data-f="team">Team</button><button data-f="fail">Failed</button>
             </div>
           </div>
           <div class="feed" id="feedList"><div class="empty">No activity today yet.</div></div>
@@ -786,18 +786,18 @@ const Demo = (() => {
   });
   const people = ['Rahul Sharma', 'Priya Verma', 'Ankit', 'Sneha K', 'Vikram Singh', 'Pooja', 'Imran Khan', 'Neha Gupta', 'Arjun', 'Kavya'];
   const asks = [
-    ['REPLY', 'price kya hai?', 'Aaj sirf $447 hai (₹36,999 incl. GST) – yeh raha link: https://sb.flexifunnels.com/get?id=19029. Apna number drop kar do, meri team call karke sab samjha degi 🙏'],
-    ['REPLY', 'Is EMI available?', 'Yes {n}, EMI starts at under ₹1,800/month on the same link. Share your number and my team will help you pick the easiest plan.'],
-    ['REPLY', 'recording milegi?', 'Haan {n}, recording personally bhejwa dunga. Bas apna WhatsApp number yahan type kar do 👇'],
-    ['NUMBER', '98XXXXX421', 'Thank you {n}! My team will call you shortly 🙏'],
-    ['REPLY', 'क्या नौकरी के साथ ये कर सकते हैं?', 'बिल्कुल {n}, दिन के 60 मिनट काफी हैं – कई लोगों ने जॉब के साथ ही शुरू किया। अपना नंबर शेयर करें, मेरी टीम आपका प्लान बना देगी।'],
-    ['NEEDS TEAM', 'I paid yesterday but did not get login details', 'Sorry about that {n} – my team will sort your login personally. Drop your number here so they can call you right away.'],
-    ['NUMBER', '91XXXXX077', 'शुक्रिया {n}! मेरी टीम आपको जल्दी कॉल करेगी 🙏'],
+    ['REPLY', 'price kya hai?', 'Ji, aaj ka offer $447 hai (₹36,999 incl. GST) – link: https://sb.flexifunnels.com/get?id=19029. Kripya apna contact number share kijiye, humari team aapko guide karegi.'],
+    ['REPLY', 'Is EMI available?', 'Yes {n}, EMI starts at under ₹1,800/month on the same link. Please share your contact number and our team will help you with the plan.'],
+    ['REPLY', 'recording milegi?', 'Ji {n}, humari team aapke number par recording bhejwa degi. Kripya apna WhatsApp number yahan share kijiye.'],
+    ['NUMBER', '98XXXXX421', 'Thank you {n}. Our team will contact you on this number shortly.'],
+    ['REPLY', 'क्या नौकरी के साथ ये कर सकते हैं?', 'जी हाँ {n}, रोज़ 60 मिनट काफ़ी हैं – कई लोगों ने जॉब के साथ ही शुरुआत की है। कृपया अपना नंबर शेयर करें, हमारी टीम आपको प्लान समझा देगी।'],
+    ['NEEDS TEAM', 'I paid yesterday but did not get login details', 'We\'re sorry for the trouble, {n}. Our team will check your login right away – please share your contact number so they can call you.'],
+    ['NUMBER', '91XXXXX077', 'धन्यवाद {n} जी। हमारी टीम जल्द ही इस नंबर पर आपसे संपर्क करेगी।'],
   ];
   const trivial = ['Yes', 'YES 🔥', '1', 'Mumbai', 'Delhi se', 'T', 'F', 'Excited!', 'Hi sir 🙏', '🔥🔥🔥', 'Jaipur', 'Type 1 – 1'];
   let k = 0, a = 0, pending = [];
-  const asked = new Set(), seenOnce = new Set();
-  const bankLines = ['dikh raha hai aap kaafi excited ho 😄 apna number drop kar do, meri team aapka personal roadmap bana degi', 'glad you\'re enjoying it! If you want a 1-on-1 plan, just type your number here', 'koi bhi sawaal ho toh apna number share karo – meri team khud call karegi 📞'];
+  const asked = new Set(), seenOnce = new Set(), numbered = new Set();
+  const bankLines = ['kripya apna contact number share kijiye – humari team aapko personal roadmap ke saath guide karegi.', 'if you would like a one-on-one plan, please share your contact number and our team will call you.', 'kisi bhi sawaal ke liye apna number share kijiye, humari team aapse sampark karegi.'];
   const row = (kind, to, sent, said, note = '', at = new Date()) => [todayStr(), fmtFull(at), kind, to, sent, said, note];
   // one "tick" of fake chat: someone types, and the agent answers on the next tick
   function tick(at = new Date()) {
@@ -805,7 +805,7 @@ const Demo = (() => {
     const p = people[k++ % people.length], first = p.split(' ')[0];
     if (Math.random() < .4) {
       out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at));
-      if (seenOnce.has(p) && !asked.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
+      if (seenOnce.has(p) && !asked.has(p) && !numbered.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
       seenOnce.add(p);
       return out;
     }
@@ -814,7 +814,12 @@ const Demo = (() => {
     const said2 = kind === 'NUMBER' ? `9${(7 + (k % 3))}XXXXX${String(100 + ((k * 37) % 900))}` : said;
     if (kind === 'NUMBER') out[out.length - 1][5] = said2;
     if (kind === 'NEEDS TEAM') { pending.push(row('DRY NEEDS TEAM', p, '', said, 'account/login problem – needs a human', at)); pending.push(row('DRY NUMBER ASK', p, reply.replace('{n}', first), said, 'needs team · english', at)); }
-    else pending.push(row(`DRY ${kind}`, p, reply.replace('{n}', first), said2, '', at));
+    else {
+      let msg = reply.replace('{n}', first);
+      if (kind === 'NUMBER') numbered.add(p);
+      else if (numbered.has(p)) msg = msg.replace(/\s*(Kripya|Please share|कृपया)[^]*$/, '').trim(); // already has their number – don't ask again
+      pending.push(row(`DRY ${kind}`, p, msg, said2, '', at));
+    }
     return out;
   }
   const log = [];
@@ -879,7 +884,7 @@ function renderChoices() {
   const hints = {
     dry: 'Best for the first live test. Your team handles chat as usual, then compare the Agent Log with what they did.',
     timed: 'Sir\'s timed chats go out on cue and every number typed is saved. The agent sends no private messages, so your team answers questions.',
-    full: 'Replies sound like Sir: short, varied, in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
+    full: 'Replies are short, professional and in the team\'s voice ("our team", "humari team"), in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
   };
   $('#modeHint').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${S.mode === 'full' ? 'var(--red)' : 'var(--acid)'}" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${hints[S.mode]}</span>`;
 }
