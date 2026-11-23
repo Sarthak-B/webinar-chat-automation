@@ -64,6 +64,21 @@ jobs:
           AGENT_NAME: ${{ vars.AGENT_NAME }}
           TEAM_NAMES: ${{ vars.TEAM_NAMES }}
           MAX_RUNTIME_MIN: 345
+          # Optional tuning – set any of these as repo Variables to override the defaults (empty = default)
+          HUMANIZE: ${{ vars.HUMANIZE }}
+          MAX_PRIVATE_PER_MIN: ${{ vars.MAX_PRIVATE_PER_MIN }}
+          MAX_ASKS_PER_MIN: ${{ vars.MAX_ASKS_PER_MIN }}
+          SEND_GAP_MS: ${{ vars.SEND_GAP_MS }}
+          ATTENDEE_COOLDOWN_SEC: ${{ vars.ATTENDEE_COOLDOWN_SEC }}
+          NUMBER_NUDGES: ${{ vars.NUMBER_NUDGES }}
+          NUDGE_AFTER_MESSAGES: ${{ vars.NUDGE_AFTER_MESSAGES }}
+          NUDGE_MAX: ${{ vars.NUDGE_MAX }}
+          NUDGE_GAP_MIN: ${{ vars.NUDGE_GAP_MIN }}
+          SOCIAL_PROOF_EVERY_MIN: ${{ vars.SOCIAL_PROOF_EVERY_MIN }}
+          OBJECTION_THRESHOLD: ${{ vars.OBJECTION_THRESHOLD }}
+          OBJECTION_COOLDOWN_MIN: ${{ vars.OBJECTION_COOLDOWN_MIN }}
+          JOIN_EARLY_MIN: ${{ vars.JOIN_EARLY_MIN }}
+          LATE_GRACE_SEC: ${{ vars.LATE_GRACE_SEC }}
         # Zoom's web client behaves better in a real (virtual) display than in headless mode.
         run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent
 

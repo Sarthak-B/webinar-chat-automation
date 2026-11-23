@@ -202,7 +202,9 @@ test/schedule.test.js   parser tests (pass an exported sheet to test real tabs)
 test/brain.test.js      language detection, number-ask guarantee, link blocking, AI-down fallbacks
 ```
 
-## Tuning (optional env vars)
+## Tuning (optional)
+
+Set any of these as a repo **Variable** ([Settings → Secrets and variables → Actions → Variables](https://github.com/Sarthak-B/webinar-chat-automation/settings/variables/actions)). The next launch uses them, with no code change. Leave a variable unset to keep its default. For local runs, put them in `.env`.
 
 | Var | Default | Meaning |
 |---|---|---|
