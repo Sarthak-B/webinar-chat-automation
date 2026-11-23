@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
-import { parseSchedule, parseReplies, parseObjections } from './schedule.js';
-import { Brain, findPhone, isTrivial, firstName } from './brain.js';
+import { parseSchedule, parseReplies, parseObjections, parseNumberBank } from './schedule.js';
+import { Brain, findPhone, isTrivial, firstName, asksForNumber } from './brain.js';
 import { Zoom } from './zoom.js';
 
 const cfg = loadConfig();
@@ -53,7 +53,20 @@ log(`Using tab "${cfg.scheduleTab}"`);
 const replies = parseReplies(await sheet.read(cfg.repliesTab));
 const objections = parseObjections(await sheet.read(cfg.objectionsTab));
 const brain = new Brain({ ...cfg, replies, objections });
-log(`Loaded ${replies.length} reply templates and ${objections.length} objection lines`);
+let numberBank = [];
+try {
+  numberBank = parseNumberBank(await sheet.read(cfg.numberBankTab));
+} catch (e) {
+  log(`No "${cfg.numberBankTab}" tab – using built-in number asks`);
+}
+if (!numberBank.length) {
+  numberBank = [
+    { angle: 'Free clarity', line: 'Drop your WhatsApp number here – a senior mentor will call you and map your personal roadmap, FREE 👇' },
+    { angle: 'Commitment', line: "that's your first step. Step 2: share your contact number and our team will guide you 👇" },
+    { angle: 'Trust', line: 'no spam, no pressure – just one call from a senior mentor. Share your contact number 📞' },
+  ];
+}
+log(`Loaded ${replies.length} reply templates, ${objections.length} objection lines, ${numberBank.length} number-ask lines`);
 
 let schedule = parseSchedule(await sheet.read(cfg.scheduleTab, 'A1:D600'));
 if (!schedule.length) throw new Error(`No timed chats found in "${cfg.scheduleTab}"`);
@@ -119,6 +132,7 @@ async function senderLoop() {
     }
     queue.sort((a, b) => a.prio - b.prio || a.at - b.at);
     const job = queue.shift();
+    if (job.skipIf?.()) continue; // e.g. a number ask for someone who has since shared their number
     try {
       await zoom.send(job.text, job.to);
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
@@ -170,12 +184,52 @@ function cleanSender(raw) {
   return { name, isTeam: role || teamSet.has(name.toLowerCase()) };
 }
 
+// ---------- Numbers come first ----------
 // Saved the moment the number appears in chat (not when the thank-you goes out), so it shows up right away.
 const savedNumbers = new Set();
 const thankedNumbers = new Set();
+const hasNumber = new Set(); // attendee names who have shared a number
+const asks = new Map(); // name → { count, last } private number asks sent (replies that ask count too)
+let bankIdx = 0;
+
+function noteAsk(sender) {
+  const a = asks.get(sender) || { count: 0, last: 0 };
+  a.count++;
+  a.last = Date.now();
+  asks.set(sender, a);
+}
+function canAsk(sender) {
+  if (hasNumber.has(sender)) return false;
+  const a = asks.get(sender);
+  return !a || (a.count < cfg.nudgeMax && Date.now() - a.last > cfg.nudgeGapMin * 60_000);
+}
+// Private "share your number" message, rotating through the sheet's Number Drop Bank lines.
+function askForNumber(sender, said, reason, prio = 4) {
+  if (!cfg.numberNudges || !canAsk(sender)) return false;
+  const name = firstName(sender);
+  const { line, angle } = numberBank[bankIdx++ % numberBank.length];
+  const text = `${name === 'there' ? 'Hi' : name}, ${line.charAt(0).toLowerCase()}${line.slice(1)}`;
+  noteAsk(sender);
+  const queuedAt = Date.now();
+  const skipIf = () => {
+    if (hasNumber.has(sender)) return true;
+    if (Date.now() - queuedAt > 10 * 60_000) {
+      // waited too long behind timed chats/replies – drop it and let them be asked fresh later
+      const a = asks.get(sender);
+      if (a) a.count = Math.max(0, a.count - 1);
+      return true;
+    }
+    return false;
+  };
+  enqueue({ prio, text, to: sender, kind: 'NUMBER ASK', said, note: `${reason} · ${angle}`, skipIf });
+  return true;
+}
+
 function saveNumber(sender, text) {
   const phone = findPhone(text);
-  if (!phone || savedNumbers.has(phone)) return;
+  if (!phone) return;
+  hasNumber.add(sender);
+  if (savedNumbers.has(phone)) return;
   savedNumbers.add(phone);
   numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
   numbers.flush().catch((e) => log('numbers flush failed:', e.message));
@@ -196,9 +250,15 @@ async function handle(sender, text) {
     // "9876543210, EMI hai?" → thank them AND answer the question
     text = text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim();
   }
-  if (isTrivial(text)) return;
+  if (isTrivial(text)) {
+    // "Yes" / "1" / emojis: they're engaged right now – the best moment to ask for the number.
+    if (!phone) askForNumber(sender, text, 'engaged, no number yet');
+    return;
+  }
   if (!cfg.autoReply) {
     record('QUESTION', sender, '', text, 'auto-reply off');
+    // No AI replies in this mode, but still go for the number.
+    askForNumber(sender, text, 'asked a question', 2);
     return;
   }
 
@@ -206,7 +266,7 @@ async function handle(sender, text) {
   aiBusy++;
   let d;
   try {
-    d = await brain.decide({ sender, text });
+    d = await brain.decide({ sender, text, hasNumber: hasNumber.has(sender) });
   } catch (e) {
     d = { action: 'escalate', reason: `AI error: ${e.message}` };
   } finally {
@@ -216,10 +276,19 @@ async function handle(sender, text) {
   if (d.objection) noteObjection(d.objection, sender);
   if (d.action === 'reply') {
     enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text });
+    if (asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
     record('NEEDS TEAM', sender, '', text, d.reason || '');
     log(`NEEDS TEAM: ${sender}: ${text}`);
+    // The team can only help if they can call – get the number now.
+    if (d.safe_to_ask !== false && !hasNumber.has(sender) && cfg.numberNudges) {
+      const t = brain.replyFor(/wants a call|general doubt/i, name) || `${name}, our team will help you with this personally. Kindly share your contact number and they'll call you.`;
+      enqueue({ prio: 1, text: t, to: sender, kind: 'NUMBER ASK', said: text, note: 'needs team – asking for number', skipIf: () => hasNumber.has(sender) });
+      noteAsk(sender);
+    }
+  } else if (d.safe_to_ask !== false && !phone) {
+    askForNumber(sender, text, 'chatting, no number yet'); // "ignore" (city names, compliments…) – still go for the number
   }
 }
 

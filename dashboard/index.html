@@ -250,6 +250,7 @@ section{padding:110px 0 30px}
 .chip.timed{color:var(--acid);border-color:rgba(214,242,60,.35);background:var(--acid-soft)}
 .chip.reply{color:var(--sky);border-color:rgba(124,200,255,.3);background:rgba(124,200,255,.08)}
 .chip.number{color:var(--lilac);border-color:rgba(184,166,246,.35);background:rgba(184,166,246,.1)}
+.chip.ask{color:var(--lilac);border-color:rgba(184,166,246,.25);background:transparent}
 .chip.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.1)}
 .chip.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.1)}
 .chip.dry{border-style:dashed}
@@ -276,8 +277,8 @@ section{padding:110px 0 30px}
 .search:focus-within{border-color:rgba(214,242,60,.5)}
 .search input{flex:1;background:none;border:0;outline:none;font-size:14px}
 .search input::placeholder{color:var(--dim)}
-.cfilters{display:flex;gap:6px;margin-top:12px}
-.cfilters button{height:30px;padding:0 11px;white-space:nowrap;border-radius:99px;font-size:12.5px;font-weight:500;color:var(--muted);border:1px solid var(--line);transition:.3s var(--ease)}
+.cfilters{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
+.cfilters button{height:30px;padding:0 9px;white-space:nowrap;border-radius:99px;font-size:12.5px;font-weight:500;color:var(--muted);border:1px solid var(--line);transition:.3s var(--ease)}
 .cfilters button:hover{color:var(--ink);border-color:var(--line2)}
 .cfilters button.on{background:var(--ink);color:#0C0E13;border-color:var(--ink)}
 .cfilters button b{font:500 10.5px/1 var(--mono);margin-left:4px;opacity:.7}
@@ -310,6 +311,7 @@ section{padding:110px 0 30px}
 .numchip button:hover{background:var(--lilac);color:#0C0E13}
 .tstat{height:30px;padding:0 12px;border-radius:99px;display:inline-flex;align-items:center;font:500 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
 .tstat.team{background:rgba(245,184,75,.12);color:var(--amber);border:1px solid rgba(245,184,75,.35)}
+.tstat.nonum{background:rgba(255,107,91,.1);color:var(--red);border:1px solid rgba(255,107,91,.3)}
 .tstat.ok{background:var(--acid-soft);color:var(--acid);border:1px solid rgba(214,242,60,.3)}
 .msgs{flex:1;overflow:auto;padding:26px 28px 18px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent;
   background:radial-gradient(circle at 1px 1px,rgba(244,240,232,.045) 1px,transparent 0) 0 0/22px 22px}
@@ -531,8 +533,8 @@ body.is-demo .demo-banner{display:block}
             <div class="step-h"><span class="step-n">03</span><div><h3>How much should it do?</h3><p>Start with a dry run on your first live webinar.</p></div></div>
             <div class="seg three" id="modeSeg">
               <button class="opt" data-mode="dry"><span class="tag">Safe</span><b>Dry run</b><span>Joins and reads everything, logs what it would send. Sends nothing.</span></button>
-              <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue and thanks people who share numbers. No AI replies.</span></button>
-              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Timed chats, numbers, and AI replies to every question from the Attendee Replies tab.</span></button>
+              <button class="opt" data-mode="timed"><span class="tag">Step 2</span><b>Timed chats</b><span>Posts the sheet's chats on cue, asks every chatter for their number and thanks them. No AI replies.</span></button>
+              <button class="opt risky" data-mode="full"><span class="tag">Full auto</span><b>Everything</b><span>Everything above, plus AI replies that answer briefly and always end by asking for the number.</span></button>
             </div>
             <div class="hint" id="modeHint"></div>
           </div>
@@ -563,7 +565,7 @@ body.is-demo .demo-banner{display:block}
       <div class="kpis">
         <div class="kpi" data-reveal id="kTimed"><span class="label"><i style="background:var(--acid)"></i>Timed chats sent</span><div class="v" data-k="timed">0</div><div class="s" id="kTimedS">of 0 in this tab</div></div>
         <div class="kpi" data-reveal id="kReply"><span class="label"><i style="background:var(--sky)"></i>AI replies</span><div class="v" data-k="reply">0</div><div class="s">sent privately</div></div>
-        <div class="kpi" data-reveal id="kNumber"><span class="label"><i style="background:var(--lilac)"></i>Numbers captured</span><div class="v" data-k="number">0</div><div class="s">saved to the Numbers tab</div></div>
+        <div class="kpi" data-reveal id="kNumber" style="border-color:rgba(184,166,246,.4);background:linear-gradient(160deg,rgba(184,166,246,.12),var(--panel))"><span class="label"><i style="background:var(--lilac)"></i>Numbers captured · top goal</span><div class="v" data-k="number">0</div><div class="s" id="kNumberS">of people who chatted</div></div>
         <div class="kpi" data-reveal id="kTeam"><span class="label"><i style="background:var(--amber)"></i>Needs the team</span><div class="v" data-k="team">0</div><div class="s">questions the agent left for you</div></div>
       </div>
       <div class="live-grid">
@@ -592,7 +594,7 @@ body.is-demo .demo-banner{display:block}
         <aside class="convs">
           <div class="convs-h">
             <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="convSearch" placeholder="Search a name or message" aria-label="Search conversations"></label>
-            <div class="cfilters" id="cfilters"><button class="on" data-cf="all">All<b id="cfAll"></b></button><button data-cf="replied">Replied<b id="cfReplied"></b></button><button data-cf="team">Team<b id="cfTeam"></b></button><button data-cf="number">Numbers<b id="cfNumber"></b></button></div>
+            <div class="cfilters" id="cfilters"><button class="on" data-cf="all">All<b id="cfAll"></b></button><button data-cf="replied">Replied<b id="cfReplied"></b></button><button data-cf="team">Team<b id="cfTeam"></b></button><button data-cf="number">Numbers<b id="cfNumber"></b></button><button data-cf="nonum">No number<b id="cfNoNum"></b></button></div>
           </div>
           <div class="conv-list" id="convList"></div>
         </aside>
@@ -606,7 +608,7 @@ body.is-demo .demo-banner{display:block}
         <div class="card" data-reveal>
           <div class="card-h"><h3>Activity log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a></h3>
             <div class="filters" id="filters"><span class="glider"></span>
-              <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="team">Needs team</button><button data-f="fail">Failed</button>
+              <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="ask">Number asks</button><button data-f="team">Needs team</button><button data-f="fail">Failed</button>
             </div>
           </div>
           <div class="feed" id="feedList"><div class="empty">No activity today yet.</div></div>
@@ -794,12 +796,18 @@ const Demo = (() => {
   ];
   const trivial = ['Yes', 'YES 🔥', '1', 'Mumbai', 'Delhi se', 'T', 'F', 'Excited!', 'Hi sir 🙏', '🔥🔥🔥', 'Jaipur', 'Type 1 – 1'];
   let k = 0, a = 0, pending = [];
+  const asked = new Set();
+  const bankLines = ["that's your first step. Step 2: drop your number 👇", 'confused which model fits YOU? Drop your WhatsApp number. A senior mentor will call and map your personal roadmap – FREE 👇', 'no spam. No pressure. Just one call from a senior mentor. Drop your number 📞'];
   const row = (kind, to, sent, said, note = '', at = new Date()) => [todayStr(), fmtFull(at), kind, to, sent, said, note];
   // one "tick" of fake chat: someone types, and the agent answers on the next tick
   function tick(at = new Date()) {
     const out = pending.map((p) => (p[1] = fmtFull(at), p)); pending = [];
     const p = people[k++ % people.length], first = p.split(' ')[0];
-    if (Math.random() < .4) { out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at)); return out; }
+    if (Math.random() < .4) {
+      out.push(row('IN', p, '', trivial[Math.floor(Math.random() * trivial.length)], '', at));
+      if (!asked.has(p)) { asked.add(p); pending.push(row('DRY NUMBER ASK', p, `${first}, ${bankLines[k % bankLines.length]}`, out[out.length - 1][5], 'engaged, no number yet', at)); }
+      return out;
+    }
     const [kind, said, reply] = asks[a++ % asks.length];
     out.push(row('IN', p, '', said, '', at));
     const said2 = kind === 'NUMBER' ? `9${(7 + (k % 3))}XXXXX${String(100 + ((k * 37) % 900))}` : said;
@@ -868,7 +876,7 @@ function renderChoices() {
   $('#step2').classList.toggle('active', !!S.tab); $('#step3').classList.toggle('active', !!S.tab);
   const hints = {
     dry: 'Best for the first live test. Your team handles chat as usual, then compare the Agent Log with what they did.',
-    timed: 'Sir\'s timed chats and number thank-yous are automatic. Your team still answers questions.',
+    timed: 'Sir\'s timed chats, number thank-yous and private number asks are automatic. Your team still answers questions.',
     full: 'The agent answers every question privately from the Attendee Replies tab. Keep someone watching "Needs the team".',
   };
   $('#modeHint').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${S.mode === 'full' ? 'var(--red)' : 'var(--acid)'}" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${hints[S.mode]}</span>`;
@@ -1074,7 +1082,7 @@ async function stopRun() {
 }
 
 // ---------- feed ----------
-const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NEEDS TEAM' || s === 'QUESTION') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
+const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
 async function loadFeed() {
   try {
     if (isDemo()) {
@@ -1180,6 +1188,7 @@ function buildConversations() {
     const c = get(to);
     if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
     if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number thank-you' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
+    else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
   });
@@ -1193,9 +1202,9 @@ function renderConversations(switched = false) {
   const convs = buildConversations();
   const people = convs.filter((c) => !c.broadcast);
   $('#cfAll').textContent = people.length; $('#cfReplied').textContent = people.filter((c) => c.replied).length;
-  $('#cfTeam').textContent = people.filter((c) => c.team).length; $('#cfNumber').textContent = people.filter((c) => c.number).length;
+  $('#cfTeam').textContent = people.filter((c) => c.team).length; $('#cfNumber').textContent = people.filter((c) => c.number).length; $('#cfNoNum').textContent = people.filter((c) => !c.number).length;
   const q = S.csearch || '';
-  const vis = convs.filter((c) => (S.cfilter === 'all' || (S.cfilter === 'replied' && c.replied) || (S.cfilter === 'team' && c.team) || (S.cfilter === 'number' && c.number)) && (S.cfilter === 'all' || !c.broadcast))
+  const vis = convs.filter((c) => (S.cfilter === 'all' || (S.cfilter === 'replied' && c.replied) || (S.cfilter === 'team' && c.team) || (S.cfilter === 'number' && c.number) || (S.cfilter === 'nonum' && !c.number)) && (S.cfilter === 'all' || !c.broadcast))
     .filter((c) => !q || c.name.toLowerCase().includes(q) || c.ev.some((e) => String(e.text).toLowerCase().includes(q)));
   if (!S.conv || !convs.some((c) => c.name === S.conv)) S.conv = (people[0] || convs[0] || {}).name || null;
 
@@ -1218,6 +1227,7 @@ function renderConversations(switched = false) {
   head.innerHTML = `<span class="av ${c.broadcast ? 'bc' : ''}" ${c.broadcast ? '' : `style="${avatarStyle(c.name)}"`}>${c.broadcast ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>' : esc(initials(c.name))}</span>
     <div><div class="tn">${c.broadcast ? 'Everyone' : esc(c.name)}</div><div class="ts">${c.broadcast ? `${sent} timed chats & broadcasts to all attendees` : `${got} message${got === 1 ? '' : 's'} from them · ${sent} repl${sent === 1 ? 'y' : 'ies'} from the agent`}</div></div>
     <div class="tr">${c.number ? `<span class="numchip">${esc(c.number)}<button data-copy="${esc(contact(c.name, c.number))}" aria-label="Copy name and number" title="Copy as Name - Number"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : ''}
+    ${!c.broadcast && !c.number ? `<span class="tstat nonum" title="${c.asked ? `Asked ${c.asked}× so far` : 'Not asked yet'}">No number yet${c.asked ? ` · asked ${c.asked}×` : ''}</span>` : ''}
     ${c.team ? '<span class="tstat team">Needs team</span>' : c.replied ? '<span class="tstat ok">Answered</span>' : ''}</div>`;
 
   const prev = changed ? c.ev.length : (convSeen[c.name] ?? c.ev.length);
@@ -1242,6 +1252,9 @@ function renderKpis() {
   const rows = todays(S.log); const c = { timed: 0, reply: 0, number: 0, team: 0 };
   rows.forEach((r) => { const k = kindOf(r[2]); if (k in c) c[k]++; });
   c.number = contactsToday().length; // includes numbers typed but not yet thanked
+  const chatters = new Set(rows.filter((r) => String(r[2]).toUpperCase() === 'IN').map((r) => r[3])).size;
+  const askedN = rows.filter((r) => kindOf(r[2]) === 'ask').length;
+  $('#kNumberS').textContent = chatters ? `${Math.round((c.number / chatters) * 100)}% of ${chatters} people who chatted · ${askedN} asks sent` : 'of people who chatted';
   $$('.kpi .v').forEach((el) => {
     const k = el.dataset.k, v = c[k];
     if (prevK[k] !== undefined && prevK[k] !== v) { const card = el.closest('.kpi'); card.classList.remove('bump'); void card.offsetWidth; card.classList.add('bump'); }

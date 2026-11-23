@@ -21,23 +21,27 @@ It joins the webinar as a logged-in Zoom account. It posts Sir's timed chats fro
 
 ## What the agent does
 
+> **Getting the phone number is the #1 goal. Clearing doubts comes second.** Every interaction is used to get the attendee's number, so a senior mentor can call them.
+
+
 | Job | How |
 |---|---|
 | **Asks for the tab first** | Before reading any schedule data it needs a tab. From the dashboard, that's the tab you click. From a terminal, it lists every tab with a `Video Time` header and asks you to pick a number. |
 | **Timed chats** | Posts every row of that tab at its **Host Time** (column B) to Everyone. Host Time is calculated by the sheet from the yellow cells. The agent re-reads the sheet every minute, so edits made during the webinar are picked up. Multi-line messages stay as one message. |
-| **Private replies** | Answers each attendee question **privately** using only the **Attendee Replies** tab, with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
-| **Numbers** | Phone numbers typed in chat go to a **Numbers** tab, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
+| **Private replies** | Answers each attendee question **privately** and briefly, using only the **Attendee Replies** tab, and **always ends by asking for their number** (the code adds the ask if the AI forgets). Once they've shared it, replies say the team will call instead. with `{Name}` replaced by their first name. It replies in Hinglish if they write in Hinglish. It never sends a link that isn't in the sheet. Anything it can't answer confidently is marked **NEEDS TEAM**. |
+| **Numbers (top priority)** | A number typed in chat is saved to the **Numbers** tab the moment the agent reads it, and the person gets the "Shared phone number" thank-you privately. Every 12 min it posts *"Thank you A, B & C…"* using only real names. |
+| **Number asks** | Anyone who chats without sharing a number gets asked privately, including people who only type "Yes", "1" or their city (that's when they're most engaged). The asks rotate through your **Number Drop Bank** tab's lines, personalised with their first name. Each person gets at most 3 asks, at least 12 min apart, and the asks stop the moment they share a number. People with a problem the agent hands to the team are asked for their number right away, so the team can call. |
 | **Objections** | When 3+ different people raise the same objection within 5 min, it posts the matching line from **Objection Handling** to Everyone, at most once per 15 min per objection. |
 | **Logging** | Every attendee message (kind `IN`) and everything the agent sends, skips, fails or hands to the team goes into an **Agent Log** tab. The agent creates **Agent Log** and **Numbers** itself and never edits your other tabs. |
 
-It ignores simple reactions without calling the AI: "Yes", "1", T/F answers, greetings and emojis. If one person sends several messages within a few seconds, they get one combined reply.
+It doesn't call the AI for simple reactions (they get a number ask instead, if needed): "Yes", "1", T/F answers, greetings and emojis. If one person sends several messages within a few seconds, they get one combined reply.
 
 ### Modes (picked per launch)
 
 | Mode | Timed chats | Number thank-yous | AI replies | Use it for |
 |---|---|---|---|---|
 | `dry` | logged only | logged only | logged only | First live test. The agent sends nothing; compare its log with what the team did. |
-| `timed` | ✅ | ✅ | ❌ | Once timing and Zoom selectors are confirmed. |
+| `timed` | ✅ | ✅ + number asks | ❌ | Once timing and Zoom selectors are confirmed. Questions get a number ask; the team answers the doubt. |
 | `full` | ✅ | ✅ | ✅ | Once the AI replies look right. Keep someone watching **Needs the team**. |
 
 ---
@@ -54,7 +58,8 @@ The control room for everything. Download the file and open it in Chrome. It run
 **Launch window:** GitHub jobs max out at 6 hours, so the agent can start at most **45 minutes before the first chat**. It then waits and joins 5 minutes early. Earlier than that, the button becomes **Arm**: keep the tab open and it launches itself when the window opens.
 
 While a run is going, the dashboard shows:
-- **Conversations**: a chat view with one thread per attendee. What they typed is on the left and the agent's private replies are on the right. Their number is in the thread header with a copy button. You can search and filter by Replied / Team / Numbers, and timed chats and broadcasts sit in a pinned **Everyone** thread.
+- **Numbers captured**: the headline counter, with the capture rate (% of people who chatted) and how many asks were sent
+- **Conversations**: a chat view with one thread per attendee. A **No number** filter lists everyone still without a number, so the team can chase them. What they typed is on the left and the agent's private replies are on the right. Their number is in the thread header with a copy button. You can search and filter by Replied / Team / Numbers, and timed chats and broadcasts sit in a pinned **Everyone** thread.
 - Live status with a **Stop agent** button
 - Each step of the GitHub run
 - A countdown to the next timed chat, and a timeline of the whole tab
@@ -164,6 +169,8 @@ The agent sends column C at the clock time in column B. Rows with an empty B or 
 
 **Objection Handling:** an `Objection | Chat to post` table.
 
+**Number Drop Bank:** an `Angle | Line to post | When to use` table. The agent uses every line except "Social proof" as a private number ask. Add or edit lines and it picks them up next run.
+
 After changing the layout, run `npm test -- <exported sheet file>` to confirm every tab still parses.
 
 ---
@@ -200,6 +207,9 @@ test/schedule.test.js   parser tests (pass an exported sheet to test real tabs)
 | `OBJECTION_THRESHOLD` | 3 | People raising one objection within 5 min before it's posted |
 | `OBJECTION_COOLDOWN_MIN` | 15 | Minimum gap between two posts of the same objection |
 | `JOIN_EARLY_MIN` | 5 | Minutes before the first chat to join |
+| `NUMBER_NUDGES` | true | Privately ask every chatter without a number for it |
+| `NUDGE_MAX` | 3 | Max number asks per person (AI replies that ask count too) |
+| `NUDGE_GAP_MIN` | 12 | Minimum minutes between two asks to the same person |
 
 ## Troubleshooting
 

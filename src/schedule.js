@@ -77,3 +77,22 @@ export function parseObjections(rows) {
   }
   return out;
 }
+
+// "Number Drop Bank" tab -> [{ angle, line }] — lines the agent uses to ask attendees for their number privately.
+// The "Social proof" lines need real names of others, so they're left out.
+export function parseNumberBank(rows) {
+  const out = [];
+  let started = false;
+  for (const r of rows) {
+    const a = String(r[0] || '').trim();
+    const b = String(r[1] || '').trim();
+    if (!started) {
+      if (/^angle$/i.test(a)) started = true;
+      continue;
+    }
+    if (/^operator tips?$/i.test(a)) break;
+    if (!a || !b || /social proof/i.test(a) || /\{Name\}/.test(b)) continue;
+    out.push({ angle: a, line: b });
+  }
+  return out;
+}

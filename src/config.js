@@ -28,6 +28,7 @@ export function loadConfig() {
     scheduleTab: env('SCHEDULE_TAB', ''), // empty = ask which tab (terminal) – the dashboard always passes one
     repliesTab: env('REPLIES_TAB', 'Attendee Replies'),
     objectionsTab: env('OBJECTIONS_TAB', 'Objection Handling'),
+    numberBankTab: env('NUMBER_BANK_TAB', 'Number Drop Bank'),
     logTab: env('LOG_TAB', 'Agent Log'),
     numbersTab: env('NUMBERS_TAB', 'Numbers'),
 
@@ -43,6 +44,10 @@ export function loadConfig() {
     sendGapMs: num('SEND_GAP_MS', 2500), // min gap between any two chat sends
     attendeeCooldownSec: num('ATTENDEE_COOLDOWN_SEC', 45),
     socialProofEveryMin: num('SOCIAL_PROOF_EVERY_MIN', 12),
+    // Getting the number comes first: every attendee who chats but hasn't shared a number gets asked privately.
+    numberNudges: bool('NUMBER_NUDGES', true),
+    nudgeMax: num('NUDGE_MAX', 3), // max private number asks per person (AI replies that ask count too)
+    nudgeGapMin: num('NUDGE_GAP_MIN', 12), // min minutes between two asks to the same person
     objectionThreshold: num('OBJECTION_THRESHOLD', 3), // distinct people within 5 min
     objectionCooldownMin: num('OBJECTION_COOLDOWN_MIN', 15),
     endAfterLastMin: num('END_AFTER_LAST_MIN', 10),

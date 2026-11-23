@@ -2,8 +2,8 @@
 // The export has "## Sheet name: X" headers followed by CSV rows for each tab.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
-import { parseSchedule, parseReplies, parseObjections, parseClock } from '../src/schedule.js';
-import { findPhone, isTrivial, firstName } from '../src/brain.js';
+import { parseSchedule, parseReplies, parseObjections, parseNumberBank, parseClock } from '../src/schedule.js';
+import { findPhone, isTrivial, firstName, asksForNumber } from '../src/brain.js';
 import { toWebClientUrl } from '../src/zoom.js';
 
 function parseCsv(text) {
@@ -64,5 +64,10 @@ if (file) {
   console.log(`  Attendee Replies: ${r.length} templates (first: "${r[0].when}", last: "${r.at(-1).when}")`);
   console.log(`  Objection Handling: ${o.length} lines (first: "${o[0].objection}")`);
   assert.ok(r.some((x) => /shared phone number/i.test(x.when)), 'needs a "Shared phone number" template');
+  const nb = parseNumberBank(t['Number Drop Bank']);
+  console.log(`  Number Drop Bank: ${nb.length} private number-ask lines (social-proof lines excluded)`);
+  nb.slice(0, 3).forEach((x) => console.log(`    e.g. "Rahul, ${x.line.charAt(0).toLowerCase()}${x.line.slice(1)}"`));
+  assert.ok(nb.length >= 10);
+  assert.ok(nb.every((x) => asksForNumber(x.line)), 'every bank line should ask for the number');
 }
 console.log('✓ all checks passed');
