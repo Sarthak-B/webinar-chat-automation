@@ -48,6 +48,10 @@ The universal link **https://sb.flexifunnels.com/genie-demo** is an **attendee**
 2. Add it as an **alternative host** of the webinar. If aEvent uses a recurring webinar or a template, set it there once.
 3. How it works: the agent opens the universal link to find the live webinar, then joins it **as its own logged-in account** instead of as the audience. Zoom recognises the alternative host and gives it host powers.
 
+**Option A2: the webinar's host account itself**
+- Save the login of the account the webinar is hosted from (step 5). The agent then joins as the host.
+- ⚠️ If aEvent's presenter bot runs on that same account, a second login can kick the presenter out. Test it on a practice or low-stakes session first. If the presenter drops, use Option A or B instead.
+
 **Option B: panelist (works with any Zoom account)**
 1. Add the agent account's email as a **panelist** of the webinar (in aEvent / Zoom → Invitations → Panelists).
 2. Zoom emails it a personal **panelist join link**. Save that link as the GitHub secret **`ZOOM_PANELIST_URL`** (step 7).
