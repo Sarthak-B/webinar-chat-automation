@@ -6,7 +6,7 @@
  */
 const KEY = 'CHANGE-ME-to-a-long-random-key';
 // The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
-// Leave empty if the agent writes the Summary / Q&A / Leads tabs into this same sheet.
+// Leave empty if the agent writes the Summary / Q&A tabs into this same sheet.
 const HISTORY_SHEET_ID = '';
 
 function doGet(e) {
