@@ -33,6 +33,11 @@ function doGet(e) {
       const fb = SpreadsheetApp.openById(FIFTEEN_SHEET_ID);
       if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\bday\s*\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
       if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
+      if (p.action === 'rows') return out(rows(fb, p.tab, Number(p.from || 0))); // 15 Days Agent Log / Numbers live in its own sheet
+      if (p.action === 'clear') { // 15 Days: only its own Agent Log / Numbers – never the 10 Min history
+        const parts = p.what === 'all' ? ['chats', 'numbers'] : p.what === 'history' ? [] : [p.what];
+        return out({ ok: true, done: parts.map(function (w) { return clearData(fb, w).cleared; }) });
+      }
     }
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));

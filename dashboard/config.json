@@ -1,0 +1,11 @@
+{
+  "_note": "Shared settings for every device that opens the dashboard. Each device only stores the team password. Change a link here (on GitHub) and every device picks it up the next time it opens.",
+  "owner": "Sarthak-B",
+  "repo": "webinar-chat-automation",
+  "workflow": "webinar-agent.yml",
+  "script": "https://script.google.com/macros/s/AKfycbxTem-HRvv5rgihalWUA35SCYDe9q4AVGp-cZbibWqPNxdooE0uTxeOb4YgBLVS-FcQ/exec",
+  "script15": "",
+  "sheetUrl": "https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit",
+  "sheetUrl15": "https://docs.google.com/spreadsheets/d/1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w/edit",
+  "historyUrl": "https://docs.google.com/spreadsheets/d/1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno/edit"
+}

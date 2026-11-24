@@ -358,6 +358,8 @@ section{padding:110px 0 30px}
 .bw.in.new{transform-origin:left bottom}.bw.out.new{transform-origin:right bottom}
 @keyframes pop{from{opacity:0;transform:translateY(12px) scale(.94)}}
 .sys{align-self:center;margin:14px 0;padding:8px 14px;border-radius:99px;font-size:12.5px;background:var(--bg2);border:1px solid var(--line2);color:var(--muted);text-align:center;max-width:80%}
+.adv summary{cursor:pointer;list-style:none}.adv summary::-webkit-details-marker{display:none}.adv summary::after{content:' ▾';opacity:.6}.adv[open] summary::after{content:' ▴'}
+input[readonly]{opacity:.7;cursor:default}
 .sys.skip{margin:2px 0 10px;padding:0;background:none;border:0;font-size:11px;opacity:.6;align-self:flex-start}
 .sys.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.07)}
 .sys.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.07)}
@@ -903,21 +905,24 @@ img,svg,video,canvas{max-width:100%}
 <aside class="drawer" id="drawer" aria-label="Settings">
   <div class="drawer-h"><h3>Connect</h3><button class="icon-btn" id="closeDrawer" aria-label="Close settings"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
   <div class="drawer-b">
-    <div class="fgroup"><span class="label"><b>A</b> / GitHub</span>
-      <div class="two"><div class="field"><label for="cOwner">Owner</label><input id="cOwner" placeholder="your-github-username"></div><div class="field"><label for="cRepo">Repo</label><input id="cRepo" placeholder="webinar-agent"></div></div>
-      <div class="field"><label for="cToken">Personal GitHub token <span>(optional – leave empty when the Apps Script holds GITHUB_TOKEN)</span></label><input id="cToken" type="password" placeholder="github_pat_…" autocomplete="off"></div>
-      <div class="field"><label for="cWorkflow">Agent workflow file</label><input id="cWorkflow" placeholder="webinar-agent.yml"></div>
-      <p class="small">Token permissions: <code>Actions: Read and write</code> and <code>Contents: Read</code>. It's saved only in this browser, so use this page on your own computer.</p>
+    <div class="fgroup"><span class="label"><b>A</b> / Team password</span>
+      <div class="field"><label for="cKey">Team password <span>(the only thing anyone needs, on any device)</span></label><input id="cKey" type="password" autocomplete="off"></div>
+      <p class="small">Everything else below is shared for the whole team and loads by itself on every phone and laptop. No GitHub token or sheet ID is needed.</p>
     </div>
-    <div class="fgroup"><span class="label"><b>B</b> / Google Sheet feed</span>
-      <div class="field"><label for="cScript">Apps Script web-app URL</label><input id="cScript" placeholder="https://script.google.com/macros/s/…/exec"></div>
-      <div class="field"><label for="cKey">Team password <span>(the KEY in the Apps Script)</span></label><input id="cKey" type="password" autocomplete="off"></div>
-      <div class="field"><label for="cScript15">15 Days Apps Script URL <span>(from the 15 Days Challenge Chats sheet)</span></label><input id="cScript15" placeholder="https://script.google.com/macros/s/…/exec"></div>
-      <div class="field"><label for="cSheetUrl">Chat sheet link <span>(for "open sheet" buttons)</span></label><input id="cSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
-      <div class="field"><label for="cHistoryUrl">Webinar History sheet link <span>(optional, for its "open sheet" button)</span></label><input id="cHistoryUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
-      <p class="small">Open the chat sheet → Extensions → Apps Script. Paste the code below and set <code>KEY</code> (the team password). In Project Settings → Script properties, add <code>GITHUB_TOKEN</code>. Then Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone) and copy the URL here.</p>
+    <details class="fgroup adv"><summary class="label"><b>B</b> / Shared team settings (read-only)</summary>
+      <p class="small">These come from <code>dashboard/config.json</code> on GitHub, so every device always uses the same links. To change one, update that file. Every device picks it up the next time it opens.</p>
+      <div class="two"><div class="field"><label for="cOwner">Owner</label><input id="cOwner" readonly></div><div class="field"><label for="cRepo">Repo</label><input id="cRepo" readonly></div></div>
+      <div class="field"><label for="cWorkflow">Agent workflow file</label><input id="cWorkflow" readonly></div>
+      <div class="field"><label for="cScript">Apps Script web-app URL</label><input id="cScript" readonly></div>
+      <div class="field"><label for="cScript15">15 Days Apps Script URL <span>(optional – the main one serves 15 Days too)</span></label><input id="cScript15" readonly></div>
+      <div class="field"><label for="cSheetUrl">Chat sheet link</label><input id="cSheetUrl" readonly></div>
+      <div class="field"><label for="cHistoryUrl">Webinar History sheet link</label><input id="cHistoryUrl" readonly></div>
+    </details>
+    <details class="fgroup adv"><summary class="label"><b>C</b> / Admin only</summary>
+      <div class="field"><label for="cToken">Personal GitHub token <span>(not needed – the Apps Script holds GITHUB_TOKEN)</span></label><input id="cToken" type="password" placeholder="leave empty" autocomplete="off"></div>
+      <p class="small">Apps Script setup: open the chat sheet → Extensions → Apps Script, paste the code below and set <code>KEY</code> (the team password). In Project Settings → Script properties, add <code>GITHUB_TOKEN</code>. To update it later, always use Deploy → <b>Manage deployments</b> → ✏️ → <b>New version</b>. That keeps the same link. A <i>New deployment</i> creates a new link, which then has to go into config.json.</p>
       <div class="field" style="margin-top:12px"><label>Apps Script code <button class="btn ghost sm" id="copyScript" style="margin-left:8px">Copy</button></label><textarea id="scriptCode" readonly></textarea></div>
-    </div>
+    </details>
   </div>
   <div class="drawer-f">
     <label class="toggle" title="Turn on only to preview with sample data"><input type="checkbox" id="cDemo"><span class="sw"></span>Use demo data</label>
@@ -966,9 +971,29 @@ const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token
   script15: '', // 15 Days Challenge Chats sheet's Apps Script (…/exec)
   sheetUrl15: 'https://docs.google.com/spreadsheets/d/1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w/edit',
   sheetUrl: 'https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit', historyUrl: 'https://docs.google.com/spreadsheets/d/1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno/edit', demo: null };
-// Shared defaults (Apps Script URL, sheet links) are written by the FlexiFunnels loader, so teammates only need the team password.
+// Shared settings (Apps Script URL, sheet links, repo) are the same for the whole team: they come from
+// dashboard/config.json on GitHub (fetched on every open, cached for offline), then the FlexiFunnels loader, then
+// the built-in values above. A device only stores its own team password (+ optional personal token / demo switch),
+// so an old link saved on one phone can never break it again.
+const SHARED_KEYS = ['owner', 'repo', 'workflow', 'script', 'script15', 'sheetUrl', 'sheetUrl15', 'historyUrl'];
+const PERSONAL_KEYS = ['key', 'token', 'demo'];
 const noBlanks = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v !== '' && v != null)); // an empty field never wipes a built-in default
-let cfg = { ...DEFAULT_CFG, ...noBlanks(store.get('autopilot.defaults', {})), ...noBlanks(store.get('autopilot.cfg', {})) };
+const pickKeys = (o, keys) => Object.fromEntries(Object.entries(o || {}).filter(([k]) => keys.includes(k)));
+const sharedCfg = () => ({ ...pickKeys(DEFAULT_CFG, SHARED_KEYS), ...noBlanks(pickKeys(store.get('autopilot.defaults', {}), SHARED_KEYS)), ...noBlanks(pickKeys(store.get('autopilot.shared', {}), SHARED_KEYS)) });
+const personalCfg = () => pickKeys(store.get('autopilot.cfg', {}), PERSONAL_KEYS);
+let cfg = { ...DEFAULT_CFG, ...sharedCfg(), ...personalCfg() };
+// Latest team settings from GitHub. Returns true when something changed (then the dashboard reconnects).
+async function loadShared() {
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${DEFAULT_CFG.owner}/${DEFAULT_CFG.repo}/main/dashboard/config.json?t=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return false;
+    const remote = noBlanks(pickKeys(await r.json(), SHARED_KEYS));
+    const before = JSON.stringify(pickKeys(cfg, SHARED_KEYS));
+    store.set('autopilot.shared', remote);
+    cfg = { ...DEFAULT_CFG, ...sharedCfg(), ...personalCfg() };
+    return JSON.stringify(pickKeys(cfg, SHARED_KEYS)) !== before;
+  } catch { return false; }
+}
 const configured = () => cfg.owner && cfg.repo && cfg.script && cfg.key; // GitHub token optional: the Apps Script holds it
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
@@ -1016,13 +1041,26 @@ async function gh(path, opts = {}) {
 }
 const repo = () => `/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`;
 async function feed(params) {
-  // 15 Days day tabs come from the 15 Days sheet's own Apps Script (same team password)
+  // 15 Days: its own sheet's Apps Script if one is set, otherwise the main one (it reads the 15 Days sheet too)
   const fifteen = params.book === 'fifteen';
-  if (fifteen && cfg.script15) { params = { ...params }; delete params.book; }
-  const u = new URL(fifteen && cfg.script15 ? cfg.script15 : cfg.script); u.searchParams.set('key', cfg.key);
-  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
-  const res = await fetch(u.toString());
-  const data = await res.json();
+  const call = async (base, p) => {
+    const u = new URL(base); u.searchParams.set('key', cfg.key);
+    Object.entries(p).forEach(([k, v]) => u.searchParams.set(k, v));
+    let res;
+    try { res = await fetch(u.toString()); } catch { await new Promise((r) => setTimeout(r, 1500)); res = await fetch(u.toString()); } // one retry on a network blip
+    return res.json();
+  };
+  let data;
+  if (fifteen && cfg.script15) {
+    const p = { ...params }; delete p.book;
+    try { data = await call(cfg.script15, p); if (data.error && !/wrong key/i.test(data.error)) data = null; } catch { data = null; }
+  }
+  if (!data) data = await call(cfg.script, params);
+  if (data.error && /wrong key/i.test(data.error) && params.action !== 'whoami') {
+    // the team password was changed – ask for the new one instead of showing errors everywhere
+    cfg = { ...cfg, key: '' }; store.set('autopilot.cfg', { ...store.get('autopilot.cfg', {}), key: '' });
+    if (typeof showLock === 'function') showLock();
+  }
   if (data.error) throw new Error(`Sheet: ${data.error}`);
   return data;
 }
@@ -1950,6 +1988,11 @@ function doGet(e) {
       const fb = SpreadsheetApp.openById(FIFTEEN_SHEET_ID);
       if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\\bday\\s*\\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
       if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
+      if (p.action === 'rows') return out(rows(fb, p.tab, Number(p.from || 0))); // 15 Days Agent Log / Numbers live in its own sheet
+      if (p.action === 'clear') { // 15 Days: only its own Agent Log / Numbers – never the 10 Min history
+        const parts = p.what === 'all' ? ['chats', 'numbers'] : p.what === 'history' ? [] : [p.what];
+        return out({ ok: true, done: parts.map(function (w) { return clearData(fb, w).cleared; }) });
+      }
     }
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));
@@ -2091,6 +2134,7 @@ function clearData(ss, what) {
     const hb = historyBook();
     done.push('history: ' + wipe(hb.getSheetByName('Summary')));
     wipe(hb.getSheetByName('Q&A'));
+    webinarTabs(hb).forEach(function (sh) { hb.deleteSheet(sh); }); // the one-tab-per-webinar pages
   }
   return { ok: true, cleared: done };
 }
@@ -2112,7 +2156,47 @@ function deleteWebinar(id) {
     const v = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues();
     for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === id) { sh.deleteRow(i + 2); n++; }
   });
+  webinarTabs(hb).forEach(function (sh) { if (sh.getRange('A1').getNote() === id) hb.deleteSheet(sh); });
   return { ok: true, deleted: n };
+}
+// The agent's one-tab-per-webinar pages: every tab except Summary and Q&A whose title cell carries a webinar ID note.
+function webinarTabs(hb) {
+  return hb.getSheets().filter(function (sh) {
+    const t = sh.getName();
+    return t !== 'Summary' && t !== 'Q&A' && sh.getRange('A1').getNote() !== '';
+  });
+}
+
+// ---- Automatic start (GitHub's own schedule never fired for this repo, so this sheet starts the agent) ----
+// Run installAutoStart ONCE from the editor (select it at the top → ▶ Run). It sets up:
+//   every day ~6:30 PM IST → the 7:30 PM webinar · Sunday ~10 AM IST → the 11 AM webinar · every 6 h → Zoom keep-alive.
+// Tab, mode and on/off for each slot come from the "Auto Schedule" tab, as before. Running it again replaces the timers.
+function installAutoStart() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (['autoStartEvening', 'autoStartMorning', 'keepZoomAlive'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('autoStartEvening').timeBased().everyDays(1).atHour(18).nearMinute(30).inTimezone('Asia/Kolkata').create();
+  ScriptApp.newTrigger('autoStartMorning').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(10).nearMinute(0).inTimezone('Asia/Kolkata').create();
+  ScriptApp.newTrigger('keepZoomAlive').timeBased().everyHours(6).create();
+  Logger.log('Automatic start is on ✓ – 7:30 PM daily (agent starts ~6:30 PM) and Sunday 11 AM (agent starts ~10 AM).');
+}
+function autoStartEvening() { autoStart('evening'); }
+function autoStartMorning() { autoStart('morning'); }
+function autoStart(slot) {
+  // never two agents at once: skip if a webinar run is already queued or running
+  for (const status of ['in_progress', 'queued']) {
+    const r = github('GET', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/runs?status=' + status + '&per_page=1');
+    if (r.status === 200 && r.data && r.data.total_count > 0) { Logger.log('A webinar run is already ' + status + ' – not starting another'); return; }
+  }
+  const r = github('POST', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/dispatches', JSON.stringify({
+    ref: 'main',
+    inputs: { webinar: 'business', zoom_account: 'auto', tab: 'auto', mode: 'full', auto_slot: slot },
+  }));
+  Logger.log('Automatic ' + slot + ' run: ' + (r.status === 204 ? 'started ✓' : 'FAILED ' + r.status + ' ' + JSON.stringify(r.data)));
+  if (r.status !== 204) throw new Error('Could not start the ' + slot + ' webinar run: ' + r.status); // Google emails you
+}
+function keepZoomAlive() {
+  github('POST', '/repos/' + REPO + '/actions/workflows/session-check.yml/dispatches', JSON.stringify({ ref: 'main' }));
 }
 
 // ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
@@ -2163,7 +2247,7 @@ async function testConn() {
 }
 async function saveCfg() {
   const f = readForm();
-  const need = [['#cOwner', 'Owner', f.owner], ['#cRepo', 'Repo', f.repo], ['#cScript', 'Apps Script web-app URL', f.script], ['#cKey', 'Team password', f.key]];
+  const need = [['#cKey', 'Team password', f.key]];
   need.forEach(([sel, , v]) => { $(sel).style.borderColor = v || f.demo ? '' : 'var(--red)'; });
   const missing = need.filter(([, , v]) => !v).map(([, label]) => label);
   const filled = !missing.length;
@@ -2338,6 +2422,8 @@ document.addEventListener('click', (e) => {
 S.armed = store.get('autopilot.armed', null);
 splitWords();
 showLock();
+// pick up the latest shared team settings from GitHub; reconnect if they changed (e.g. a new Apps Script link)
+loadShared().then((changed) => { if (changed) { showLock(); boot(); } });
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 setTimeout(() => { $('#curtain').classList.add('up'); setTimeout(() => { $('#curtain').remove(); }, 1100); observe(); moveGlider(); }, reduce ? 0 : 950);
 boot();

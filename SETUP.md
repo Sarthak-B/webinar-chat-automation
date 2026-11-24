@@ -272,6 +272,15 @@ Notes:
 
 ---
 
+## Using the dashboard on any device
+
+Open the FlexiFunnels dashboard page on any phone, tablet or laptop and type the **team password** once. That's all. No GitHub token or sheet ID is ever needed.
+
+- The shared settings (Apps Script link, sheet links, repo) come from `dashboard/config.json` on GitHub, every time the page opens. Each device only remembers its password, so a link saved long ago on one device can't break it.
+- When updating the Apps Script, always use **Deploy → Manage deployments → ✏️ → New version**. That keeps the same link. If a *New deployment* is ever made, put its new link in `dashboard/config.json` and every device picks it up automatically.
+- If the team password (`KEY`) is changed, every device simply asks for the new one.
+- The main Apps Script also serves the 15 Days webinar (tabs, schedule and its live Agent Log / Numbers), so a separate 15 Days script link is optional.
+
 ## What the History section shows
 
 When a webinar ends, the agent adds it to the Webinar History sheet, always in the same format (`src/historyFormat.js`):
