@@ -19,9 +19,13 @@ export function findPhone(text) {
   return null;
 }
 
+// Answers to the presenter's poll-style questions: "10%", "2%", "1lakh", "50k", "₹50000", "5-10 lakh", "2 cr"
+const AMOUNT_RE =
+  /^(?:sir\s*)?(?:(?:₹|rs\.?|inr)\s*)?\d+(?:[.,]\d+)?\s*(?:%|k|l|lac|lacs|lakh|lakhs|lakhs?\s*\+|cr|crore|crores|thousand|hazar|hajar|hzr|percent|rupees|rs)?(?:\s*(?:-|to|se)\s*(?:(?:₹|rs\.?)\s*)?\d+(?:[.,]\d+)?\s*(?:%|k|l|lac|lakh|lakhs|cr|crore|thousand|hazar)?)?\s*\+?[\s!.?,]*$/i;
+
 export function isTrivial(text) {
   const t = String(text).trim();
-  return !t || TRIVIAL_RE.test(t);
+  return !t || TRIVIAL_RE.test(t) || AMOUNT_RE.test(t);
 }
 
 export function firstName(display) {
@@ -37,7 +41,8 @@ export function firstName(display) {
 // ---------- language ----------
 // Roman-script Hindi words that don't double as common English words.
 const HINGLISH = new Set(
-  ('hai hain hu hoon ho hoga hogi honge tha thi kya kyu kyun kaise kaisa kaisi kab kahan kaha kitna kitni kitne kaun ' +
+  ('hindi mein boliye bolo boliye bolie samjhaiye samjhaye na hindime ' +
+    'hai hain hu hoon ho hoga hogi honge tha thi kya kyu kyun kaise kaisa kaisi kab kahan kaha kitna kitni kitne kaun ' +
     'nahi nahin nhi haan han ji bhai mujhe muje mera meri mere mujhko humko hum aap aapka aapki aapke apna apni apne tum tera ' +
     'karo karna karni karne kar karu karun karunga karenge kiya kiye diya dijiye dijie batao bataiye btao bata samajh samjha samjhao ' +
     'chahiye chaiye milega milegi milenge sakta sakte sakti skta skte raha rahi rahe rha rhi rhe wala wali wale abhi bhi toh ' +
