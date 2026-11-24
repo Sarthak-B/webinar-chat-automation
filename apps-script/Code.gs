@@ -207,6 +207,38 @@ function webinarTabs(hb) {
   });
 }
 
+// ---- Automatic start (GitHub's own schedule never fired for this repo, so this sheet starts the agent) ----
+// Run installAutoStart ONCE from the editor (select it at the top → ▶ Run). It sets up:
+//   every day ~6:30 PM IST → the 7:30 PM webinar · Sunday ~10 AM IST → the 11 AM webinar · every 6 h → Zoom keep-alive.
+// Tab, mode and on/off for each slot come from the "Auto Schedule" tab, as before. Running it again replaces the timers.
+function installAutoStart() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (['autoStartEvening', 'autoStartMorning', 'keepZoomAlive'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('autoStartEvening').timeBased().everyDays(1).atHour(18).nearMinute(30).inTimezone('Asia/Kolkata').create();
+  ScriptApp.newTrigger('autoStartMorning').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(10).nearMinute(0).inTimezone('Asia/Kolkata').create();
+  ScriptApp.newTrigger('keepZoomAlive').timeBased().everyHours(6).create();
+  Logger.log('Automatic start is on ✓ – 7:30 PM daily (agent starts ~6:30 PM) and Sunday 11 AM (agent starts ~10 AM).');
+}
+function autoStartEvening() { autoStart('evening'); }
+function autoStartMorning() { autoStart('morning'); }
+function autoStart(slot) {
+  // never two agents at once: skip if a webinar run is already queued or running
+  for (const status of ['in_progress', 'queued']) {
+    const r = github('GET', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/runs?status=' + status + '&per_page=1');
+    if (r.status === 200 && r.data && r.data.total_count > 0) { Logger.log('A webinar run is already ' + status + ' – not starting another'); return; }
+  }
+  const r = github('POST', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/dispatches', JSON.stringify({
+    ref: 'main',
+    inputs: { webinar: 'business', zoom_account: 'auto', tab: 'auto', mode: 'full', auto_slot: slot },
+  }));
+  Logger.log('Automatic ' + slot + ' run: ' + (r.status === 204 ? 'started ✓' : 'FAILED ' + r.status + ' ' + JSON.stringify(r.data)));
+  if (r.status !== 204) throw new Error('Could not start the ' + slot + ' webinar run: ' + r.status); // Google emails you
+}
+function keepZoomAlive() {
+  github('POST', '/repos/' + REPO + '/actions/workflows/session-check.yml/dispatches', JSON.stringify({ ref: 'main' }));
+}
+
 // ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
 function githubToken() {
   return PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN') || '';

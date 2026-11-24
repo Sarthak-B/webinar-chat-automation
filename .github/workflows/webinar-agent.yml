@@ -1,5 +1,5 @@
 name: Webinar chat agent
-run-name: "${{ github.event_name == 'schedule' && format('Webinar agent · auto {0}', github.event.schedule == '35 4 * * 0' && 'Sunday 11 AM' || '7:30 PM') || format('Webinar agent · {0}{1} · {2}', inputs.webinar == 'fifteen' && '15 Days · ' || '', inputs.tab, inputs.mode) }}"
+run-name: "${{ inputs.auto_slot != '' && format('Webinar agent · auto {0}', inputs.auto_slot == 'morning' && 'Sunday 11 AM' || '7:30 PM') || format('Webinar agent · {0}{1} · {2}', inputs.webinar == 'fifteen' && '15 Days · ' || '', inputs.tab, inputs.mode) }}"
 
 # Started from the dashboard (or Actions → Run workflow). It always asks which tab to read first.
 # Joins through the universal link https://sb.flexifunnels.com/genie-demo (redirects to the live webinar).
@@ -9,9 +9,8 @@ on:
   #   every day 13:05 UTC = 6:35 PM IST  → the 7:30 PM webinar
   #   Sunday   04:35 UTC = 10:05 AM IST → the 11 AM webinar
   # Which tab + mode each one uses (or switching one off) = the "Auto Schedule" tab in the sheet.
-  schedule:
-    - cron: '5 13 * * *'
-    - cron: '35 4 * * 0'
+  # Automatic runs are started by the sheet's Apps Script (installAutoStart in apps-script/Code.gs) at ~6:35 PM
+  # daily and ~10:05 AM on Sunday – GitHub's own schedule never fired for this repo, so it isn't used.
   workflow_dispatch:
     inputs:
       webinar:
@@ -42,6 +41,10 @@ on:
         default: false
       direct_url:
         description: 'Optional: direct Zoom webinar link or ID. Skips the universal link and the wait – joins right away as the host account, and stays until the webinar ends'
+        required: false
+        default: ''
+      auto_slot:
+        description: 'Set by the automatic start only: evening (7:30 PM) or morning (Sunday 11 AM) – tab and mode then come from the sheet''s Auto Schedule tab'
         required: false
         default: ''
 
@@ -98,7 +101,7 @@ jobs:
           SCHEDULE_TAB: ${{ inputs.tab }}
           WEBINAR: ${{ inputs.webinar || 'business' }}
           ZOOM_ACCOUNT: ${{ inputs.zoom_account || 'auto' }}
-          AUTO_SLOT: ${{ github.event_name == 'schedule' && (github.event.schedule == '35 4 * * 0' && 'morning' || 'evening') || '' }}
+          AUTO_SLOT: ${{ inputs.auto_slot }}
           # Universal link https://sb.flexifunnels.com/genie-demo is the built-in default; a ZOOM_JOIN_URL variable or the join_url input overrides it
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
           # Optional: the agent account's personal panelist link (gives panelist powers)

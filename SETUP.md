@@ -344,19 +344,22 @@ The `JOIN_EARLY_MIN` variable is not needed. Without it, the agent joins 5 minut
 
 ## Automatic runs (no laptop needed)
 
-GitHub starts the agent by itself:
+The chat sheet's Apps Script starts the agent by itself (GitHub's own schedule never fired for this repo, so it isn't used):
 
-| Webinar | Agent starts (IST) | Cron (UTC) |
+| Webinar | Agent starts (IST) | Apps Script timer |
 |---|---|---|
-| Every day 7:30 PM | ~6:35 PM | `5 13 * * *` |
-| Sunday 11 AM | ~10:05 AM | `35 4 * * 0` |
+| Every day 7:30 PM | ~6:15–6:45 PM | `autoStartEvening` |
+| Sunday 11 AM | ~9:45–10:15 AM | `autoStartMorning` |
+| Zoom keep-alive | every 6 hours | `keepZoomAlive` |
 
-The first automatic run creates an **Auto Schedule** tab in the chat sheet. Set these there for each slot:
+**Turn it on once:** paste the latest `apps-script/Code.gs` into the chat sheet's Apps Script, pick **installAutoStart** at the top and press ▶ Run, and allow the permissions. Running it again just replaces the timers. If a run is already going, the timer doesn't start a second one. If GitHub refuses to start a run, Google emails you.
+
+The agent then waits quietly in Zoom until your teammate starts the webinar.
+
+The **Auto Schedule** tab in the chat sheet decides what each slot does:
 - **Tab to read** (column C): the exact tab name.
 - **Mode** (column D): `dry`, `timed` or `full`.
 - **On** (column E): `yes` or `no`. Set it to `no` to skip, for example on a holiday.
-
-GitHub can start scheduled runs 5–15 minutes late, which is why they start about an hour early. GitHub also pauses schedules in repos with no activity for 60 days, so make any small commit if that ever happens.
 
 ## Automatic Zoom sign-in (when the saved session expires)
 

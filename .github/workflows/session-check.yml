@@ -4,8 +4,7 @@ name: Zoom session keep-alive
 # A login that's used regularly lasts much longer than one that sits unused between webinars.
 # If a login has expired, this job fails → GitHub emails you, so you can run refresh-session.sh before the webinar.
 on:
-  schedule:
-    - cron: '20 */6 * * *'
+  # started every 6 h by the sheet's Apps Script (keepZoomAlive, set up by installAutoStart)
   workflow_dispatch:
 
 jobs:
