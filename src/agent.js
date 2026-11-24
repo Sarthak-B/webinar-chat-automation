@@ -188,6 +188,19 @@ if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
     record('LOGIN', '', '', '', 'session expired – signed in automatically');
   } else log(`Automatic sign-in failed: ${r.reason}`);
 }
+// HARD RULE: each webinar uses ITS OWN Zoom account (10 Min Business = ZOOM_EMAIL, 15 Days = ZOOM_EMAIL_FIFTEEN).
+// If the saved login belongs to another account, sign out and sign in with the right one.
+if (loggedIn && cfg.zoomEmail) {
+  const me = await zoom.whoAmI().catch(() => '');
+  if (me && me.toLowerCase() !== cfg.zoomEmail.trim().toLowerCase()) {
+    log(`Saved Zoom login is ${mask(me)}, but ${cfg.webinarName} must use ${mask(cfg.zoomEmail)} – switching account…`);
+    await zoom.signOut();
+    const r = cfg.zoomPassword ? await zoom.login(cfg.zoomEmail, cfg.zoomPassword) : { ok: false, reason: 'no password secret' };
+    loggedIn = r.ok;
+    if (r.ok) record('LOGIN', '', '', '', `switched from ${mask(me)} to ${mask(cfg.zoomEmail)} (right account for ${cfg.webinarName})`);
+    else log(`Could not sign in as ${mask(cfg.zoomEmail)}: ${r.reason}`);
+  }
+}
 if (loggedIn) {
   fs.writeFileSync('.session-ok', 'ok'); // tells the workflow it's safe to save the refreshed session
   log(`Zoom session is logged in as ${mask(await zoom.whoAmI().catch(() => ''))}`);
@@ -230,7 +243,7 @@ async function joinWithRetry() {
           }
           log(`Could not sign in to the other account: ${r.reason}`);
         }
-        const msg = `Joined only as an ATTENDEE (no host powers with ${mask(me)}${triedAlt ? ' or ' + mask(cfg.altZoomEmail) : ''}). Stopped so nothing goes wrong. Start the webinar from the Zoom account whose email/password are in the secrets, or make that account an alternative host / panelist of this webinar.`;
+        const msg = `Joined only as an ATTENDEE (no host powers with ${mask(me)}${triedAlt ? ' or ' + mask(cfg.altZoomEmail) : ''}). Stopped so nothing goes wrong. ${cfg.webinarName} joins only with ${mask(cfg.zoomEmail)} – start the webinar from that Zoom account (or make it an alternative host / panelist), or pick the other webinar in step 00.`;
         log(`ERROR: ${msg}`);
         record('ERROR', '', '', '', msg);
         await agentLog.close().catch(() => {});

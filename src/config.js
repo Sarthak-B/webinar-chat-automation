@@ -48,9 +48,9 @@ export function loadConfig() {
     // used only if the saved session has expired – each webinar signs in with its own Zoom account
     zoomEmail: webinar === 'fifteen' ? env('ZOOM_EMAIL_FIFTEEN', '') : env('ZOOM_EMAIL', ''),
     zoomPassword: webinar === 'fifteen' ? env('ZOOM_PASSWORD_FIFTEEN', '') : env('ZOOM_PASSWORD', ''),
-    // the OTHER Zoom account – tried automatically if this account turns out not to be a host of the webinar
-    altZoomEmail: webinar === 'fifteen' ? env('ZOOM_EMAIL', '') : env('ZOOM_EMAIL_FIFTEEN', ''),
-    altZoomPassword: webinar === 'fifteen' ? env('ZOOM_PASSWORD', '') : env('ZOOM_PASSWORD_FIFTEEN', ''), // dashboard "Direct Zoom link": join this right away as the logged-in host
+    // no switching to the other webinar's account: 10 Min Business = marketing@ only, 15 Days = arman@ only
+    altZoomEmail: '',
+    altZoomPassword: '',
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered
