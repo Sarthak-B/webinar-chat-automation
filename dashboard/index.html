@@ -1234,7 +1234,7 @@ function renderLaunch() {
   $('#sumMode').textContent = t ? modeName[S.mode] : '-';
   $('#sumPrice').textContent = isFifteen() ? 'No lock (buyers)' : S.priceUnlock ? `${fmtTime(S.priceUnlock)} (1h 15m in)` : '-';
   $('#sumTitle').textContent = t ? `${isFifteen() ? '15 Days · ' : ''}${t.name}` : 'Choose a tab to begin';
-  const w = launchWindow(); const now = Date.now(); const busy = S.active && ['queued', 'in_progress'].includes(S.active.status);
+  const w = launchWindow(); const now = Date.now(); const busy = (S.active && ['queued', 'in_progress'].includes(S.active.status)) || (!isDemo() && sessionInfo().live); // also when only the sheet shows a live run
   let label = 'Launch the agent', note = 'Runs on GitHub Actions. You can stop it any time from here.', winLabel = 'Launch window', winText = '-', pct = 0, disabled = !t || !w;
   if (w) {
     if (S.armed) {
@@ -1337,6 +1337,12 @@ function renderOrb() {
   const last = !r && S.runs[0];
   const recentFail = last && last.status === 'completed' && ['failure', 'timed_out', 'startup_failure'].includes(last.conclusion) && Date.now() - new Date(last.updated_at) < 30 * 60e3;
   if (recentFail) { state = 'failed'; title = 'Last run failed'; sub = `${runTitle(last).replace(/^Webinar agent · /, '')} · ${fmtTime(new Date(last.updated_at))} – open the run to see why`; }
+  // GitHub not reachable from the dashboard? The sheet still shows a run in progress (START without STOP).
+  const sess = !r && !isDemo() ? sessionInfo() : null;
+  if (sess && sess.live) {
+    state = 'live'; title = 'Live';
+    sub = `${(sess.note.match(/tab="([^"]+)"/) || [])[1] || 'Webinar'} · since ${fmtTime(sess.start)} (from the sheet)`;
+  }
   if (r) {
     state = r.status === 'in_progress' ? 'live' : 'queued';
     title = r.status === 'in_progress' ? 'Live' : 'Starting…';
@@ -1601,10 +1607,25 @@ async function loadFeed() {
     }
   } catch (e) { setPill('#pillSheet', 'bad', e.message); return; }
   finally { feedBusy = false; }
-  renderFeed(); renderKpis();
+  renderFeed(); renderKpis(); renderOrb(); renderLaunch();
 }
 let shownLog = 0, firstPaint = true; const seenRows = new Set();
-function todays(rows) { const t = todayStr(); return rows.filter((r) => r[0] === t); }
+// Only the CURRENT webinar: rows from today's latest START onward (earlier test runs today are left out)
+function sessionInfo() {
+  const t = todayStr();
+  let start = null, stop = null, note = '';
+  S.log.forEach((r) => {
+    if (r[0] !== t) return;
+    const k = String(r[2]).replace(/^DRY /, '');
+    if (k === 'START') { start = parseClock(r[1]); stop = null; note = r[6] || ''; }
+    else if (k === 'STOP' && start) stop = parseClock(r[1]);
+  });
+  return { start, stop, note, live: !!start && !stop };
+}
+function todays(rows) {
+  const t = todayStr(), st = sessionInfo().start;
+  return rows.filter((r) => r[0] === t && (!st || (parseClock(r[1]) || 0) >= st));
+}
 function renderFeed() {
   const rows = todays(S.log).filter((r) => !/^(START|STOP|IN|NO REPLY)$/.test(String(r[2]).replace(/^DRY /, '')));
   alertForTeam(rows);
