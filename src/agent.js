@@ -80,6 +80,7 @@ async function autoSlotSettings(slot) {
   const row = rows.find((r) => String(r[0] || '').trim().toLowerCase() === slot) || defaults[slot];
   return { tab: String(row[2] || '').trim(), mode: String(row[3] || 'full').trim().toLowerCase(), on: !/^(no|off|false|0)$/i.test(String(row[4] || 'yes').trim()) };
 }
+log(`Zoom account for this run: ${cfg.zoomAccount}@ (${process.env.ZOOM_ACCOUNT && process.env.ZOOM_ACCOUNT !== 'auto' ? 'chosen on the dashboard' : 'default for this webinar'})`);
 log(`Webinar: ${cfg.webinarName}${cfg.buyers ? ' (buyers – timed chats + doubt clearing, no number asks, no pricing lock)' : ''}`);
 if (process.env.AUTO_SLOT && !cfg.buyers) {
   const slot = process.env.AUTO_SLOT;
@@ -180,7 +181,7 @@ const zoom = new Zoom(cfg);
 await zoom.launch();
 let loggedIn = await zoom.isLoggedIn();
 if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
-  log(`Zoom session expired – signing in with ${cfg.buyers ? 'ZOOM_EMAIL_FIFTEEN / ZOOM_PASSWORD_FIFTEEN' : 'ZOOM_EMAIL / ZOOM_PASSWORD'}…`);
+  log(`Zoom session expired – signing in with ${cfg.zoomAccount === 'arman' ? 'ZOOM_EMAIL_FIFTEEN / ZOOM_PASSWORD_FIFTEEN' : 'ZOOM_EMAIL / ZOOM_PASSWORD'}…`);
   const r = await zoom.login(cfg.zoomEmail, cfg.zoomPassword);
   loggedIn = r.ok;
   if (r.ok) {
@@ -193,7 +194,7 @@ if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
 if (loggedIn && cfg.zoomEmail) {
   const me = await zoom.whoAmI().catch(() => '');
   if (me && me.toLowerCase() !== cfg.zoomEmail.trim().toLowerCase()) {
-    log(`Saved Zoom login is ${mask(me)}, but ${cfg.webinarName} must use ${mask(cfg.zoomEmail)} – switching account…`);
+    log(`Saved Zoom login is ${mask(me)}, but this run must use ${mask(cfg.zoomEmail)} – switching account…`);
     await zoom.signOut();
     const r = cfg.zoomPassword ? await zoom.login(cfg.zoomEmail, cfg.zoomPassword) : { ok: false, reason: 'no password secret' };
     loggedIn = r.ok;
@@ -243,7 +244,7 @@ async function joinWithRetry() {
           }
           log(`Could not sign in to the other account: ${r.reason}`);
         }
-        const msg = `Joined only as an ATTENDEE (no host powers with ${mask(me)}${triedAlt ? ' or ' + mask(cfg.altZoomEmail) : ''}). Stopped so nothing goes wrong. ${cfg.webinarName} joins only with ${mask(cfg.zoomEmail)} – start the webinar from that Zoom account (or make it an alternative host / panelist), or pick the other webinar in step 00.`;
+        const msg = `Joined only as an ATTENDEE (no host powers with ${mask(me)}${triedAlt ? ' or ' + mask(cfg.altZoomEmail) : ''}). Stopped so nothing goes wrong. This run uses ${mask(cfg.zoomEmail)} – start the webinar from that Zoom account (or make it an alternative host / panelist), or choose the other Zoom account in step 03 on the dashboard.`;
         log(`ERROR: ${msg}`);
         record('ERROR', '', '', '', msg);
         await agentLog.close().catch(() => {});

@@ -198,6 +198,12 @@ section{padding:110px 0 30px}
 #soundBtn.off{opacity:.55}
 .btn.danger{color:var(--red)}.btn.danger:hover{border-color:var(--red);background:rgba(255,90,90,.08)}
 .hist-del{margin-left:auto}
+.acct{margin-top:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.acct-l{font-weight:700;font-size:14px}
+.acct-seg{display:inline-flex;border:1px solid var(--line2);border-radius:99px;padding:3px;background:var(--bg2)}
+.acct-seg button{padding:7px 14px;border-radius:99px;font:600 12.5px var(--body);color:var(--muted);transition:.25s}
+.acct-seg button.on{background:var(--acid);color:#0C0E13}
+#acctHint{flex-basis:100%;color:var(--muted);font-size:12.5px}
 .opt-tag{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px}
 #directHint:empty{display:none}
 .sum-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px dashed var(--line2);font-size:14px}
@@ -640,6 +646,13 @@ body.is-demo .demo-banner{display:block}
               <button class="btn ghost sm" id="directClear" type="button">Clear</button>
             </div>
             <div class="hint" id="directHint"></div>
+            <div class="acct"><span class="acct-l">Zoom account for this run</span>
+              <div class="acct-seg" id="acctSeg">
+                <button type="button" data-acct="auto" class="on">Auto</button>
+                <button type="button" data-acct="marketing">marketing@</button>
+                <button type="button" data-acct="arman">arman@</button>
+              </div>
+              <small id="acctHint"></small></div>
             <label class="testnow"><input type="checkbox" id="testNow"><span class="box"></span><span><b>Test: play the tab's chats from now</b><small>The tab's timed chats start about 2 minutes after launch instead of at their real times. The 1h 15m pricing lock moves with them. Use only for tests.</small></span></label>
           </div>
         </div>
@@ -993,7 +1006,7 @@ function renderWebinar() {
   $('#step1Sub').textContent = isFifteen() ? 'The "Day …" tabs from the 15 Days Challenge Chats sheet. Times count from 7:00 PM.' : 'Only tabs with a "Video Time" header are shown.';
   const j = $('#sumJoin'); if (j && !directState().on) { j.textContent = joinLabel(); j.title = WEBINARS[S.webinar].join; }
   $('#directSub').textContent = `Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away with the ${isFifteen() ? '15 Days Challenge Zoom account' : '10 Min Business (host) Zoom account'} and stays until it ends.`;
-  renderDirect(); renderLaunch();
+  renderDirect(); renderLaunch(); renderAcct();
 }
 async function switchWebinar(w) {
   if (w === S.webinar) return;
@@ -1081,6 +1094,16 @@ function renderDirect() {
     ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acid)" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg><span>${d.label} · ${WEBINARS[S.webinar].name}: no waiting, no universal link. It joins as soon as GitHub starts (about 2 minutes) and stays until the webinar ends.</span>`
     : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${d.msg}</span>`;
   const j = $('#sumJoin'); if (j) { j.textContent = d.on && d.ok ? `${d.label} · host` : joinLabel(); }
+}
+// Zoom account per run: Auto = 10 Min Business → marketing@, 15 Days → arman@ (override for tests)
+S.acct = 'auto';
+function acctUsed() { return S.acct !== 'auto' ? S.acct : (S.webinar === 'fifteen' ? 'arman' : 'marketing'); }
+function renderAcct() {
+  $$('#acctSeg button').forEach((b) => b.classList.toggle('on', b.dataset.acct === S.acct));
+  const h = $('#acctHint'); if (!h) return;
+  h.textContent = S.acct === 'auto'
+    ? `Auto → ${acctUsed()}@ for ${WEBINARS[S.webinar].name}. Pick the account that HOSTS the webinar you're joining – any other account only gets in as an attendee.`
+    : `This run signs in as ${S.acct}@ (only for this run). It must be the host (or alternative host / panelist) of the webinar.`;
 }
 function launchWindow() {
   if (!S.schedule.length) return null;
@@ -1377,7 +1400,7 @@ async function onLaunchClick(e) {
   if (d.on && !d.ok) return toast(d.msg, true);
   const testNow = $('#testNow').checked;
   if (!d.on && !testNow && Date.now() < w.opens) return arm(w.opens);
-  const ok = await confirmBox(`Launch ${WEBINARS[S.webinar].name} · "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : joinLabel()} · ${S.schedule.length} timed chats${testNow ? ' starting ~2 min from now (TEST)' : ''}.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
+  const ok = await confirmBox(`Launch ${WEBINARS[S.webinar].name} · "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : joinLabel()} · Zoom: ${acctUsed()}@ · ${S.schedule.length} timed chats${testNow ? ' starting ~2 min from now (TEST)' : ''}.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
   if (ok) launch(e);
 }
 async function launch(e) {
@@ -1386,7 +1409,7 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
-    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { webinar: S.webinar, tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}) } }) });
+    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { webinar: S.webinar, tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}), zoom_account: S.acct } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
@@ -2059,6 +2082,8 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
 $('#testNow').addEventListener('change', renderLaunch);
+$$('#acctSeg button').forEach((b) => b.addEventListener('click', () => { S.acct = b.dataset.acct; renderAcct(); }));
+renderAcct();
 $('#clearChats').addEventListener('click', () => clearData('chats'));
 $('#clearNumbers').addEventListener('click', () => clearData('numbers'));
 $('#clearHistory').addEventListener('click', () => clearData('history'));

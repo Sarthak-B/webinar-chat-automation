@@ -45,9 +45,17 @@ export function loadConfig() {
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
     testFromNow: /^(1|true|yes)$/i.test(env('TEST_FROM_NOW', '')), // test: move the tab's chats to start now
     directUrl: env('ZOOM_DIRECT_URL', ''),
-    // used only if the saved session has expired – each webinar signs in with its own Zoom account
-    zoomEmail: webinar === 'fifteen' ? env('ZOOM_EMAIL_FIFTEEN', '') : env('ZOOM_EMAIL', ''),
-    zoomPassword: webinar === 'fifteen' ? env('ZOOM_PASSWORD_FIFTEEN', '') : env('ZOOM_PASSWORD', ''),
+    // Zoom account: auto = 10 Min Business → ZOOM_EMAIL (marketing@), 15 Days → ZOOM_EMAIL_FIFTEEN (arman@);
+    // the dashboard can override it per run (tests): ZOOM_ACCOUNT = marketing | arman
+    ...(() => {
+      const acc = env('ZOOM_ACCOUNT', 'auto');
+      const useFifteen = acc === 'arman' || (acc !== 'marketing' && webinar === 'fifteen');
+      return {
+        zoomAccount: useFifteen ? 'arman' : 'marketing',
+        zoomEmail: useFifteen ? env('ZOOM_EMAIL_FIFTEEN', '') : env('ZOOM_EMAIL', ''),
+        zoomPassword: useFifteen ? env('ZOOM_PASSWORD_FIFTEEN', '') : env('ZOOM_PASSWORD', ''),
+      };
+    })(),
     // no switching to the other webinar's account: 10 Min Business = marketing@ only, 15 Days = arman@ only
     altZoomEmail: '',
     altZoomPassword: '',

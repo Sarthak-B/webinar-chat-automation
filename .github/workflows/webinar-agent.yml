@@ -19,6 +19,11 @@ on:
         type: choice
         options: ['business', 'fifteen']
         default: 'business'
+      zoom_account:
+        description: 'Zoom account for this run: auto = 10 Min Business → ZOOM_EMAIL (marketing@), 15 Days → ZOOM_EMAIL_FIFTEEN (arman@). Pick one to override (tests).'
+        type: choice
+        options: ['auto', 'marketing', 'arman']
+        default: 'auto'
       tab:
         description: 'Sheet tab to read the timed chats from (exact name, e.g. "Variant 3 – 11 AM")'
         required: true
@@ -71,8 +76,9 @@ jobs:
           S_BUSINESS: ${{ secrets.ZOOM_SESSION_B64 }}
           S_FIFTEEN: ${{ secrets.ZOOM_SESSION_B64_FIFTEEN }}
           W: ${{ inputs.webinar || 'business' }}
+          A: ${{ inputs.zoom_account || 'auto' }}
         run: |
-          if [ "$W" = "fifteen" ]; then ZOOM_SESSION_B64="$S_FIFTEEN"; else ZOOM_SESSION_B64="$S_BUSINESS"; fi
+          if [ "$A" = "arman" ] || { [ "$A" = "auto" ] && [ "$W" = "fifteen" ]; }; then ZOOM_SESSION_B64="$S_FIFTEEN"; else ZOOM_SESSION_B64="$S_BUSINESS"; fi
           # a missing/broken session is OK when the email + password secrets are set (the agent signs in)
           if [ -n "$ZOOM_SESSION_B64" ] && echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json 2>/dev/null; then :; else echo '{}' > zoom-session.json; fi
           chmod 600 zoom-session.json
@@ -90,6 +96,7 @@ jobs:
         env:
           SCHEDULE_TAB: ${{ inputs.tab }}
           WEBINAR: ${{ inputs.webinar || 'business' }}
+          ZOOM_ACCOUNT: ${{ inputs.zoom_account || 'auto' }}
           AUTO_SLOT: ${{ github.event_name == 'schedule' && (github.event.schedule == '35 4 * * 0' && 'morning' || 'evening') || '' }}
           # Universal link https://sb.flexifunnels.com/genie-demo is the built-in default; a ZOOM_JOIN_URL variable or the join_url input overrides it
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}
@@ -149,9 +156,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SECRETS_PAT }}
           W: ${{ inputs.webinar || 'business' }}
+          A: ${{ inputs.zoom_account || 'auto' }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping session refresh"; exit 0; fi
-          NAME=ZOOM_SESSION_B64; [ "$W" = "fifteen" ] && NAME=ZOOM_SESSION_B64_FIFTEEN
+          NAME=ZOOM_SESSION_B64
+          if [ "$A" = "arman" ] || { [ "$A" = "auto" ] && [ "$W" = "fifteen" ]; }; then NAME=ZOOM_SESSION_B64_FIFTEEN; fi
           gzip -c zoom-session.json | base64 -w0 | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
           echo "Session secret refreshed"
 
