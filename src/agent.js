@@ -11,6 +11,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const clock = (d = new Date()) => d.toLocaleTimeString('en-IN', { hour12: true, timeZone: 'Asia/Kolkata' });
 const log = (...a) => console.log(`[${clock()}]`, ...a);
 const startedAt = Date.now();
+const mask = (e) => String(e || '').replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown account';
+
 
 // ---------- Sheet + knowledge ----------
 const sheet = new Sheet(cfg);
@@ -188,7 +190,7 @@ if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
 }
 if (loggedIn) {
   fs.writeFileSync('.session-ok', 'ok'); // tells the workflow it's safe to save the refreshed session
-  log('Zoom session is logged in');
+  log(`Zoom session is logged in as ${mask(await zoom.whoAmI().catch(() => ''))}`);
 } else {
   // Logged out = Zoom would let it in only as an attendee, who can't see other people's chats or
   // reply privately. Stop with a clear message instead of sitting in the webinar doing nothing.
@@ -200,6 +202,7 @@ if (loggedIn) {
   process.exit(1);
 }
 
+let triedAlt = false;
 async function joinWithRetry() {
   for (let i = 1; i <= 4; i++) {
     try {
@@ -210,9 +213,29 @@ async function joinWithRetry() {
       const probe = await zoom.readChat().catch(() => []);
       log(`Chat check: ${probe.length} message(s) visible · ${await zoom.diagnose('after-join').catch((e) => 'diag failed ' + e.message)}`);
       if (role === 'attendee' || how === 'audience link') {
-        const msg = 'Joined as an ATTENDEE – attendees can\'t see other people\'s chats or reply privately. Make the agent\'s Zoom account an alternative host of the webinar, or add it as a panelist and save its panelist link as the ZOOM_PANELIST_URL secret.';
-        log(`WARNING: ${msg}`);
-        record('WARNING', '', '', '', msg);
+        // This Zoom account is not a host/panelist of this webinar. Never stay as an attendee:
+        // 1) sign in with the other Zoom account and rejoin  2) otherwise stop with a clear message.
+        const me = await zoom.whoAmI().catch(() => '');
+        log(`This Zoom account (${mask(me)}) is NOT a host of this webinar – Zoom let it in only as an attendee`);
+        if (!triedAlt && cfg.altZoomEmail && cfg.altZoomPassword && cfg.altZoomEmail.toLowerCase() !== me.toLowerCase()) {
+          triedAlt = true;
+          log(`Switching to the other Zoom account (${mask(cfg.altZoomEmail)}) and joining again…`);
+          await zoom.signOut();
+          const r = await zoom.login(cfg.altZoomEmail, cfg.altZoomPassword);
+          if (r.ok) {
+            fs.rmSync('.session-ok', { force: true }); // don't save this account over the other webinar's saved login
+            record('LOGIN', '', '', '', `switched to ${mask(cfg.altZoomEmail)} – first account was not a host`);
+            i = 0; // fresh attempts with the new account
+            continue;
+          }
+          log(`Could not sign in to the other account: ${r.reason}`);
+        }
+        const msg = `Joined only as an ATTENDEE (no host powers with ${mask(me)}${triedAlt ? ' or ' + mask(cfg.altZoomEmail) : ''}). Stopped so nothing goes wrong. Start the webinar from the Zoom account whose email/password are in the secrets, or make that account an alternative host / panelist of this webinar.`;
+        log(`ERROR: ${msg}`);
+        record('ERROR', '', '', '', msg);
+        await agentLog.close().catch(() => {});
+        await zoom.close();
+        process.exit(1);
       }
       return;
     } catch (e) {

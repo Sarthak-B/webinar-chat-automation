@@ -182,6 +182,29 @@ export class Zoom {
     return (await this.isLoggedIn()) ? { ok: true } : { ok: false, reason: 'still logged out after signing in' };
   }
 
+  // Which Zoom account is signed in (masked, for the log) – '' if unknown
+  async whoAmI() {
+    const p = await this.context.newPage();
+    try {
+      await p.goto('https://zoom.us/profile', { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      await p.waitForTimeout(3000);
+      const t = (await p.locator('body').innerText().catch(() => '')) || '';
+      return (t.match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0];
+    } catch {
+      return '';
+    } finally {
+      await p.close().catch(() => {});
+    }
+  }
+
+  // Sign out completely (used before switching to the other Zoom account)
+  async signOut() {
+    await this.context.clearCookies().catch(() => {});
+    await this.page.goto('about:blank').catch(() => {});
+    this.ui = null;
+    this.currentReceiver = null;
+  }
+
   async isLoggedIn() {
     const p = await this.context.newPage();
     try {
