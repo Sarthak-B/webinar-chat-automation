@@ -1392,7 +1392,8 @@ async function launch(e) {
   $('#blastCount').innerHTML = '';
   let err = null; try { await dispatch; } catch (x) { err = x; }
   $('#blastTitle').textContent = err ? 'Launch failed' : 'Agent dispatched';
-  $('#blastText').textContent = err ? err.message : `${S.tab.name} · ${modeName[S.mode]}. GitHub is starting a runner. Progress shows in the Live section.`;
+  $('#blastText').textContent = err ? (/UrlFetchApp|external_request|permission/i.test(err.message) ? 'Apps Script needs permission once: open it, pick "authorize" at the top, press ▶ Run and allow. Then Deploy → Manage deployments → ✏️ → New version → Deploy.' : err.message) : `${S.tab.name} · ${modeName[S.mode]}. GitHub is starting a runner. Progress shows in the Live section.`;
+  $('#blastDone .ck path').setAttribute('d', err ? 'M6 6l12 12M18 6L6 18' : 'M5 12.5l4.5 4.5L19 7.5'); // ✗ on failure, ✓ on success
   $('#blastDone').className = `done on ${err ? 'err' : ''}`;
   await sleep(err ? 3200 : 2300);
   blast.classList.remove('on'); await sleep(700); blast.classList.remove('go');
@@ -1701,6 +1702,15 @@ const HISTORY_SHEET_ID = '';
 // counted from FIFTEEN_START.
 const FIFTEEN_SHEET_ID = '1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w';
 const FIFTEEN_START = '7:00 PM';
+
+// Run this ONCE from the editor (select "authorize" at the top → ▶ Run) and allow the permissions.
+// It asks Google for every permission the dashboard needs (sheets + calling GitHub).
+function authorize() {
+  SpreadsheetApp.getActive().getName();
+  historyBook().getName();
+  UrlFetchApp.fetch('https://api.github.com/zen', { muteHttpExceptions: true });
+  Logger.log('Authorized ✓ – now Deploy → Manage deployments → ✏️ → New version → Deploy');
+}
 
 function doGet(e) {
   const p = e.parameter || {};

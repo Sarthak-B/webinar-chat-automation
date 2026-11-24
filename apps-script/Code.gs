@@ -15,6 +15,15 @@ const HISTORY_SHEET_ID = '';
 const FIFTEEN_SHEET_ID = '1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w';
 const FIFTEEN_START = '7:00 PM';
 
+// Run this ONCE from the editor (select "authorize" at the top → ▶ Run) and allow the permissions.
+// It asks Google for every permission the dashboard needs (sheets + calling GitHub).
+function authorize() {
+  SpreadsheetApp.getActive().getName();
+  historyBook().getName();
+  UrlFetchApp.fetch('https://api.github.com/zen', { muteHttpExceptions: true });
+  Logger.log('Authorized ✓ – now Deploy → Manage deployments → ✏️ → New version → Deploy');
+}
+
 function doGet(e) {
   const p = e.parameter || {};
   if (p.key !== KEY) return out({ error: 'Wrong key' });
