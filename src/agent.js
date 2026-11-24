@@ -567,15 +567,14 @@ async function handle(sender, text) {
     record(aiFailed ? 'AI FAILED' : 'NEEDS TEAM', sender, '', text, aiFailed ? `AI did not answer – reply manually · ${String(d.reason).slice(0, 160)}` : d.reason || '');
     log(`${aiFailed ? 'AI FAILED' : 'NEEDS TEAM'}: ${sender}: ${text}`);
     const qa = { name: sender, lang, question: text, status: 'Needs team' };
-    if (d.safe_to_ask !== false) {
-      // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
-      const reply = cfg.buyers
-        ? d.reply || (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender))
-        : d.reply || fallbackReply(sender, lang, { aiFailed, askNow });
-      enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
+    if (!aiFailed) {
+      // Handed to the team: the agent sends NOTHING (no half-answer, no "our team will review") –
+      // the dashboard alert tells a person to reply in Zoom.
+      history.qaRow({ question: text });
+    } else if (d.safe_to_ask !== false) {
+      // AI did not answer at all → the approved holding line, so the attendee isn't left waiting
+      enqueue({ prio: 1, text: fallbackReply(sender, lang, { aiFailed, askNow }), to: sender, kind: 'REPLY', said: text, note: `AI failed · fallback · ${lang}`, qa });
       if (!hasNumber.has(sender) && !cfg.buyers && askNow) noteAsk(sender);
-    } else {
-      history.qaRow({ question: text }); // abusive/spam: no reply sent
     }
   } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges && !cfg.buyers) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));

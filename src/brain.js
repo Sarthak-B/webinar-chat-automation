@@ -19,9 +19,13 @@ export function findPhone(text) {
   return null;
 }
 
+// Answers to the presenter's poll-style questions: "10%", "2%", "1lakh", "50k", "₹50000", "5-10 lakh", "2 cr"
+const AMOUNT_RE =
+  /^(?:sir\s*)?(?:(?:₹|rs\.?|inr)\s*)?\d+(?:[.,]\d+)?\s*(?:%|k|l|lac|lacs|lakh|lakhs|lakhs?\s*\+|cr|crore|crores|thousand|hazar|hajar|hzr|percent|rupees|rs)?(?:\s*(?:-|to|se)\s*(?:(?:₹|rs\.?)\s*)?\d+(?:[.,]\d+)?\s*(?:%|k|l|lac|lakh|lakhs|cr|crore|thousand|hazar)?)?\s*\+?[\s!.?,]*$/i;
+
 export function isTrivial(text) {
   const t = String(text).trim();
-  return !t || TRIVIAL_RE.test(t);
+  return !t || TRIVIAL_RE.test(t) || AMOUNT_RE.test(t);
 }
 
 export function firstName(display) {
