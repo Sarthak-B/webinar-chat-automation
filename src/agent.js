@@ -195,7 +195,13 @@ async function joinWithRetry() {
       await sleep(20_000);
     }
   }
-  throw new Error('Could not join the webinar after 4 attempts');
+  // No live webinar (holiday, cancelled, not scheduled today): finish cleanly instead of failing.
+  const msg = 'No live webinar found to join (tried for ~40 min). Nothing was sent. If there is no webinar on some days, set "On" to no in the Auto Schedule tab.';
+  log(`NO WEBINAR: ${msg}`);
+  record('NO WEBINAR', '', '', '', msg);
+  await agentLog.close().catch(() => {});
+  await zoom.close();
+  process.exit(0);
 }
 await joinWithRetry();
 
