@@ -1,5 +1,7 @@
 // All settings come from environment variables (GitHub secrets / repo variables).
 const env = (k, d) => (process.env[k] ?? '').trim() || d;
+// A sheet setting may be pasted as the full link – keep only the ID part
+const sheetIdOf = (v) => String(v || '').match(/\/d\/([A-Za-z0-9_-]{20,})/)?.[1] || String(v || '').trim();
 const req = (k) => {
   const v = env(k);
   if (!v) {
@@ -36,7 +38,7 @@ export function loadConfig() {
     webinarName: W.name,
     buyers: webinar === 'fifteen', // buyers' session: timed chats + doubt clearing only, no number asks, no pricing lock
     // where the timed chats come from (logs, numbers etc. always go to the main chat sheet)
-    scheduleSheetId: webinar === 'fifteen' ? env('FIFTEEN_SHEET_ID', W.sheetId) : '',
+    scheduleSheetId: webinar === 'fifteen' ? sheetIdOf(env('FIFTEEN_SHEET_ID', W.sheetId)) : '',
     sessionStartClock: webinar === 'fifteen' ? env('FIFTEEN_START', W.start) : '',
     // Zoom
     // One universal link for every webinar (redirects to the live Zoom webinar). Override with the ZOOM_JOIN_URL variable if it ever changes.
@@ -69,7 +71,7 @@ export function loadConfig() {
     // Google Sheet
     // FlexiGenie chat sheet (built-in default; a SHEET_ID variable overrides it). The ID alone gives no access.
     // 10 Min Business → FlexiGenie chat sheet · 15 Days → 15 Days Challenge Chats sheet (logs, numbers, everything)
-    sheetId: webinar === 'fifteen' ? env('FIFTEEN_SHEET_ID', W.sheetId) : env('SHEET_ID', '1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8'),
+    sheetId: sheetIdOf(webinar === 'fifteen' ? env('FIFTEEN_SHEET_ID', W.sheetId) : env('SHEET_ID', '1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8')),
     googleCreds: req('GOOGLE_SERVICE_ACCOUNT_JSON'),
     scheduleTab: env('SCHEDULE_TAB', ''), // empty = ask which tab (terminal) – the dashboard always passes one
     repliesTab: env('REPLIES_TAB', 'Attendee Replies'),
@@ -79,7 +81,7 @@ export function loadConfig() {
     numbersTab: env('NUMBERS_TAB', 'Numbers'),
 
     // Webinar History sheet (Summary / Q&A / Leads tabs). Empty = use the main chat sheet.
-    historySheetId: env('HISTORY_SHEET_ID', '1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno'),
+    historySheetId: sheetIdOf(env('HISTORY_SHEET_ID', '1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno')),
     mode: env('MODE', ''),
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 
