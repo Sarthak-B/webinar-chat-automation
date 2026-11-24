@@ -1456,7 +1456,11 @@ async function stopRun() {
 
 // ---------- feed ----------
 const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
+let feedBusy = false;
 async function loadFeed() {
+  // one refresh at a time: a slow Google response must never let two refreshes add the same rows twice
+  if (feedBusy) return;
+  feedBusy = true;
   try {
     if (isDemo()) {
       if (!Demo.log.length) Demo.seed();
@@ -1468,12 +1472,26 @@ async function loadFeed() {
       S.pollN = (S.pollN || 0) + 1;
       // Agent Log every poll; the Numbers tab every 3rd poll (numbers typed in chat already show instantly from the log)
       const wantNums = S.pollN % 3 === 1;
-      const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal, ...bookParam() }), wantNums ? feed({ action: 'rows', tab: 'Numbers', from: S.numTotal, ...bookParam() }) : Promise.resolve({ total: S.numTotal, rows: [] })]);
-      if (l.total < S.logTotal) S.log = []; // sheet was cleared
-      if (n.total < S.numTotal) S.numbers = [];
-      S.log.push(...l.rows); S.logTotal = l.total; S.numbers.push(...n.rows); S.numTotal = n.total;
+      const book = S.webinar;
+      const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal, ...bookParam() }), wantNums ? feed({ action: 'rows', tab: 'Numbers', from: S.numTotal, ...bookParam() }) : Promise.resolve(null)]);
+      if (book !== S.webinar) return; // webinar switched while loading – drop this result
+      // rows are placed by their sheet row number, so the same row can never appear twice
+      const place = (list, total, res) => {
+        if (!res) return { list, total };
+        if (res.total < total) { list = []; total = 0; } // sheet was cleared
+        if (!res.rows.length) return { list, total: res.total };
+        const startRow = res.from || total + 1; // sheet row of res.rows[0] (row 1 = header)
+        if (!list.firstRow) list.firstRow = startRow;
+        res.rows.forEach((r, i) => { list[startRow + i - list.firstRow] = r; });
+        return { list, total: Math.max(total, res.total) };
+      };
+      const L = place(S.log, S.logTotal, l); S.log = L.list; S.logTotal = L.total;
+      const N = place(S.numbers, S.numTotal, n); S.numbers = N.list; S.numTotal = N.total;
+      S.log = S.log.filter(Boolean); S.log.firstRow = L.list.firstRow; // keep the anchor after filtering holes
+      S.numbers = S.numbers.filter(Boolean); S.numbers.firstRow = N.list.firstRow;
     }
   } catch (e) { setPill('#pillSheet', 'bad', e.message); return; }
+  finally { feedBusy = false; }
   renderFeed(); renderKpis();
 }
 let shownLog = 0, firstPaint = true; const seenRows = new Set();
