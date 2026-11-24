@@ -63,7 +63,9 @@ export function loadConfig() {
     altZoomPassword: '',
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
-    teamNames: list('TEAM_NAMES'), // chats from these names are never answered
+    // chats from these names are never answered or counted. The agent, the host and the panelist all use the
+    // presenter's name in Zoom (attendees see Saurabh Bhatnagar replying), so that name is always the team.
+    teamNames: [...new Set([...list('TEAM_NAMES'), ...list('PRESENTER_ZOOM_NAMES'), 'saurabh bhatnagar'])],
     headless: bool('HEADLESS', false), // CI runs headed inside xvfb; Zoom is friendlier to that
     joinEarlyMin: num('JOIN_EARLY_MIN', 5), // start trying to join this many minutes before the first chat row
     joinWaitMin: num('JOIN_WAIT_MIN', 75), // keep waiting for the webinar to go live until this long after the first chat
