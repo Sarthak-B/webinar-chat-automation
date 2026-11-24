@@ -167,21 +167,31 @@ export class Zoom {
       const go = await first(p, ['button:has-text("Sign In")', 'button:has-text("Sign in")', '#js_btn_login', 'button[type="submit"]']);
       if (go) await go.click().catch(() => {});
       else await pass.press('Enter');
-      for (let i = 0; i < 20; i++) {
+      // Wait for Zoom to leave the sign-in page (= signed in). Only stop early for a REAL blocker:
+      // a visible code box, a visible CAPTCHA challenge, or a wrong-password error. (The page always shows a
+      // small "protected by reCAPTCHA" notice – that alone is not a challenge.)
+      let blocker = '';
+      for (let i = 0; i < 30; i++) {
         await p.waitForTimeout(1500);
-        const url = p.url();
-        const body = ((await p.locator('body').innerText().catch(() => '')) || '').slice(0, 3000);
-        if (/verification code|verify it's you|enter the code|captcha|i'm not a robot|security check/i.test(body))
-          return { ok: false, reason: 'Zoom asked for a verification code / CAPTCHA' };
-        if (/incorrect|wrong password|invalid (email|password)/i.test(body)) return { ok: false, reason: 'Zoom says the email or password is wrong' };
-        if (!/signin|login/i.test(url)) break;
+        if (!/signin|login/i.test(p.url())) break;
+        const codeBox = await first(p, ['input[autocomplete="one-time-code"]:visible', 'input[name*="code" i]:visible', 'input[id*="code" i]:visible', 'input[placeholder*="code" i]:visible']);
+        const challenge = await p.locator('iframe[title*="challenge" i]:visible, iframe[src*="recaptcha/api2/bframe"]:visible, iframe[src*="hcaptcha"]:visible').count().catch(() => 0);
+        const body = ((await p.locator('body').innerText().catch(() => '')) || '').slice(0, 4000);
+        if (codeBox) blocker = 'Zoom asked for a verification code';
+        else if (challenge) blocker = 'Zoom showed a CAPTCHA challenge';
+        else if (/incorrect (email|password)|wrong password|invalid (email|password)|password is incorrect/i.test(body)) blocker = 'Zoom says the email or password is wrong';
+        if (blocker && i >= 2) break; // give the page a moment before deciding
+      }
+      if (/signin|login/i.test(p.url())) {
+        await this.debugShot(p, 'login-failed');
+        if (blocker) return { ok: false, reason: blocker };
       }
     } catch (e) {
       return { ok: false, reason: e.message };
     } finally {
       await p.close().catch(() => {});
     }
-    return (await this.isLoggedIn()) ? { ok: true } : { ok: false, reason: 'still logged out after signing in' };
+    return (await this.isLoggedIn()) ? { ok: true } : { ok: false, reason: 'still on the sign-in page after submitting (screenshot saved in the run\'s agent-debug files)' };
   }
 
   // Which Zoom account is signed in (masked, for the log) – '' if unknown
@@ -205,6 +215,13 @@ export class Zoom {
     await this.page.goto('about:blank').catch(() => {});
     this.ui = null;
     this.currentReceiver = null;
+  }
+
+  async debugShot(p, tag) {
+    try {
+      fs.mkdirSync('debug', { recursive: true });
+      await p.screenshot({ path: `debug/${tag}.png`, fullPage: true });
+    } catch {}
   }
 
   async isLoggedIn() {
