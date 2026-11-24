@@ -616,7 +616,8 @@ function noteObjection(key, sender) {
     const o = objections.find((x) => x.key === key);
     if (pricingLocked() && mentionsPrice(o.chat)) return; // e.g. "EMI from Rs. 59/day" – not before the pricing section
     objectionPosted.set(key, now);
-    enqueue({ prio: 3, text: o.chat, to: null, kind: 'OBJECTION', note: `${people.size} people: ${o.objection}` });
+    // Not posted to Everyone any more – only the timesheet's chats go public. Logged for the team instead.
+    record('NEEDS TEAM', 'Everyone', '', o.objection, `${people.size} people raised this – suggested answer: ${o.chat}`);
   }
 }
 
@@ -711,7 +712,9 @@ async function attendeeLoop() {
   }
 }
 
-const workers = [senderLoop(), scheduleLoop(), chatLoop(), socialProofLoop(), attendeeLoop()];
+// Social proof ("Rahul, Iqra & Pradnya – your numbers have been shared…" to Everyone) is switched OFF for good:
+// it named attendees publicly and was not in the timesheet. Only the sheet's timed chats go to Everyone.
+const workers = [senderLoop(), scheduleLoop(), chatLoop(), attendeeLoop()];
 
 async function shutdown(reason) {
   if (!running) return;
