@@ -397,3 +397,9 @@ The DeepSeek *chat app* is free. The *API* is prepaid, but very cheap.
 1. Create a key at https://platform.moonshot.ai (Console → API Keys) and **recharge** the account. The API is pay-as-you-go, and the key returns "insufficient balance" until it has funds.
 2. Add the GitHub **Secret** `KIMI_API_KEY`. Optional **Variable** `KIMI_MODEL` (default `kimi-k3`; `kimi-k3.1-pro` is the larger model).
 3. Order of preference: Kimi → DeepSeek → OpenAI. Whichever key exists first is used, and the run log shows `AI: Kimi (kimi-k3)`. Delete `KIMI_API_KEY` to fall back to the next one.
+
+## Groq (free) + automatic AI fallback
+
+- Secret `GROQ_API_KEY` (from https://console.groq.com, free, no card). Default models: `openai/gpt-oss-120b`, then `openai/gpt-oss-20b`, which has its own free limit. Override with the Variables `GROQ_MODEL` / `GROQ_MODEL_BACKUP`.
+- Order of the AI chain: Groq 120b → Groq 20b → Kimi → DeepSeek → OpenAI. Only providers whose key exists are used. If one hits a limit or runs out of credits, the next one answers the same message. A provider that hit a rate limit is skipped for 1 minute, and one with a billing error for 30 minutes.
+- The run log shows the chain, e.g. `AI: Groq openai/gpt-oss-120b → Groq openai/gpt-oss-20b → OpenAI gpt-4o-mini`.

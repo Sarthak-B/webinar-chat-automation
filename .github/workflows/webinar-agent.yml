@@ -115,6 +115,9 @@ jobs:
           HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID || secrets.HISTORY_SHEET_ID }}
           MODE: ${{ inputs.mode }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+          GROQ_MODEL_BACKUP: ${{ vars.GROQ_MODEL_BACKUP }}
           KIMI_API_KEY: ${{ secrets.KIMI_API_KEY }}
           KIMI_MODEL: ${{ vars.KIMI_MODEL || secrets.KIMI_MODEL }}
           KIMI_BASE_URL: ${{ vars.KIMI_BASE_URL }}

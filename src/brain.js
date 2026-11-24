@@ -130,13 +130,15 @@ export const mentionsPrice = (t) =>
 const urlsIn = (s) => (String(s).match(/https?:\/\/[^\s)]+/g) || []).map((u) => u.replace(/[.,]+$/, ''));
 
 export class Brain {
-  constructor({ openaiKey, model, aiBase = 'https://api.openai.com/v1', aiName = 'OpenAI', replies, objections, personaName, numberBank = [], buyers = false, webinarName = '' }) {
+  constructor({ openaiKey, model, aiBase = 'https://api.openai.com/v1', aiName = 'OpenAI', aiChain = null, replies, objections, personaName, numberBank = [], buyers = false, webinarName = '' }) {
     this.buyers = buyers;
     this.webinarName = webinarName;
     this.key = openaiKey;
     this.model = model;
     this.base = aiBase;
     this.aiName = aiName;
+    this.chain = aiChain && aiChain.length ? aiChain : [{ name: aiName, base: aiBase, key: openaiKey, model }];
+    this.cool = new Map(); // provider index → time it can be tried again after a limit/credit error
     this.replies = replies;
     this.objections = objections;
     this.persona = personaName || 'Sir';
@@ -196,26 +198,45 @@ How to write:
 Respond with JSON only.`;
   }
 
+  // Tries each AI in the chain until one answers. A provider that hit its limit / has no credits is skipped
+  // for a while (1 min for rate limits, 30 min for billing problems), so the next reply goes straight to a working one.
   async #chat(user, temperature = 0.8) {
-    const call = (body) =>
-      fetch(`${this.base}/chat/completions`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(25_000),
-      });
     const messages = [
       { role: 'system', content: this.system },
       { role: 'user', content: user },
     ];
-    let res = await call({ model: this.model, temperature, response_format: { type: 'json_object' }, messages });
-    // some providers/models (e.g. Kimi thinking models) only accept their default temperature or no JSON mode
-    if (res.status === 400) res = await call({ model: this.model, messages });
-    if (!res.ok) throw new Error(`${this.aiName} ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    const errors = [];
+    for (let i = 0; i < this.chain.length; i++) {
+      const p = this.chain[i];
+      if ((this.cool.get(i) || 0) > Date.now()) continue;
+      try {
+        return await this.#call(p, messages, temperature);
+      } catch (e) {
+        errors.push(`${p.name} ${p.model}: ${e.message}`);
+        const billing = /credit|balance|quota|billing|insufficient|suspended/i.test(e.message);
+        if (/\b(429|402|401|403|5\d\d)\b|timeout|aborted|fetch failed/i.test(e.message)) this.cool.set(i, Date.now() + (billing ? 30 : 1) * 60_000);
+      }
+    }
+    throw new Error(errors.length ? errors.join(' | ').slice(0, 400) : 'all AI providers are cooling down after limit errors');
+  }
+
+  async #call(p, messages, temperature) {
+    const call = (body) =>
+      fetch(`${p.base}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(25_000),
+      });
+    let res = await call({ model: p.model, temperature, response_format: { type: 'json_object' }, messages });
+    // some providers/models only accept their default temperature or no JSON mode
+    if (res.status === 400) res = await call({ model: p.model, messages });
+    if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 160)}`);
     const data = await res.json();
-    const txt = String(data.choices[0].message.content || '').replace(/```(?:json)?/gi, '');
+    const txt = String(data.choices?.[0]?.message?.content || '').replace(/```(?:json)?/gi, '');
     return JSON.parse((txt.match(/\{[\s\S]*\}/) || [txt])[0]);
   }
+
 
   #context({ sender, lang, hasNumber, history = [], recent = [] }) {
     const name = firstName(sender);
