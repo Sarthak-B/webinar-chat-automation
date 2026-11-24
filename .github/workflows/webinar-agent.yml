@@ -52,7 +52,8 @@ concurrency:
 
 jobs:
   agent:
-    runs-on: ubuntu-latest
+    # AGENT_RUNNER variable: empty = GitHub's servers (new IP every run); 'self-hosted' = always the same computer
+    runs-on: ${{ vars.AGENT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 355
     env:
       TZ: Asia/Kolkata
@@ -67,7 +68,8 @@ jobs:
       - run: npm ci
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ]; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
 
       # Each webinar has its own Zoom account: 10 Min Business → ZOOM_SESSION_B64,
       # 15 Days Challenge → ZOOM_SESSION_B64_FIFTEEN. Never falls back to the other account's login.
@@ -103,6 +105,7 @@ jobs:
           # Optional: the agent account's personal panelist link (gives panelist powers)
           ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
           ZOOM_DIRECT_URL: ${{ inputs.direct_url }}
+          ZOOM_PROXY: ${{ secrets.ZOOM_PROXY }}
           ZOOM_EMAIL: ${{ secrets.ZOOM_EMAIL }}
           ZOOM_PASSWORD: ${{ secrets.ZOOM_PASSWORD }}
           ZOOM_EMAIL_FIFTEEN: ${{ secrets.ZOOM_EMAIL_FIFTEEN }}
@@ -148,7 +151,9 @@ jobs:
           PRICE_UNLOCK_MIN: ${{ vars.PRICE_UNLOCK_MIN }}
           PRICE_DEFER_MIN: ${{ vars.PRICE_DEFER_MIN }}
         # Zoom's web client behaves better in a real (virtual) display than in headless mode.
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent
+        run: |
+          # Linux servers have no screen → virtual screen (xvfb). A Mac/Windows self-hosted runner has a real one.
+          if [ "$RUNNER_OS" = "Linux" ] && command -v xvfb-run >/dev/null; then xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent; else npm run agent; fi
 
       # Screenshots + chat-panel HTML the agent saved when it couldn't read the chat (kept 3 days)
       - name: Upload debug snapshots
@@ -170,7 +175,7 @@ jobs:
           if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping session refresh"; exit 0; fi
           NAME=ZOOM_SESSION_B64
           if [ "$A" = "arman" ] || { [ "$A" = "auto" ] && [ "$W" = "fifteen" ]; }; then NAME=ZOOM_SESSION_B64_FIFTEEN; fi
-          gzip -c zoom-session.json | base64 -w0 | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
+          gzip -c zoom-session.json | base64 | tr -d "\n" | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
           echo "Session secret refreshed"
 
       - name: Wipe session file

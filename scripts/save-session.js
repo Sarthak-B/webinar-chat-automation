@@ -5,9 +5,10 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import readline from 'node:readline/promises';
 import { chromium } from 'playwright';
+import { proxyFromEnv } from '../src/proxy.js';
 
 const out = process.argv[2] || 'zoom-session.json';
-const browser = await chromium.launch({ headless: false });
+const browser = await chromium.launch({ headless: false, proxy: proxyFromEnv() });
 const context = await browser.newContext({ viewport: { width: 1280, height: 860 }, locale: 'en-US' });
 const page = await context.newPage();
 await page.goto('https://zoom.us/signin');

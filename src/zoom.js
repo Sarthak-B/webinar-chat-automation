@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { chromium } from 'playwright';
+import { proxyFromEnv } from './proxy.js';
 
 // ---------------------------------------------------------------------------
 // Zoom web-client selectors. Zoom changes these from time to time, so they all
@@ -121,6 +122,7 @@ export class Zoom {
   async launch() {
     this.browser = await chromium.launch({
       headless: this.headless,
+      proxy: proxyFromEnv(),
       args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--disable-blink-features=AutomationControlled', '--window-size=1440,900'],
     });
     let state;

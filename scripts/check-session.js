@@ -1,9 +1,10 @@
 // Opens zoom.us with the saved session and checks it's still logged in.
 // Exit 0 = logged in (and the session file is refreshed), exit 1 = logged out.
 import { chromium } from 'playwright';
+import { proxyFromEnv } from '../src/proxy.js';
 
 const file = process.env.ZOOM_SESSION_FILE || 'zoom-session.json';
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, proxy: proxyFromEnv() });
 const context = await browser.newContext({ storageState: file, locale: 'en-US' });
 const page = await context.newPage();
 let ok = false;

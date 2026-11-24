@@ -10,7 +10,8 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # AGENT_RUNNER variable: empty = GitHub's servers (new IP every run); 'self-hosted' = always the same computer
+    runs-on: ${{ vars.AGENT_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -23,7 +24,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - shell: bash
+        run: |
+          if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ]; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
 
       - name: Restore session
         id: restore
@@ -38,6 +41,8 @@ jobs:
 
       - name: Check login
         if: steps.restore.outputs.skip != '1'
+        env:
+          ZOOM_PROXY: ${{ secrets.ZOOM_PROXY }}
         run: npm run check-session
 
       - name: Save refreshed session
@@ -47,7 +52,7 @@ jobs:
           NAME: ${{ steps.restore.outputs.name }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping refresh"; exit 0; fi
-          gzip -c zoom-session.json | base64 -w0 | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
+          gzip -c zoom-session.json | base64 | tr -d "\n" | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
 
       - name: Wipe session file
         if: always()
