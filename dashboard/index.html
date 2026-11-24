@@ -196,6 +196,8 @@ section{padding:110px 0 30px}
 .testnow small{display:block;color:var(--muted);font-size:12.5px;margin-top:3px;line-height:1.45}
 .testnow:has(input:checked){border-color:var(--acid)}
 #soundBtn.off{opacity:.55}
+.btn.danger{color:var(--red)}.btn.danger:hover{border-color:var(--red);background:rgba(255,90,90,.08)}
+.hist-del{margin-left:auto}
 .opt-tag{font:600 10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line2);border-radius:99px;padding:2px 8px;vertical-align:middle;margin-left:6px}
 #directHint:empty{display:none}
 .sum-row{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px dashed var(--line2);font-size:14px}
@@ -709,7 +711,7 @@ body.is-demo .demo-banner{display:block}
       </div>
       <div class="feed-grid">
         <div class="card" data-reveal>
-          <div class="card-h"><h3>Activity log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a></h3>
+          <div class="card-h"><h3>Activity log <a class="btn ghost sm" id="openSheet" href="#" target="_blank" rel="noopener" style="margin-left:10px;vertical-align:4px">Open sheet ↗</a><button class="btn ghost sm danger" id="clearChats" style="margin-left:6px;vertical-align:4px" title="Delete every chat and log row">Clear chats</button></h3>
             <div class="filters" id="filters"><span class="glider"></span>
               <button class="on" data-f="all">All</button><button data-f="timed">Timed</button><button data-f="reply">Replies</button><button data-f="number">Numbers</button><button data-f="ask">Asks</button><button data-f="team">Team</button><button data-f="fail">Failed</button>
             </div>
@@ -718,7 +720,7 @@ body.is-demo .demo-banner{display:block}
         </div>
         <div>
           <div class="card" data-reveal style="margin-bottom:16px">
-            <div class="card-h"><h3>Numbers today</h3><div style="display:flex;gap:8px"><button class="btn ghost sm" id="soundBtn" type="button"></button><button class="btn ghost sm" id="copyNumbers">Copy all</button></div></div>
+            <div class="card-h"><h3>Numbers today</h3><div style="display:flex;gap:8px"><button class="btn ghost sm" id="soundBtn" type="button"></button><button class="btn ghost sm" id="copyNumbers">Copy all</button><button class="btn ghost sm danger" id="clearNumbers" title="Delete all saved numbers">Clear</button></div></div>
             <div class="fmt-hint">Copies as: Name - Number</div>
             <div class="side-list" id="numbersList"><div class="empty">No numbers yet.</div></div>
           </div>
@@ -750,7 +752,7 @@ body.is-demo .demo-banner{display:block}
         <p data-reveal>Attendees, live leads and engagement for each webinar, plus the questions people asked and the replies they got. Saved to your Webinar History sheet when each webinar ends.</p>
       </div>
       <div class="hist" data-reveal>
-        <aside class="hist-list"><div class="hist-list-h"><span class="label">Webinars</span><a class="btn ghost sm" id="openHistSheet" href="#" target="_blank" rel="noopener" hidden>Open sheet ↗</a></div><div id="histList"><div class="empty">No webinars recorded yet.</div></div></aside>
+        <aside class="hist-list"><div class="hist-list-h"><span class="label">Webinars</span><button class="btn ghost sm danger" id="clearHistory" title="Delete every webinar from history">Clear all</button><a class="btn ghost sm" id="openHistSheet" href="#" target="_blank" rel="noopener" hidden>Open sheet ↗</a></div><div id="histList"><div class="empty">No webinars recorded yet.</div></div></aside>
         <div class="hist-detail">
           <div class="hist-head" id="histHead"></div>
           <div class="hkpis" id="histKpis"></div>
@@ -796,6 +798,7 @@ body.is-demo .demo-banner{display:block}
   </div>
   <div class="drawer-f">
     <label class="toggle" title="Turn on only to preview with sample data"><input type="checkbox" id="cDemo"><span class="sw"></span>Use demo data</label>
+    <button class="btn ghost danger" id="clearAll" title="Delete all chats, numbers and webinar history">Clear all data</button>
     <button class="btn ghost" id="signOut" title="Forget the team password and token on this browser">Sign out</button>
     <button class="btn ghost" id="testConn">Test connection</button>
     <button class="btn acid" id="saveCfg">Save</button>
@@ -1311,7 +1314,8 @@ function renderHistList() {
 function renderHistDetail() {
   const w = H.list.find((x) => x['Webinar ID'] === H.sel);
   if (!w) { $('#histHead').innerHTML = ''; $('#histKpis').innerHTML = ''; $('#qaTable').innerHTML = '<div class="empty">Pick a webinar on the left.</div>'; $('#qaCount').textContent = 0; return; }
-  $('#histHead').innerHTML = `<div><span class="label">${esc(w.Date)} · ${esc(w.Started)}${w.Ended ? ` → ${esc(w.Ended)}` : ''}</span><h3>${esc(w.Webinar)}</h3></div>`;
+  $('#histHead').innerHTML = `<div><span class="label">${esc(w.Date)} · ${esc(w.Started)}${w.Ended ? ` → ${esc(w.Ended)}` : ''}</span><h3>${esc(w.Webinar)}</h3></div><button class="btn ghost sm danger hist-del" id="delWebinar">Delete this webinar</button>`;
+  $('#delWebinar').onclick = () => deleteWebinar(w);
   const tile = (label, v, sub, bar, cls = '') => `<div class="hk ${cls}"><span class="label">${label}</span><div class="v">${esc(v)}</div><div class="s">${sub}</div>${bar != null ? `<span class="bar" style="width:${Math.min(100, bar)}%"></span>` : ''}</div>`;
   $('#histKpis').innerHTML = [
     tile('Attendees', w.Attendees || '–', w.Attendees ? 'present in the webinar' : 'not read from Zoom – type it in the sheet'),
@@ -1325,6 +1329,36 @@ function renderHistDetail() {
   $('#qaTable').innerHTML = `<div class="qa-row h"><span>Time</span><span>Question</span><span>Reply</span></div>` + (rows.length ? rows.map((r) => `<div class="qa-row">
     <time>${esc(shortTime(r.Time))}</time><div class="q">${esc(r.Question)}</div><div class="r ${r.Reply ? '' : 'none'}">${r.Reply ? linkify(r.Reply) : 'No reply'}</div></div>`).join('')
     : `<div class="empty">${H.qa.length ? 'No questions match.' : 'No questions were asked in this webinar.'}</div>`);
+}
+
+// ---------- clean-up: delete chats / numbers / history (permanent, always confirmed) ----------
+const CLEAR_TEXT = {
+  chats: ['Clear all chats?', 'Deletes every row in the Agent Log: conversations, replies, timed chats and the activity log, for every day. Numbers and webinar history stay. This cannot be undone.'],
+  numbers: ['Clear all numbers?', 'Deletes every saved number (the Numbers tab) and the attendee messages that contain a number. Other chats stay. This cannot be undone.'],
+  history: ['Clear all webinar history?', 'Deletes every webinar and its questions & replies from the Webinar History sheet. This cannot be undone.'],
+  all: ['Clear ALL data?', 'Deletes all chats, all numbers and all webinar history. The timed-chat tabs and settings are not touched. This cannot be undone.'],
+};
+async function clearData(what) {
+  const [title, text] = CLEAR_TEXT[what];
+  if (!(await confirmBox(title, text, 'Delete'))) return;
+  try {
+    if (isDemo()) {
+      if (what === 'chats' || what === 'all') Demo.log.length = 0;
+      if (what === 'history' || what === 'all') DemoHistory.list.length = 0;
+      if (what === 'numbers') for (let i = Demo.log.length - 1; i >= 0; i--) if (kindOf(Demo.log[i][2]) === 'number' || findPhone(Demo.log[i][5]) || /\d{2}X{5}\d{3}/.test(Demo.log[i][5])) Demo.log.splice(i, 1);
+    } else await feed({ action: 'clear', what });
+    if (what !== 'history') { S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true; await loadFeed(); }
+    if (what === 'history' || what === 'all') { H.list = []; H.sel = null; H.qa = []; H.loadedFor = null; await loadHistoryList(); }
+    toast(`${title.replace('?', '').replace(/^Clear /, 'Cleared ')}`);
+  } catch (e) { toast(/Unknown action/.test(e.message) ? 'Update the Apps Script (new Code.gs) and redeploy to enable deleting.' : e.message, true); }
+}
+async function deleteWebinar(w) {
+  if (!(await confirmBox('Delete this webinar?', `Removes "${w.Webinar}" (${w.Date} · ${w.Started}) and its questions & replies from history. This cannot be undone.`, 'Delete'))) return;
+  try {
+    if (isDemo()) DemoHistory.list.splice(DemoHistory.list.findIndex((x) => x['Webinar ID'] === w['Webinar ID']), 1);
+    else await feed({ action: 'delwebinar', id: w['Webinar ID'] });
+    H.sel = null; H.loadedFor = null; await loadHistoryList(); toast('Webinar deleted');
+  } catch (e) { toast(/Unknown action/.test(e.message) ? 'Update the Apps Script (new Code.gs) and redeploy to enable deleting.' : e.message, true); }
 }
 
 // ---------- launch ----------
@@ -1399,6 +1433,7 @@ async function loadFeed() {
     } else {
       const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal }), feed({ action: 'rows', tab: 'Numbers', from: S.numTotal })]);
       if (l.total < S.logTotal) S.log = []; // sheet was cleared
+      if (n.total < S.numTotal) S.numbers = [];
       S.log.push(...l.rows); S.logTotal = l.total; S.numbers.push(...n.rows); S.numTotal = n.total;
     }
   } catch (e) { setPill('#pillSheet', 'bad', e.message); return; }
@@ -1662,18 +1697,29 @@ const REPO = 'Sarthak-B/webinar-chat-automation';
 // The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
 // Leave empty if the agent writes the Summary / Q&A tabs into this same sheet.
 const HISTORY_SHEET_ID = '';
+// 15 Days First Sale Challenge: day tabs ("Day 0 Chats" …) with time | Minute | Second | Name | Role | Messege | Mode,
+// counted from FIFTEEN_START.
+const FIFTEEN_SHEET_ID = '1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w';
+const FIFTEEN_START = '7:00 PM';
 
 function doGet(e) {
   const p = e.parameter || {};
   if (p.key !== KEY) return out({ error: 'Wrong key' });
   const ss = SpreadsheetApp.getActive();
   try {
+    if (p.book === 'fifteen') {
+      const fb = SpreadsheetApp.openById(FIFTEEN_SHEET_ID);
+      if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\\bday\\s*\\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
+      if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
+    }
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
     if (p.action === 'gh') return out(github(p.method, p.path, p.body));
+    if (p.action === 'clear') return out(clearData(ss, p.what));
+    if (p.action === 'delwebinar') return out(deleteWebinar(p.id));
     if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -1711,6 +1757,43 @@ function schedule(ss, tab) {
   return { tab: tab, start: v[0][0], items: items };
 }
 
+// ---- 15 Days day tabs → same shape as the business tabs: [video time, host time, chat, mode] ----
+function dayItems(sh) {
+  const n = Math.max(1, Math.min(sh.getLastRow(), 800));
+  const v = sh.getRange(1, 1, n, Math.max(1, Math.min(sh.getLastColumn(), 10))).getDisplayValues();
+  const norm = function (c) { return String(c || '').trim().toLowerCase(); };
+  let h = -1;
+  for (let i = 0; i < v.length && h < 0; i++) if (v[i].some(function (c) { return norm(c) === 'minute'; })) h = i;
+  if (h < 0) return [];
+  const head = v[h].map(norm);
+  const col = function (re) { for (let i = 0; i < head.length; i++) if (re.test(head[i])) return i; return -1; };
+  const cH = col(/^(time|hour|hours|hr)$/), cM = col(/^minutes?$/), cS = col(/^seconds?$/), cMsg = col(/^mess?[ae]ge?s?$|^message$|^chat$/), cMode = col(/^mode$/);
+  const num = function (r, c) { return c < 0 ? 0 : Number(String(r[c] || '').replace(/[^\\d.]/g, '')) || 0; };
+  const m = FIFTEEN_START.match(/(\\d{1,2})(?::(\\d\\d))?\\s*([ap]m)?/i);
+  let base = (Number(m[1]) % 12 + (/pm/i.test(m[3] || '') ? 12 : 0)) * 3600 + Number(m[2] || 0) * 60;
+  const out = [];
+  for (let i = h + 1; i < v.length; i++) {
+    const r = v[i], text = String(r[cMsg] || '').trim(), mode = cMode < 0 ? '' : norm(r[cMode]);
+    if (!text || (mode && mode !== 'chat')) continue;
+    const off = num(r, cH) * 3600 + num(r, cM) * 60 + num(r, cS), t = base + off;
+    const hh = Math.floor(t / 3600) % 24, mm = Math.floor((t % 3600) / 60), ss = t % 60;
+    const host = ((hh % 12) || 12) + ':' + ('0' + mm).slice(-2) + ':' + ('0' + ss).slice(-2) + (hh >= 12 ? ' pm' : ' am');
+    const video = Math.floor(off / 3600) + ':' + ('0' + Math.floor((off % 3600) / 60)).slice(-2) + ':' + ('0' + (off % 60)).slice(-2);
+    out.push([video, host, text, mode || 'chat', off]);
+  }
+  out.sort(function (a, b) { return a[4] - b[4]; });
+  return out.map(function (r) { return r.slice(0, 4); });
+}
+function describeDay(sh) {
+  const items = dayItems(sh);
+  return { name: sh.getName(), schedule: true, day: Number((sh.getName().match(/day\\s*(\\d+)/i) || [])[1]), count: items.length, start: '', first: items.length ? items[0][1] : '', last: items.length ? items[items.length - 1][1] : '' };
+}
+function scheduleDay(fb, tab) {
+  const sh = fb.getSheetByName(tab);
+  if (!sh) return { error: 'Tab not found: ' + tab };
+  return { tab: tab, start: '', items: dayItems(sh) };
+}
+
 // Rows of "Agent Log" / "Numbers". First call (from=0): the latest 3000 rows. After that: only rows after \`from\`.
 function rows(ss, tab, from) {
   const sh = ss.getSheetByName(tab);
@@ -1741,6 +1824,58 @@ function historyFor(tab, id) {
   return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
 }
 
+// ---- Clean-up (dashboard "Clear" buttons; permanent – the dashboard asks first) ----
+// what: chats = Agent Log · numbers = Numbers tab + attendee messages that contain a mobile number
+//       history = Summary + Q&A · all = everything above
+function clearData(ss, what) {
+  const done = [];
+  const wipe = function (sh) {
+    if (!sh) return 0;
+    const n = sh.getLastRow() - 1;
+    if (n > 0) sh.deleteRows(2, n);
+    return Math.max(0, n);
+  };
+  if (what === 'chats' || what === 'all') done.push('chats: ' + wipe(ss.getSheetByName('Agent Log')));
+  if (what === 'numbers' || what === 'all') {
+    done.push('numbers: ' + wipe(ss.getSheetByName('Numbers')));
+    const log = ss.getSheetByName('Agent Log');
+    if (log && what !== 'all' && log.getLastRow() > 1) {
+      const v = log.getRange(2, 1, log.getLastRow() - 1, log.getLastColumn()).getValues();
+      const keep = v.filter(function (r) { return !(String(r[2]).replace(/^DRY /, '') === 'IN' && hasPhone(r[5])); });
+      if (keep.length !== v.length) {
+        log.deleteRows(2, v.length);
+        if (keep.length) { log.insertRowsAfter(1, keep.length); log.getRange(2, 1, keep.length, keep[0].length).setValues(keep); }
+      }
+    }
+  }
+  if (what === 'history' || what === 'all') {
+    const hb = historyBook();
+    done.push('history: ' + wipe(hb.getSheetByName('Summary')));
+    wipe(hb.getSheetByName('Q&A'));
+  }
+  return { ok: true, cleared: done };
+}
+function hasPhone(t) {
+  const runs = String(t || '').match(/\\+?\\d[\\d\\s-]{8,16}\\d/g) || [];
+  return runs.some(function (run) {
+    let d = run.replace(/\\D/g, '');
+    if (d.length === 12 && d.indexOf('91') === 0) d = d.slice(2); else if (d.length === 11 && d[0] === '0') d = d.slice(1);
+    return d.length === 10 && /^[6-9]/.test(d);
+  });
+}
+function deleteWebinar(id) {
+  if (!id) return { error: 'No webinar id' };
+  const hb = historyBook();
+  let n = 0;
+  ['Summary', 'Q&A'].forEach(function (tab) {
+    const sh = hb.getSheetByName(tab);
+    if (!sh || sh.getLastRow() < 2) return;
+    const v = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues();
+    for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === id) { sh.deleteRow(i + 2); n++; }
+  });
+  return { ok: true, deleted: n };
+}
+
 // ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
 function githubToken() {
   return PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN') || '';
@@ -1769,7 +1904,8 @@ function github(method, path, body) {
 
 function out(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
-}`;
+}
+`;
 function openDrawer() {
   $('#cOwner').value = cfg.owner; $('#cRepo').value = cfg.repo; $('#cToken').value = cfg.token; $('#cWorkflow').value = cfg.workflow;
   $('#cScript').value = cfg.script; $('#cScript15').value = cfg.script15 || ''; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cHistoryUrl').value = cfg.historyUrl || ''; $('#cDemo').checked = cfg.demo === true;
@@ -1913,6 +2049,10 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
 $('#testNow').addEventListener('change', renderLaunch);
+$('#clearChats').addEventListener('click', () => clearData('chats'));
+$('#clearNumbers').addEventListener('click', () => clearData('numbers'));
+$('#clearHistory').addEventListener('click', () => clearData('history'));
+$('#clearAll').addEventListener('click', () => clearData('all'));
 $$('#webinarSeg .opt').forEach((b) => b.addEventListener('click', () => switchWebinar(b.dataset.webinar)));
 renderSoundBtn();
 $('#soundBtn').addEventListener('click', () => {

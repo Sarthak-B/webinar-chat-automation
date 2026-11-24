@@ -31,6 +31,8 @@ function doGet(e) {
     if (p.action === 'history') return out(history());
     if (p.action === 'historyqa') return out(historyFor('Q&A', p.id));
     if (p.action === 'gh') return out(github(p.method, p.path, p.body));
+    if (p.action === 'clear') return out(clearData(ss, p.what));
+    if (p.action === 'delwebinar') return out(deleteWebinar(p.id));
     if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -133,6 +135,58 @@ function historyFor(tab, id) {
   if (!sh || sh.getLastRow() < 2) return { header: [], rows: [] };
   const v = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getDisplayValues();
   return { header: v[0], rows: v.slice(1).filter(function (r) { return r[0] === id; }) };
+}
+
+// ---- Clean-up (dashboard "Clear" buttons; permanent – the dashboard asks first) ----
+// what: chats = Agent Log · numbers = Numbers tab + attendee messages that contain a mobile number
+//       history = Summary + Q&A · all = everything above
+function clearData(ss, what) {
+  const done = [];
+  const wipe = function (sh) {
+    if (!sh) return 0;
+    const n = sh.getLastRow() - 1;
+    if (n > 0) sh.deleteRows(2, n);
+    return Math.max(0, n);
+  };
+  if (what === 'chats' || what === 'all') done.push('chats: ' + wipe(ss.getSheetByName('Agent Log')));
+  if (what === 'numbers' || what === 'all') {
+    done.push('numbers: ' + wipe(ss.getSheetByName('Numbers')));
+    const log = ss.getSheetByName('Agent Log');
+    if (log && what !== 'all' && log.getLastRow() > 1) {
+      const v = log.getRange(2, 1, log.getLastRow() - 1, log.getLastColumn()).getValues();
+      const keep = v.filter(function (r) { return !(String(r[2]).replace(/^DRY /, '') === 'IN' && hasPhone(r[5])); });
+      if (keep.length !== v.length) {
+        log.deleteRows(2, v.length);
+        if (keep.length) { log.insertRowsAfter(1, keep.length); log.getRange(2, 1, keep.length, keep[0].length).setValues(keep); }
+      }
+    }
+  }
+  if (what === 'history' || what === 'all') {
+    const hb = historyBook();
+    done.push('history: ' + wipe(hb.getSheetByName('Summary')));
+    wipe(hb.getSheetByName('Q&A'));
+  }
+  return { ok: true, cleared: done };
+}
+function hasPhone(t) {
+  const runs = String(t || '').match(/\+?\d[\d\s-]{8,16}\d/g) || [];
+  return runs.some(function (run) {
+    let d = run.replace(/\D/g, '');
+    if (d.length === 12 && d.indexOf('91') === 0) d = d.slice(2); else if (d.length === 11 && d[0] === '0') d = d.slice(1);
+    return d.length === 10 && /^[6-9]/.test(d);
+  });
+}
+function deleteWebinar(id) {
+  if (!id) return { error: 'No webinar id' };
+  const hb = historyBook();
+  let n = 0;
+  ['Summary', 'Q&A'].forEach(function (tab) {
+    const sh = hb.getSheetByName(tab);
+    if (!sh || sh.getLastRow() < 2) return;
+    const v = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues();
+    for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === id) { sh.deleteRow(i + 2); n++; }
+  });
+  return { ok: true, deleted: n };
 }
 
 // ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
