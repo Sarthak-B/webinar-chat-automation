@@ -21,12 +21,20 @@ assert.match(b.system, /on behalf of Saurabh Sir/); assert.match(b.system, /Neve
 assert.equal(teamVoice('My team will call. Meri team call karegi. मेरी टीम कॉल करेगी'), 'Our team will call. Humari team call karegi. हमारी टीम कॉल करेगी');
 
 next = { action: 'reply', reply: 'Haan bilkul, EMI ₹59/day se start hai', objection: null, safe_to_ask: true };
-let d = await b.decide({ sender: 'Rahul', text: 'EMI milega kya', hasNumber: false });
+let d = await b.decide({ sender: 'Rahul', text: 'EMI milega kya', hasNumber: false, askNow: true });
 console.log('hinglish reply w/o ask  →', d.reply); assert.ok(asksForNumber(d.reply)); assert.equal(d.lang, 'hinglish');
 
 next = { action: 'reply', reply: 'हाँ, EMI उपलब्ध है', safe_to_ask: true };
-d = await b.decide({ sender: 'राहुल', text: 'क्या EMI मिलेगी?', hasNumber: false });
+d = await b.decide({ sender: 'राहुल', text: 'क्या EMI मिलेगी?', hasNumber: false, askNow: true });
 console.log('hindi reply w/o ask     →', d.reply); assert.match(d.reply, /नंबर/);
+
+// answer first: when this reply may not ask, any number ask is removed
+next = { action: 'reply', reply: 'Yes, it suits beginners. Please share your contact number so our team can call you.', safe_to_ask: true };
+d = await b.decide({ sender: 'Neha', text: 'beginner?', hasNumber: false, askNow: false });
+console.log('first reply, no ask     →', d.reply); assert.ok(!asksForNumber(d.reply)); assert.match(d.reply, /beginners/);
+// before 1 hour: never an ask, even if askNow is passed
+d = await b.decide({ sender: 'Neha', text: 'beginner?', hasNumber: false, askNow: true, numberLocked: true });
+console.log('number-locked           →', d.reply); assert.ok(!asksForNumber(d.reply));
 
 next = { action: 'reply', reply: 'Yes! EMI is available. My team will call you on your number.', safe_to_ask: true };
 d = await b.decide({ sender: 'Priya', text: 'Is EMI available?', hasNumber: true });
@@ -54,7 +62,7 @@ for (const t of ['It is $447 today', 'Rs. 59/day EMI', '₹36,999 incl. GST', 'E
 for (const t of ['Our team will call you shortly.', 'Yes, you can connect your own domain.', '60 minutes a day is enough', 'Kripya apna number share kijiye', 'Sir will share the complete offer and pricing details later in this session'])
   assert.ok(!mentionsPrice(t), `not price: ${t}`);
 globalThis.fetch = async () => ({ ok: true, json: async () => ({ choices: [{ message: { content: JSON.stringify({ action: 'reply', reply: 'Ji, aaj ka offer $447 hai – https://sb.flexifunnels.com/get?id=19029', safe_to_ask: true }) } }] }) });
-let locked = await b.decide({ sender: 'Rahul', text: 'price kya hai?', hasNumber: false, lang: 'hinglish', pricingLocked: true });
+let locked = await b.decide({ sender: 'Rahul', text: 'price kya hai?', hasNumber: false, lang: 'hinglish', pricingLocked: true, askNow: true });
 console.log('price asked, LOCKED     →', locked.reply); assert.ok(!mentionsPrice(locked.reply)); assert.ok(asksForNumber(locked.reply));
 let open = await b.decide({ sender: 'Rahul', text: 'price kya hai?', hasNumber: false, lang: 'hinglish', pricingLocked: false });
 console.log('price asked, unlocked   →', open.reply); assert.match(open.reply, /\$447/);

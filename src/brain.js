@@ -71,9 +71,9 @@ const pick = (list) => list[pickN++ % list.length];
 
 export const FALLBACK = {
   ask: {
-    english: (n) => `${n ? `${n}, ` : ''}please share your contact number here – our team will call you and guide you.`,
-    hinglish: (n) => `${n ? `${n} ji, ` : ''}kripya apna contact number share kijiye – humari team aapko call karke guide karegi.`,
-    hindi: (n) => `${n ? `${n} जी, ` : ''}कृपया अपना संपर्क नंबर शेयर करें – हमारी टीम आपको कॉल करके मार्गदर्शन करेगी।`,
+    english: (n) => `${n ? `${n}, if` : 'If'} you'd like personal guidance, you can share your contact number here and our senior mentor will call you.`,
+    hinglish: (n) => `${n ? `${n} ji, agar` : 'Agar'} aap personal guidance chahte hain, to apna contact number yahan share kar sakte hain – humare senior mentor aapko call karenge.`,
+    hindi: (n) => `${n ? `${n} जी, अगर` : 'अगर'} आप व्यक्तिगत मार्गदर्शन चाहते हैं, तो अपना संपर्क नंबर यहाँ शेयर कर सकते हैं – हमारे सीनियर मेंटर आपको कॉल करेंगे।`,
   },
   // Before the pricing section: never reveal numbers – point them to later in the session.
   pricelock: {
@@ -151,7 +151,7 @@ export class Brain {
     const angles = this.numberBank.map((b) => `- ${b.angle}: ${b.line}`).join('\n');
     return `You are the FlexiFunnels team, replying on behalf of ${this.persona} (the presenter) to ONE attendee in a private Zoom chat during this FlexiGenie webinar. Write like a polite, professional support executive: courteous, clear and to the point – never casual, never over-familiar, never robotic.
 
-PRIMARY GOAL: get their phone/WhatsApp number so our team can call them. Clearing the doubt is secondary – answer it briefly and use it as the reason to share the number. If they have ALREADY shared the number, never ask again; tell them our team will contact them on it.
+GOAL: first clear their doubt properly – a genuine, helpful answer. Getting their number matters, but it comes gently and only when the instructions for this message allow it: never pushy, never "drop your number" on every reply, never pressure or urgency. If they have ALREADY shared the number, never ask again.
 
 FACTS (the ONLY facts you may use – prices, links, guarantees, durations must stay exactly as written; the wording is just an example, rephrase it):
 ${bank}
@@ -220,7 +220,13 @@ Respond with JSON only.`;
     return [
       `Attendee display name: ${sender}${name ? ` (first name: ${name})` : ''}`,
       `Language: ${lang}. ${LANG_RULE[lang] || LANG_RULE.english}`,
-      this.buyers ? 'Buyers session: do NOT ask for any phone number.' : `Number already shared: ${hasNumber ? 'YES – do not ask again; say it has been shared with our senior mentors, who will contact them (no thank-you)' : 'NO – end by politely asking for their number'}`,
+      this.buyers
+        ? 'Buyers session: do NOT ask for any phone number.'
+        : hasNumber === true
+        ? 'Number already shared: YES – do not ask again; if relevant, say it has been shared with our senior mentors, who will contact them (no thank-you).'
+        : hasNumber === 'ask'
+        ? 'Number not shared yet. In THIS reply: first answer their doubt fully, then end with ONE soft, optional transition line – e.g. "If you\'d like personal guidance, you can share your number here and our senior mentor will call you." Make it feel like a helpful offer, not a demand.'
+        : 'Number not shared yet, but do NOT ask for it in this reply – no hint, no mention of calls or contact numbers. Only answer their doubt.',
       history.length ? `This chat so far:\n${history.map((h) => `${h.who === 'me' ? 'Us' : 'Them'}: ${h.text}`).join('\n')}` : '',
       recent.length ? `Already sent recently to other people (don't repeat this phrasing):\n${recent.map((r) => `- ${r}`).join('\n')}` : '',
     ]
@@ -243,13 +249,15 @@ Respond with JSON only.`;
     if (needsAsk && !numberLocked && !hasNumber && !this.buyers && !asksForNumber(r)) {
       // Number first: the AI forgot the ask – add a natural one in their language.
       const ask = FALLBACK.ask[lang] || FALLBACK.ask.english;
-      r = `${/[.!?।]$/.test(r) ? r : `${r}.`} ${ask('').replace(/^./, (c) => c.toUpperCase())}`;
+      r = `${/[.!?।]$/.test(r) ? r : `${r}.`} ${ask('')}`;
     }
     return r;
   }
 
   // A question/message → { action: reply|ignore|escalate, reply, objection, safe_to_ask, reason }
-  async decide({ sender, text, hasNumber = false, lang, history, recent, pricingLocked = false, numberLocked = false }) {
+  // askNow: this reply may (gently) invite them to share their number – the agent decides when (never every reply)
+  async decide({ sender, text, hasNumber = false, lang, history, recent, pricingLocked = false, numberLocked = false, askNow = false }) {
+    if (numberLocked) askNow = false;
     lang = lang || detectLang(text) || 'english';
     const objKeys = this.objections.map((o) => o.key).join(', ');
     const lock = pricingLocked
@@ -258,14 +266,14 @@ Respond with JSON only.`;
     const numLock = numberLocked && !this.buyers
       ? `\nNUMBER ASKS ARE LOCKED RIGHT NOW (hard rule): do NOT ask for, hint at or mention their phone/WhatsApp/contact number or a call from the team in any way. Just answer the question politely (or say Sir will cover it in the session).`
       : '';
-    const user = `${this.#context({ sender, lang, hasNumber: hasNumber || numberLocked, history, recent })}${lock}${numLock}
+    const user = `${this.#context({ sender, lang, hasNumber: hasNumber ? true : askNow ? 'ask' : 'no', history, recent })}${lock}${numLock}
 
 Their new message: """${String(text).slice(0, 800)}"""
 
 Decide:
 - "reply": a real question or doubt you can answer from FACTS → write the reply.
 - "ignore": greetings, city names, "yes"/"1"/T-F answers, emojis, compliments, reactions to the session, chat that needs no answer.
-- "escalate": ${this.buyers || numberLocked ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? ' and contact them on their number' : ' and asks for their number so the team can call'}`}.
+- "escalate": ${this.buyers || numberLocked || (!askNow && !hasNumber) ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? ' and contact them on their number' : ' and asks for their number so the team can call'}`}.
 - "objection": one of [${objKeys}] if the message raises it, else null.
 - "safe_to_ask": false only for abusive, spam or hostile messages (we won't message them at all), else true.
 JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":string|null,"safe_to_ask":boolean,"reason":string}`;
@@ -280,7 +288,8 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
     out.safe_to_ask = out.safe_to_ask !== false;
     out.lang = lang;
     if (out.action !== 'ignore' && out.safe_to_ask) {
-      const guarded = this.#guard(out.reply, { hasNumber, lang, sender, pricingLocked, numberLocked: numberLocked && !this.buyers });
+      // no ask allowed in this reply → any number ask is stripped; ask allowed → added softly only if the AI forgot
+      const guarded = this.#guard(out.reply, { hasNumber, lang, sender, pricingLocked, numberLocked: !this.buyers && !hasNumber && !askNow && out.action === 'reply', needsAsk: askNow });
       if (out.reply && !guarded && out.action === 'reply') {
         return { ...out, action: 'escalate', reply: null, reason: 'blocked a link that is not in the sheet' };
       }
@@ -298,10 +307,10 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
     const task =
       purpose === 'thanks'
         ? 'They just shared their number. Thank them politely and say our team will contact them on it shortly. One sentence. Do NOT ask for anything else.'
-        : `They're taking part in the chat but haven't shared their number. Write ONE short, polite, professional line asking them to share their contact number so our team can call and guide them.${angle ? ` Angle to use: ${angle}.` : ''} Do not comment on their message or mood; no salesy hype.`;
+        : `They're taking part in the chat but haven't shared their number. Write ONE short, warm, optional-sounding line inviting them to share their contact number if they'd like a senior mentor to guide them personally – an offer, never a demand.${angle ? ` Angle to use: ${angle}.` : ''} Do not comment on their message or mood; no salesy hype.`;
     try {
       const out = await this.#chat(
-        `${this.#context({ sender, lang, hasNumber: purpose === 'thanks', history, recent })}${pricingLocked ? '\nPRICING IS LOCKED: no prices, amounts, EMI, token, offers or payment links.' : ''}\n\nTheir latest message: """${String(said || '').slice(0, 300)}"""\n\nTask: ${task}\nJSON: {"message": string}`,
+        `${this.#context({ sender, lang, hasNumber: purpose === 'thanks' ? true : 'ask', history, recent })}${pricingLocked ? '\nPRICING IS LOCKED: no prices, amounts, EMI, token, offers or payment links.' : ''}\n\nTheir latest message: """${String(said || '').slice(0, 300)}"""\n\nTask: ${task}\nJSON: {"message": string}`,
         0.9,
       );
       const msg = this.#guard(out.message, { hasNumber: purpose === 'thanks', lang, sender, needsAsk: purpose === 'ask', pricingLocked });

@@ -529,7 +529,11 @@ async function handle(sender, text) {
   }
   if (isTrivial(text)) return; // engagement replies ("1", "yes", 🔥) – no reply
 
-  const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), ...ctx() }));
+  // Answer first, number later: the first reply to a person never asks; after that a reply may add ONE soft
+  // invitation – only after the 1-hour mark, max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart.
+  const repliedBefore = person(sender).history.some((h) => h.who === 'me');
+  const askNow = !cfg.buyers && !numberLocked() && repliedBefore && canAsk(sender);
+  const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), askNow, ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
   if (d.action === 'reply' && d.reply) {
     history.question();
@@ -549,9 +553,9 @@ async function handle(sender, text) {
         ? d.reply || (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender))
         : numberLocked()
         ? d.reply || (FALLBACK.later[lang] || FALLBACK.later.english)(firstName(sender))
-        : d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
+        : d.reply || (askNow ? (FALLBACK.ask[lang] || FALLBACK.ask.english)(firstName(sender)) : (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender)));
       enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
-      if (!hasNumber.has(sender) && !cfg.buyers && !numberLocked()) noteAsk(sender);
+      if (!hasNumber.has(sender) && !cfg.buyers && askNow) noteAsk(sender);
     } else {
       history.qaRow({ question: text }); // abusive/spam: no reply sent
     }
