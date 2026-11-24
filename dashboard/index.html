@@ -866,7 +866,7 @@ const WEBINARS = {
   business: { name: '10 Min Business', join: 'https://sb.flexifunnels.com/genie-demo' },
   fifteen: { name: '15 Days First Sale Challenge', join: 'https://sb.flexifunnels.com/fifteendays' },
 };
-const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: (() => { try { return JSON.parse(localStorage.getItem('autopilot.mode')) || 'dry'; } catch { return 'dry'; } })(), schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -2134,7 +2134,7 @@ $('#signOut').addEventListener('click', () => {
 ['#cOwner', '#cRepo', '#cScript', '#cKey'].forEach((sel) => $(sel).addEventListener('input', (e) => { e.target.style.borderColor = ''; })); $('#testConn').addEventListener('click', testConn);
 $('#copyScript').addEventListener('click', () => { navigator.clipboard?.writeText(SCRIPT_CODE).then(() => toast('Apps Script code copied')); });
 $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (S.tab) selectTab(S.tab.name); toast('Tabs refreshed'); });
-$$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
+$$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; store.set('autopilot.mode', S.mode); renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
 $('#testNow').addEventListener('change', renderLaunch);
 $$('#acctSeg button').forEach((b) => b.addEventListener('click', () => { S.acct = b.dataset.acct; renderAcct(); }));

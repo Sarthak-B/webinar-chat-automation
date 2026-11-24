@@ -393,7 +393,7 @@ async function scheduleLoop() {
 }
 
 // ---------- Attendee chats ----------
-const seen = new Map(); // "sender|text" → time first seen
+const seen = new Map(); // "sender|text" → how many copies of it have been handled
 const pending = new Map(); // sender → { texts: [], timer }
 const lastReplyTo = new Map();
 const objectionHits = []; // { key, sender, at }
@@ -617,12 +617,18 @@ async function chatLoop() {
       diagN++;
       log(`Chat panel still shows 0 messages · ${await zoom.diagnose(`empty-chat-${diagN}`).catch(() => 'diag failed')}`);
     }
-    const now = Date.now();
+    // New messages = more copies of a (sender, text) on screen than we've already handled. So a person who
+    // types "what's the pricing" three times gets each one counted, and old messages are never re-answered.
+    const onScreen = new Map();
+    const fresh = [];
     for (const m of msgs) {
       const key = `${m.sender}|${m.text}`;
-      const t = seen.get(key);
-      if (t && now - t < 10 * 60_000) continue; // same person, same text, within 10 min = same message
-      seen.set(key, now);
+      const n = (onScreen.get(key) || 0) + 1;
+      onScreen.set(key, n);
+      if (n > (seen.get(key) || 0)) fresh.push(m);
+    }
+    for (const [key, n] of onScreen) if (n > (seen.get(key) || 0)) seen.set(key, n);
+    for (const m of fresh) {
       if (first) continue; // don't answer chat history from before we joined
       if (ownTexts.has(norm(m.text))) {
         const self = cleanSender(m.sender).name.toLowerCase();
