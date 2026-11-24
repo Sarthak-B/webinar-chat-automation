@@ -632,7 +632,7 @@ body.is-demo .demo-banner{display:block}
             <div class="hint" id="modeHint"></div>
           </div>
           <div class="step" id="step4" data-reveal>
-            <div class="step-h"><span class="step-n">03</span><div><h3>Direct Zoom link <span class="opt-tag">optional</span></h3><p>Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away as the main (host) account and stays until it ends.</p></div></div>
+            <div class="step-h"><span class="step-n">03</span><div><h3>Direct Zoom link <span class="opt-tag">optional</span></h3><p id="directSub">Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away as the main (host) account and stays until it ends.</p></div></div>
             <div class="direct">
               <input id="directUrl" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://us06web.zoom.us/j/81234567890?pwd=…   or   812 3456 7890">
               <button class="btn ghost sm" id="directClear" type="button">Clear</button>
@@ -983,6 +983,8 @@ function renderWebinar() {
   $('#step1Title').textContent = isFifteen() ? 'Which day is running?' : 'Which tab should it read?';
   $('#step1Sub').textContent = isFifteen() ? 'The "Day …" tabs from the 15 Days Challenge Chats sheet. Times count from 7:00 PM.' : 'Only tabs with a "Video Time" header are shown.';
   const j = $('#sumJoin'); if (j && !directState().on) { j.textContent = joinLabel(); j.title = WEBINARS[S.webinar].join; }
+  $('#directSub').textContent = `Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away with the ${isFifteen() ? '15 Days Challenge Zoom account' : '10 Min Business (host) Zoom account'} and stays until it ends.`;
+  renderDirect(); renderLaunch();
 }
 async function switchWebinar(w) {
   if (w === S.webinar) return;
@@ -1067,7 +1069,7 @@ function renderDirect() {
   const d = directState(), inp = $('#directUrl'); if (!inp) return;
   inp.classList.toggle('bad', d.on && !d.ok);
   $('#directHint').innerHTML = !d.on ? '' : d.ok
-    ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acid)" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg><span>${d.label}: no waiting, no universal link. It joins as soon as GitHub starts (about 2 minutes) and stays until the webinar ends.</span>`
+    ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acid)" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg><span>${d.label} · ${WEBINARS[S.webinar].name}: no waiting, no universal link. It joins as soon as GitHub starts (about 2 minutes) and stays until the webinar ends.</span>`
     : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${d.msg}</span>`;
   const j = $('#sumJoin'); if (j) { j.textContent = d.on && d.ok ? `${d.label} · host` : joinLabel(); }
 }
