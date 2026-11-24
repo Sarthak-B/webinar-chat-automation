@@ -115,6 +115,8 @@ jobs:
           HISTORY_SHEET_ID: ${{ vars.HISTORY_SHEET_ID || secrets.HISTORY_SHEET_ID }}
           MODE: ${{ inputs.mode }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || secrets.DEEPSEEK_MODEL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || secrets.OPENAI_MODEL }}
           PERSONA_NAME: ${{ vars.PERSONA_NAME || secrets.PERSONA_NAME }}

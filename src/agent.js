@@ -123,7 +123,7 @@ if (!numberBank.length && !cfg.buyers) {
   ];
 }
 const brain = new Brain({ ...cfg, replies, objections, numberBank });
-log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName}`);
+log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName} · AI: ${cfg.aiName} (${cfg.model})`);
 
 const first = await readSchedule();
 const scheduleRows = first.rows;

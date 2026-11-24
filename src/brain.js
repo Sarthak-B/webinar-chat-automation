@@ -109,11 +109,13 @@ export const mentionsPrice = (t) =>
 const urlsIn = (s) => (String(s).match(/https?:\/\/[^\s)]+/g) || []).map((u) => u.replace(/[.,]+$/, ''));
 
 export class Brain {
-  constructor({ openaiKey, model, replies, objections, personaName, numberBank = [], buyers = false, webinarName = '' }) {
+  constructor({ openaiKey, model, aiBase = 'https://api.openai.com/v1', aiName = 'OpenAI', replies, objections, personaName, numberBank = [], buyers = false, webinarName = '' }) {
     this.buyers = buyers;
     this.webinarName = webinarName;
     this.key = openaiKey;
     this.model = model;
+    this.base = aiBase;
+    this.aiName = aiName;
     this.replies = replies;
     this.objections = objections;
     this.persona = personaName || 'Sir';
@@ -172,7 +174,7 @@ Respond with JSON only.`;
   }
 
   async #chat(user, temperature = 0.8) {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch(`${this.base}/chat/completions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -186,9 +188,10 @@ Respond with JSON only.`;
       }),
       signal: AbortSignal.timeout(20_000),
     });
-    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    if (!res.ok) throw new Error(`${this.aiName} ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
-    return JSON.parse(data.choices[0].message.content);
+    const txt = String(data.choices[0].message.content || '').replace(/```(?:json)?/gi, '');
+    return JSON.parse((txt.match(/\{[\s\S]*\}/) || [txt])[0]);
   }
 
   #context({ sender, lang, hasNumber, history = [], recent = [] }) {

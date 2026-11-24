@@ -383,3 +383,11 @@ A 15 Days run never uses the business account's login, and the reverse is also t
 - **15 Days** uses the 15 Days Challenge Chats sheet for everything: Day tabs, plus its own Agent Log and Numbers tabs, which the agent creates. It has no history.
 - The dashboard shows the live feed, numbers and "Open sheet" link for the webinar picked in step 00.
 - The 15 Days Apps Script (`Code-15days.gs`) serves that sheet's tabs and rows and the Clear buttons. Paste the latest version and redeploy it as a **New version**.
+
+## Using DeepSeek instead of OpenAI (cheaper)
+
+1. Sign up at https://platform.deepseek.com, open **Top up**, add a small balance (a few dollars lasts many webinars), then go to **API keys → Create new API key**.
+2. Add the GitHub **Secret** `DEEPSEEK_API_KEY` with that key. Optionally add the **Variable** `DEEPSEEK_MODEL` (default `deepseek-chat`).
+3. When `DEEPSEEK_API_KEY` exists, the agent uses DeepSeek with the same prompts and rules, and the run log shows `AI: DeepSeek (…)`. Delete the secret to go back to OpenAI.
+
+The DeepSeek *chat app* is free. The *API* is prepaid, but very cheap.

@@ -1465,7 +1465,10 @@ async function loadFeed() {
       S.numbers = Demo.log.filter((r) => kindOf(r[2]) === 'number').map((r) => [r[0], r[1], r[3], r[5], r[5], S.tab?.name || '']);
       S.numbers = S.numbers.filter((r, i) => S.numbers.findIndex((x) => x[2] === r[2]) === i);
     } else {
-      const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal, ...bookParam() }), feed({ action: 'rows', tab: 'Numbers', from: S.numTotal, ...bookParam() })]);
+      S.pollN = (S.pollN || 0) + 1;
+      // Agent Log every poll; the Numbers tab every 3rd poll (numbers typed in chat already show instantly from the log)
+      const wantNums = S.pollN % 3 === 1;
+      const [l, n] = await Promise.all([feed({ action: 'rows', tab: 'Agent Log', from: S.logTotal, ...bookParam() }), wantNums ? feed({ action: 'rows', tab: 'Numbers', from: S.numTotal, ...bookParam() }) : Promise.resolve({ total: S.numTotal, rows: [] })]);
       if (l.total < S.logTotal) S.log = []; // sheet was cleared
       if (n.total < S.numTotal) S.numbers = [];
       S.log.push(...l.rows); S.logTotal = l.total; S.numbers.push(...n.rows); S.numTotal = n.total;
@@ -2063,7 +2066,8 @@ async function boot() {
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
   timers.push(setInterval(() => loadRuns(), 10_000));
-  timers.push(setInterval(() => loadFeed(), isDemo() ? 4_000 : 8_000));
+  timers.push(setInterval(() => { if (!document.hidden) loadFeed(); }, isDemo() ? 4_000 : 3_000)); // live chats every 3 s (paused while this tab is hidden)
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFeed(); });
   timers.push(setInterval(() => loadWorkflows(), 60_000));
   timers.push(setInterval(() => loadHistoryList(), isDemo() ? 20_000 : 60_000));
 }

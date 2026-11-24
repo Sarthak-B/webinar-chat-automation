@@ -101,7 +101,7 @@ export class SheetLogger {
   }
   async init() {
     await this.sheet.ensureTab(this.tab, this.header);
-    this.timer = setInterval(() => this.flush().catch((e) => console.error('[sheet log]', e.message)), 10_000);
+    this.timer = setInterval(() => this.flush().catch((e) => console.error('[sheet log]', e.message)), 3_000); // every 3 s → dashboard sees chats within seconds
   }
   add(row) {
     this.buf.push(row);

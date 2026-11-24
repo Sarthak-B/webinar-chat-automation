@@ -83,8 +83,11 @@ export function loadConfig() {
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 
     // AI
-    openaiKey: req('OPENAI_API_KEY'),
-    model: env('OPENAI_MODEL', 'gpt-4o-mini'),
+    // AI: DeepSeek is used when DEEPSEEK_API_KEY is set (much cheaper), otherwise OpenAI. Same prompts and rules.
+    aiBase: env('DEEPSEEK_API_KEY', '') ? 'https://api.deepseek.com' : 'https://api.openai.com/v1',
+    aiName: env('DEEPSEEK_API_KEY', '') ? 'DeepSeek' : 'OpenAI',
+    openaiKey: env('DEEPSEEK_API_KEY', '') || req('OPENAI_API_KEY'),
+    model: env('DEEPSEEK_API_KEY', '') ? env('DEEPSEEK_MODEL', 'deepseek-chat') : env('OPENAI_MODEL', 'gpt-4o-mini'),
     aiConcurrency: num('AI_CONCURRENCY', 4),
 
     // Behaviour
