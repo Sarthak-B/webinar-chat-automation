@@ -669,13 +669,86 @@ img,svg,video,canvas{max-width:100%}
   [data-reveal],[data-split] .w>span{opacity:1!important;transform:none!important;filter:none!important}
   .curtain{display:none}
 }
+
+/* ================= polish (v2): calmer type, smoother motion, lighter on phones ================= */
+/* type: a touch less heavy and less cramped, so big headings never collide */
+.hero h1{font-weight:700;letter-spacing:-.032em;line-height:.94}
+.shead h2{font-weight:700;letter-spacing:-.028em;line-height:.98}
+.curtain .word{letter-spacing:-.035em}
+.kpi .v,.hk .v{letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.tabcard .count,.nextup .cd{letter-spacing:-.025em}
+body{text-rendering:optimizeLegibility;font-feature-settings:"ss01","cv11"}
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+/* footer headline: soft gradient fill instead of the outline that drew boxes inside letters */
+footer .big{font-weight:700;letter-spacing:-.035em;-webkit-text-stroke:0;color:transparent;background:linear-gradient(180deg,rgba(244,240,232,.16),rgba(244,240,232,.03));-webkit-background-clip:text;background-clip:text}
+footer .big em.it{background:none;-webkit-background-clip:initial;background-clip:initial;color:var(--acid)}
+
+/* motion: one easing everywhere, quick and springy */
+:root{--spring:cubic-bezier(.34,1.56,.64,1);--t-fast:.22s;--t-med:.45s}
+[data-reveal]{transform:translateY(22px) scale(.985);filter:blur(3px);transition:opacity .9s var(--ease),transform .9s var(--ease),filter .9s var(--ease)}
+.card,.kpi,.hk,.tabcard,.opt,.wcard,.wf,.orb-card,.summary,.conv,.person,.qa-row,.ev{transition:transform var(--t-med) var(--ease),box-shadow var(--t-med) var(--ease),border-color .3s,background-color .3s}
+@media (hover:hover){
+  .kpi:hover,.hk:hover,.tabcard:hover,.opt:hover,.wcard:hover,.wf:hover{transform:translateY(-4px);box-shadow:0 18px 40px -18px rgba(0,0,0,.7),0 0 0 1px var(--line2)}
+  .conv:hover{background:rgba(244,240,232,.03)}
+  .btn:hover{transform:translateY(-2px)}
+  .btn.acid:hover{box-shadow:0 14px 34px -10px rgba(214,242,60,.55)}
+}
+.btn:active,.icon-btn:active,.opt:active,.tabcard:active,.conv:active,[data-copy]:active,[data-copy-row]:active{transform:scale(.96);transition-duration:.12s}
+.btn{will-change:transform}
+.bw.new,.ev.new,.person.new,.sys.new{animation:slidein .55s var(--ease) both}
+@keyframes slidein{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.toast{animation:toast .45s var(--spring) both}
+.drawer{transition:transform .55s var(--ease),opacity .4s}
+.scrim{transition:opacity .45s var(--ease)}
+.modal{transition:opacity .35s var(--ease),transform .45s var(--spring)}
+input,textarea,select{transition:border-color .25s,box-shadow .25s,background-color .25s}
+input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(244,240,232,.12);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+
+/* numbers panel */
+.nums-h{flex-wrap:wrap;gap:10px}
+.nums-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ncount{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 7px;margin-left:6px;border-radius:99px;background:var(--acid-soft);color:var(--acid);font:600 12px/1 var(--mono);vertical-align:middle}
+.copynew{gap:8px}
+.copynew b{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:99px;background:rgba(12,14,19,.85);color:var(--acid);font:600 11px/1 var(--mono)}
+.copynew:disabled{opacity:.35;cursor:default;box-shadow:none;transform:none}
+.copynew.has{animation:glow 2.2s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(214,242,60,.45)}50%{box-shadow:0 0 0 8px rgba(214,242,60,0)}}
+#numbersList.side-list{max-height:440px}
+.numrow{gap:10px}
+.numrow .nr-main{display:flex;flex-direction:column;align-items:flex-start;min-width:0;flex:1}
+.numrow button.nr-name,.numrow button.nr-num,.numrow button.nr-time{border-radius:7px;padding:2px 6px;margin:-2px -6px;text-align:left;transition:background .2s,color .2s}
+.numrow .nr-name{font-weight:600;font-size:14px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.numrow .nr-num{font:500 13px/1.4 var(--mono);color:var(--acid);letter-spacing:.02em}
+.numrow .nr-time{font:500 11.5px/1 var(--mono);color:var(--muted);white-space:nowrap;margin:0}
+.numrow button[data-copy]:hover{background:rgba(214,242,60,.1);color:var(--ink)}
+.nr-new{font:600 9.5px/1 var(--mono);letter-spacing:.12em;color:#0C0E13;background:var(--acid);border-radius:99px;padding:4px 7px}
+.nr-done{color:var(--dim);font-size:12px;width:22px;text-align:center}
+.numrow.copied .nr-num{color:var(--muted)}
+.numrow .copy{opacity:.7}
+
+/* phones: lighter effects, no cramped labels */
+@media (max-width:640px){
+  body::before{animation:none}
+  .aura{animation:none;filter:blur(80px);opacity:.12}
+  [data-reveal]{filter:none;transform:translateY(16px)}
+  .kpi .label,.hk .label,.label{letter-spacing:.1em}
+  .kpi .v{font-size:48px}
+  .kpi{padding:18px}.kpi .label{font-size:9.5px;letter-spacing:.06em;line-height:1.3;display:flex;gap:6px;align-items:flex-start}.kpi .label i{flex:none;margin-top:3px}
+  .hide-sm{display:none}
+  .legend{gap:6px 12px;flex-wrap:wrap}
+  .nums-actions{width:100%}.nums-actions .btn{flex:1 1 auto}
+  .numrow .nr-time{font-size:10.5px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 </style>
 <noscript><style>[data-reveal]{opacity:1!important;transform:none!important;filter:none!important}.curtain{display:none}</style></noscript>
 </head>
 <body>
 <div class="curtain" id="curtain"><div class="word"><span>Auto</span><span>pilot</span></div><div class="bar"><i></i></div></div>
 <div class="aura a1"></div><div class="aura a2"></div>
-<div class="demo-banner">You're looking at demo data. Nothing here is real yet. <button data-open-settings>Connect GitHub + Sheet →</button></div>
+<div class="demo-banner">You're looking at demo data. Nothing here is real yet. <button data-open-settings>Enter the team password →</button></div>
 
 <header class="top">
   <div class="wrap">
@@ -795,7 +868,7 @@ img,svg,video,canvas{max-width:100%}
       <div class="kpis">
         <div class="kpi" data-reveal id="kTimed"><span class="label"><i style="background:var(--acid)"></i>Timed chats sent</span><div class="v" data-k="timed">0</div><div class="s" id="kTimedS">of 0 in this tab</div></div>
         <div class="kpi" data-reveal id="kReply"><span class="label"><i style="background:var(--sky)"></i>AI replies</span><div class="v" data-k="reply">0</div><div class="s">sent privately</div></div>
-        <div class="kpi" data-reveal id="kNumber" style="border-color:rgba(184,166,246,.4);background:linear-gradient(160deg,rgba(184,166,246,.12),var(--panel))"><span class="label"><i style="background:var(--lilac)"></i>Numbers captured · top goal</span><div class="v" data-k="number">0</div><div class="s" id="kNumberS">of people who chatted</div></div>
+        <div class="kpi" data-reveal id="kNumber" style="border-color:rgba(184,166,246,.4);background:linear-gradient(160deg,rgba(184,166,246,.12),var(--panel))"><span class="label"><i style="background:var(--lilac)"></i>Numbers captured<span class="hide-sm"> · top goal</span></span><div class="v" data-k="number">0</div><div class="s" id="kNumberS">of people who chatted</div></div>
         <div class="kpi" data-reveal id="kTeam"><span class="label"><i style="background:var(--amber)"></i>Needs the team</span><div class="v" data-k="team">0</div><div class="s">questions the agent left for you</div></div>
       </div>
       <div class="live-grid">
@@ -845,8 +918,8 @@ img,svg,video,canvas{max-width:100%}
         </div>
         <div>
           <div class="card" data-reveal style="margin-bottom:16px">
-            <div class="card-h"><h3>Numbers today</h3><div style="display:flex;gap:8px"><button class="btn ghost sm" id="soundBtn" type="button"></button><button class="btn ghost sm" id="copyNumbers">Copy all</button><button class="btn ghost sm danger" id="clearNumbers" title="Delete all saved numbers">Clear</button></div></div>
-            <div class="fmt-hint">Copies as: Name - Number</div>
+            <div class="card-h nums-h"><h3>Numbers today <span class="ncount" id="numCount">0</span></h3><div class="nums-actions"><button class="btn acid sm copynew" id="copyNew" type="button" title="Copy only the numbers you haven't copied yet" disabled>Copy new <b id="newCount">0</b></button><button class="btn ghost sm" id="copyNumbers" title="Copy every number today">Copy all</button><button class="btn ghost sm" id="soundBtn" type="button"></button><button class="btn ghost sm danger" id="clearNumbers" title="Delete all saved numbers">Clear</button></div></div>
+            <div class="fmt-hint">Copies as: Name - Number - Time · tap a name, number or time to copy just that</div>
             <div class="side-list" id="numbersList"><div class="empty">No numbers yet.</div></div>
           </div>
           <div class="card" data-reveal>
@@ -1683,7 +1756,12 @@ function renderFeed() {
 
   const nums = contactsToday().slice().reverse();
   ringForNew(nums);
-  $('#numbersList').innerHTML = nums.length ? nums.map((c) => { const { time, name, num } = c; return `<div class="person ${isNew(['n', name, num])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div><div class="n">${esc(name)}</div><div class="d">${esc(num)}</div></div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span><button class="copy" data-copy="${esc(contact(name, num))}" aria-label="Copy name and number"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
+  const copied = copiedSet();
+  const unseen = nums.filter((c) => !copied.has(c.key));
+  $('#numCount').textContent = nums.length; $('#newCount').textContent = unseen.length;
+  $('#copyNew').disabled = !unseen.length; $('#copyNew').classList.toggle('has', !!unseen.length);
+  $('#numbersList').innerHTML = nums.length ? nums.map((c) => { const { time, name, num } = c; const t = niceTime(time); const isCopied = copied.has(c.key); const cp = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+    return `<div class="person numrow ${isCopied ? 'copied' : 'unseen'} ${isNew(['n', name, num])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div class="nr-main"><button class="nr-name" data-copy="${esc(String(name).trim())}" title="Copy name">${esc(name)}</button><button class="nr-num" data-copy="${esc(num)}" title="Copy number">${esc(num)}</button></div><button class="nr-time" data-copy="${esc(t)}" title="Copy the time they sent it">${esc(t)}</button>${isCopied ? '<span class="nr-done" title="Already copied">✓</span>' : '<span class="nr-new">NEW</span>'}<button class="copy" data-copy-row="${esc(c.key)}" aria-label="Copy name, number and time" title="Copy Name - Number - Time">${cp}</button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
   const team = rows.filter((r) => kindOf(r[2]) === 'team').reverse();
   $('#teamCount').textContent = team.length;
   $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
@@ -1748,7 +1826,7 @@ function ringForNew(nums) {
   if (!ringPrimed) { ringPrimed = true; return; } // numbers already there when the page opened don't ring
   if (!fresh.length) return;
   chime();
-  fresh.forEach((c) => toast(`📞 New number: ${contact(c.name, c.num)}`));
+  fresh.forEach((c) => toast(`📞 New number: ${contactLine(c)}`));
   try { if (soundOn() && 'Notification' in window && Notification.permission === 'granted') fresh.forEach((c) => new Notification('New number', { body: contact(c.name, c.num), silent: true })); } catch {}
   const t = document.title; document.title = `(${fresh.length}) New number`; setTimeout(() => { document.title = t; }, 8000);
 }
@@ -1759,6 +1837,12 @@ function renderSoundBtn() {
 }
 // ---------- conversations ----------
 const contact = (name, num) => `${String(name).trim()} - ${String(num).trim()}`;
+const niceTime = (t) => String(t || '').replace(/^(\d{1,2}:\d\d):\d\d/, '$1').replace(/\s+/g, ' ').trim();
+const contactLine = (c) => `${String(c.name).trim()} - ${String(c.num).trim()} - ${niceTime(c.time)}`;
+// numbers already copied on this device today (so "Copy new" only copies what came in since)
+const copiedKey = () => `autopilot.copied.${S.webinar}.${todayStr()}`;
+const copiedSet = () => new Set(store.get(copiedKey(), []));
+const markCopied = (keys) => { const set = copiedSet(); keys.forEach((k) => set.add(k)); store.set(copiedKey(), [...set]); };
 // Same rules as the agent: 9876543210, 98765 43210, +91 98765-43210, 09876543210 …
 function findPhone(text) {
   for (const run of String(text).match(/\+?\d[\d\s-]{8,16}\d/g) || []) {
@@ -2398,7 +2482,20 @@ document.addEventListener('click', (e) => { const c = e.target.closest('[data-co
 $('#copyNumbers').addEventListener('click', () => {
   const list = contactsToday();
   if (!list.length) return toast('No numbers yet', true);
-  copyText(list.map((c) => contact(c.name, c.num)).join('\n'), `${list.length} contact${list.length > 1 ? 's' : ''} copied as Name - Number`);
+  copyText(list.map(contactLine).join('\n'), `${list.length} number${list.length > 1 ? 's' : ''} copied as Name - Number - Time`);
+  markCopied(list.map((c) => c.key)); renderFeed();
+});
+$('#copyNew').addEventListener('click', () => {
+  const copied = copiedSet();
+  const list = contactsToday().filter((c) => !copied.has(c.key));
+  if (!list.length) return toast('No new numbers since your last copy', true);
+  copyText(list.map(contactLine).join('\n'), `${list.length} new number${list.length > 1 ? 's' : ''} copied`);
+  markCopied(list.map((c) => c.key)); renderFeed();
+});
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-copy-row]'); if (!b) return;
+  const c = contactsToday().find((x) => x.key === b.dataset.copyRow); if (!c) return;
+  copyText(contactLine(c), `Copied: ${contactLine(c)}`); markCopied([c.key]); renderFeed();
 });
 $('#convSearch').addEventListener('input', (e) => { S.csearch = e.target.value.trim().toLowerCase(); renderConversations(); });
 $('#cfilters').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $$('#cfilters button').forEach((x) => x.classList.toggle('on', x === b)); S.cfilter = b.dataset.cf; renderConversations(); });
