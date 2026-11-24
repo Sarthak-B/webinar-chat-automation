@@ -358,6 +358,7 @@ section{padding:110px 0 30px}
 .bw.in.new{transform-origin:left bottom}.bw.out.new{transform-origin:right bottom}
 @keyframes pop{from{opacity:0;transform:translateY(12px) scale(.94)}}
 .sys{align-self:center;margin:14px 0;padding:8px 14px;border-radius:99px;font-size:12.5px;background:var(--bg2);border:1px solid var(--line2);color:var(--muted);text-align:center;max-width:80%}
+.sys.skip{margin:2px 0 10px;padding:0;background:none;border:0;font-size:11px;opacity:.6;align-self:flex-start}
 .sys.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.07)}
 .sys.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.07)}
 .sys.new{animation:pop .55s var(--ease) both}
@@ -821,7 +822,7 @@ img,svg,video,canvas{max-width:100%}
         <aside class="convs">
           <div class="convs-h">
             <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--dim)" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="convSearch" placeholder="Search a name or message" aria-label="Search conversations"></label>
-            <div class="cfilters" id="cfilters"><button class="on" data-cf="all">All<b id="cfAll"></b></button><button data-cf="replied">Replied<b id="cfReplied"></b></button><button data-cf="team">Team<b id="cfTeam"></b></button><button data-cf="number">Numbers<b id="cfNumber"></b></button><button data-cf="nonum">No number<b id="cfNoNum"></b></button></div>
+            <div class="cfilters" id="cfilters"><button class="on" data-cf="questions" title="People who asked a real question or shared a number">Questions<b id="cfQuestions"></b></button><button data-cf="all" title="Everyone who typed anything, including answers to Sir's prompts">All<b id="cfAll"></b></button><button data-cf="replied">Replied<b id="cfReplied"></b></button><button data-cf="team">Team<b id="cfTeam"></b></button><button data-cf="number">Numbers<b id="cfNumber"></b></button><button data-cf="nonum">No number<b id="cfNoNum"></b></button></div>
           </div>
           <div class="conv-list" id="convList"></div>
         </aside>
@@ -975,7 +976,7 @@ const WEBINARS = {
   business: { name: '10 Min Business', join: 'https://sb.flexifunnels.com/genie-demo' },
   fifteen: { name: '15 Days First Sale Challenge', join: 'https://sb.flexifunnels.com/fifteendays' },
 };
-const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: (() => { try { return JSON.parse(localStorage.getItem('autopilot.mode')) || 'dry'; } catch { return 'dry'; } })(), schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'questions', csearch: '', tabs: [], tab: null, mode: (() => { try { return JSON.parse(localStorage.getItem('autopilot.mode')) || 'dry'; } catch { return 'dry'; } })(), schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -1775,7 +1776,7 @@ function buildConversations() {
     const s = String(kind).replace(/^DRY /, '').toUpperCase(), dry = /^DRY /.test(kind);
     const touch = (c, text, fromAgent, teamLast = false) => { c.last = i; c.preview = text; c.time = time; c.fromAgent = fromAgent; c.teamLast = teamLast; };
     if (['START', 'STOP', 'WARNING'].includes(s)) return;
-    if (s === 'IN') { const c = get(to); c.hasIn = true; c.ev.push({ side: 'in', text: said, time }); touch(c, said, false); return; }
+    if (s === 'IN') { const c = get(to); c.hasIn = true; c.ev.push({ side: 'in', text: said, time, tag: /chat check/i.test(note || '') ? 'Found in chat check' : '' }); touch(c, said, false); return; }
     if (s.startsWith('TIMED') || s === 'SOCIAL PROOF' || s === 'OBJECTION') {
       all.ev.push({ side: 'out', text: sent, time, dry, tag: s.startsWith('TIMED') ? (s.slice(6).trim() || 'Timed chat') : s });
       touch(all, sent, true); return;
@@ -1786,7 +1787,7 @@ function buildConversations() {
     if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
     if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number confirmed' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
-    else if (s === 'NO REPLY') { if (!c.hasIn && said) c.ev.push({ side: 'in', text: said, time }); c.ev.push({ side: 'sys', cls: 'muted', text: `No reply needed${note ? ` · ${String(note).replace(/^no reply needed( · )?/, '')}` : ''}`, time }); }
+    else if (s === 'NO REPLY') { if (!c.hasIn && said) c.ev.push({ side: 'in', text: said, time }); c.ev.push({ side: 'sys', cls: 'muted skip', text: /prompt|not a question|engagement/i.test(note || '') ? 'Skipped – answer to Sir, not a question' : `Skipped${note ? ` · ${String(note).replace(/^no reply needed( · )?/, '')}` : ''}`, time }); }
     else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ AI didn't reply – answer manually in Zoom${note ? ` · ${String(note).replace(/^AI did not answer – reply manually · /, '')}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
@@ -1800,12 +1801,14 @@ const convSeen = {}, convListSeen = {}; let lastConv = null;
 function renderConversations(switched = false) {
   const convs = buildConversations();
   const people = convs.filter((c) => !c.broadcast);
+  const asked = (c) => c.replied || c.team || c.number;
+  $('#cfQuestions').textContent = people.filter(asked).length;
   $('#cfAll').textContent = people.length; $('#cfReplied').textContent = people.filter((c) => c.replied).length;
   $('#cfTeam').textContent = people.filter((c) => c.team).length; $('#cfNumber').textContent = people.filter((c) => c.number).length; $('#cfNoNum').textContent = people.filter((c) => !c.number).length;
   const q = S.csearch || '';
-  const vis = convs.filter((c) => (S.cfilter === 'all' || (S.cfilter === 'replied' && c.replied) || (S.cfilter === 'team' && c.team) || (S.cfilter === 'number' && c.number) || (S.cfilter === 'nonum' && !c.number)) && (S.cfilter === 'all' || !c.broadcast))
+  const vis = convs.filter((c) => (S.cfilter === 'all' || (S.cfilter === 'questions' && (c.broadcast || asked(c))) || (S.cfilter === 'replied' && c.replied) || (S.cfilter === 'team' && c.team) || (S.cfilter === 'number' && c.number) || (S.cfilter === 'nonum' && !c.number)) && (S.cfilter === 'all' || S.cfilter === 'questions' || !c.broadcast))
     .filter((c) => !q || c.name.toLowerCase().includes(q) || c.ev.some((e) => String(e.text).toLowerCase().includes(q)));
-  if (!S.conv || !convs.some((c) => c.name === S.conv)) S.conv = (people[0] || convs[0] || {}).name || null;
+  if (!S.conv || !convs.some((c) => c.name === S.conv)) S.conv = (people.find(asked) || people[0] || convs[0] || {}).name || null;
 
   $('#convList').innerHTML = vis.length ? vis.map((c) => {
     const fresh = convListSeen[c.name] !== undefined && c.ev.length > convListSeen[c.name] && c.name !== S.conv;
