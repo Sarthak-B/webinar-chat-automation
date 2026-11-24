@@ -4,6 +4,7 @@ import { Sheet, SheetLogger } from './sheets.js';
 import { parseFifteen, startDate, isDayTab, parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
 import { Brain, FALLBACK, findPhone, isTrivial, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
 import { Zoom } from './zoom.js';
+import { ChatSync } from './chatsync.js';
 import { History } from './history.js';
 
 const cfg = loadConfig();
@@ -393,7 +394,6 @@ async function scheduleLoop() {
 }
 
 // ---------- Attendee chats ----------
-const seen = new Map(); // "sender|text" → how many copies of it have been handled
 const pending = new Map(); // sender → { texts: [], timer }
 const lastReplyTo = new Map();
 const objectionHits = []; // { key, sender, at }
@@ -604,55 +604,61 @@ function noteObjection(key, sender) {
 }
 
 async function chatLoop() {
-  let first = true;
+  const sync = new ChatSync();
   let emptySince = Date.now();
   let diagN = 0;
+  let dumped = false;
+  let lastGapLog = 0;
   while (running) {
-    let msgs = [];
+    let windows = [];
     try {
-      msgs = await zoom.readChat();
+      windows = await zoom.readChatWindows();
     } catch (e) {
       log('readChat failed:', e.message);
     }
+    const now = windows.at(-1) || [];
     // Nothing readable for 5 min → log what the page looks like (max 3 times) so selectors can be fixed
-    if (msgs.length) emptySince = Date.now();
+    if (now.length) emptySince = Date.now();
     else if (Date.now() - emptySince > 5 * 60_000 && diagN < 3) {
       emptySince = Date.now();
       diagN++;
       log(`Chat panel still shows 0 messages · ${await zoom.diagnose(`empty-chat-${diagN}`).catch(() => 'diag failed')}`);
     }
-    // New messages = more copies of a (sender, text) on screen than we've already handled. So a person who
-    // types "what's the pricing" three times gets each one counted, and old messages are never re-answered.
-    const onScreen = new Map();
-    const fresh = [];
-    for (const m of msgs) {
-      const key = `${m.sender}|${m.text}`;
-      const n = (onScreen.get(key) || 0) + 1;
-      onScreen.set(key, n);
-      if (n > (seen.get(key) || 0)) fresh.push(m);
+    if (now.length && !dumped) {
+      dumped = true;
+      zoom.dumpChatItems().catch(() => {});
     }
-    for (const [key, n] of onScreen) if (n > (seen.get(key) || 0)) seen.set(key, n);
-    for (const m of fresh) {
-      if (first) continue; // don't answer chat history from before we joined
-      if (ownTexts.has(norm(m.text))) {
-        const self = cleanSender(m.sender).name.toLowerCase();
-        if (self && !teamSet.has(self)) {
-          teamSet.add(self);
-          log(`Recognised "${self}" as the agent's own Zoom name – its messages are ignored`);
-        }
-        continue;
+    // Every snapshot of the panel since the last read, oldest first. New messages are matched by their
+    // order in the chat, so repeats ("ok", "0", the same question twice) are each handled exactly once.
+    for (const win of windows) {
+      const { fresh, gap } = sync.ingest(win);
+      if (gap && Date.now() - lastGapLog > 60_000) {
+        lastGapLog = Date.now();
+        log(`⚠ Chat moved faster than Zoom keeps on screen – a few messages before "${String(fresh[0]?.text || '').slice(0, 40)}" may have been missed`);
+        record('NEEDS TEAM', 'Zoom chat', '', 'Chat burst', 'A few messages may have scrolled past the agent – please glance at the Zoom chat');
       }
-      const { name, isTeam } = cleanSender(m.sender);
-      if (!name || isTeam) continue;
-      record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
-      noteIncoming(name, m.text);
-      history.chatter(name);
-      saveNumber(name, m.text);
-      queueAttendee(name, m.text);
+      for (const m of fresh) handleIncoming(m);
     }
-    first = false;
-    await sleep(1500);
+    await sleep(400);
   }
+}
+
+function handleIncoming(m) {
+  if (ownTexts.has(norm(m.text))) {
+    const self = cleanSender(m.sender).name.toLowerCase();
+    if (self && !teamSet.has(self)) {
+      teamSet.add(self);
+      log(`Recognised "${self}" as the agent's own Zoom name – its messages are ignored`);
+    }
+    return;
+  }
+  const { name, isTeam } = cleanSender(m.sender);
+  if (!name || isTeam) return;
+  record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
+  noteIncoming(name, m.text);
+  history.chatter(name);
+  saveNumber(name, m.text);
+  queueAttendee(name, m.text);
 }
 
 // "Thank you A, B & C. Our team is calling you shortly." – only real names of people who shared numbers.

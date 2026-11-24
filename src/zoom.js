@@ -514,56 +514,120 @@ export class Zoom {
 
   // Returns the messages currently rendered in the chat panel: [{ sender, text }]
   async readChat() {
-    await this.openChat();
-    // Zoom only draws the messages near the bottom of the panel. If the list was left scrolled up (e.g. after
-    // clicking someone's name to reply), new messages may not be drawn – so always look at the newest ones.
-    await this.scrollChatToBottom();
-    // a "new messages" / "jump to latest" button means the list is not at the bottom – click it
-    for (const sel of ['button:has-text("new message")', 'button:has-text("New messages")', '[class*="new-message"] button', '[class*="unread"][class*="button"]']) {
-      const b = this.root.locator(sel).first();
-      if (await b.isVisible().catch(() => false)) {
-        await b.click().catch(() => {});
-        break;
+    return (await this.readChatWindows()).at(-1) || [];
+  }
+
+  // Every state of the chat panel since the last call, oldest first: [[{sender,text}...], ...].
+  // Zoom only draws the messages near the bottom of the list, so a burst of messages (e.g. 30 people
+  // typing "0" at once) can push some out of view between two reads. A watcher inside the page
+  // snapshots the panel every time Zoom changes it, so each message is captured while it is on screen.
+  // The last entry is always the panel right now.
+  async readChatWindows() {
+    // While a reply is being sent (name click → type → back to Everyone) don't touch the panel –
+    // just read it. The watcher inside the page keeps capturing messages meanwhile.
+    if (!this.sending) {
+      await this.openChat();
+      // If the list was left scrolled up (e.g. after clicking someone's name), new messages are not drawn.
+      await this.scrollChatToBottom();
+      // a "new messages" / "jump to latest" button means the list is not at the bottom – click it
+      for (const sel of ['button:has-text("new message")', '[class*="new-message"] button', '[class*="unread"][class*="button"]']) {
+        const b = this.root.locator(sel).first();
+        if (await b.isVisible().catch(() => false)) {
+          await b.click().catch(() => {});
+          break;
+        }
       }
     }
+    if (!this.ui) this.ui = await this.findMeetingFrame();
     return this.root.evaluate((SEL) => {
-      const q = (root, list) => {
-        for (const s of list) {
-          const el = root.querySelector(s);
-          if (el) return el;
-        }
-        return null;
-      };
-      const qa = (list) => {
-        for (const s of list) {
-          const els = document.querySelectorAll(s);
-          if (els.length) return [...els];
-        }
-        return [];
-      };
-      let lastSender = '';
-      const out = [];
-      for (const item of qa(SEL.chatItem)) {
-        const senderEl = q(item, SEL.chatSender);
-        // Zoom groups consecutive messages from one person and shows the name only once.
-        let sender = (senderEl?.textContent || lastSender).trim().replace(/\s+/g, ' ');
-        sender = sender.replace(/\s+to\s+(Everyone|Hosts? and Panelists|All Panelists.*|Me|You)\b.*$/i, '').replace(/\s*\((Privately|Direct Message)\)\s*$/i, '').trim();
-        lastSender = sender;
-        const textEls = [];
-        for (const s of SEL.chatText) {
-          const found = item.querySelectorAll(s);
-          if (found.length) {
-            textEls.push(...found);
-            break;
+      if (!window.__agentExtract) {
+        window.__agentExtract = () => {
+          const q = (root, list) => {
+            for (const s of list) {
+              const el = root.querySelector(s);
+              if (el) return el;
+            }
+            return null;
+          };
+          let items = [];
+          for (const s of SEL.chatItem) {
+            const els = document.querySelectorAll(s);
+            if (els.length) {
+              items = [...els];
+              break;
+            }
           }
-        }
-        for (const t of textEls) {
-          const text = (t.innerText || t.textContent || '').trim();
-          if (text) out.push({ sender, text });
-        }
+          let lastSender = '';
+          const out = [];
+          for (const item of items) {
+            const senderEl = q(item, SEL.chatSender);
+            // Zoom groups consecutive messages from one person and shows the name only once.
+            let sender = (senderEl?.textContent || lastSender).trim().replace(/\s+/g, ' ');
+            sender = sender.replace(/\s+to\s+(Everyone|Hosts? and Panelists|All Panelists.*|Me|You)\b.*$/i, '').replace(/\s*\((Privately|Direct Message)\)\s*$/i, '').trim();
+            lastSender = sender;
+            let textEls = [];
+            for (const s of SEL.chatText) {
+              const found = item.querySelectorAll(s);
+              if (found.length) {
+                textEls = [...found];
+                break;
+              }
+            }
+            for (const t of textEls) {
+              const text = (t.innerText || t.textContent || '').trim();
+              // messages at the very top whose name is drawn above the visible part have no sender – skip
+              if (text && sender) out.push({ sender, text });
+            }
+          }
+          return out;
+        };
       }
-      return out;
+      if (!window.__agentObs) {
+        window.__agentSnaps = [];
+        window.__agentLast = '';
+        // snapshot right inside the observer callback (runs once per batch of DOM changes, before the
+        // browser paints) – so every state Zoom draws is captured, however fast messages arrive
+        const toBottom = () => {
+          for (const el of document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')) {
+            if (el.scrollHeight - el.clientHeight - el.scrollTop > 4) el.scrollTop = el.scrollHeight;
+          }
+        };
+        const snap = () => {
+          try {
+            // keep the list at the newest message (Zoom doesn't draw new ones while scrolled up),
+            // except in the moment the agent is clicking someone's name to reply
+            if (!window.__agentHold) toBottom();
+            const w = window.__agentExtract();
+            const sig = JSON.stringify(w);
+            if (!w.length || sig === window.__agentLast) return;
+            window.__agentLast = sig;
+            window.__agentSnaps.push(w);
+            if (window.__agentSnaps.length > 2000) window.__agentSnaps.splice(0, window.__agentSnaps.length - 2000);
+          } catch {}
+        };
+        window.__agentObs = new MutationObserver(snap);
+        window.__agentObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+      }
+      const snaps = window.__agentSnaps.splice(0);
+      snaps.push(window.__agentExtract());
+      return snaps;
     }, SEL);
+  }
+
+  // Saves the markup of the newest chat messages once (debug/chat-items.html) so selectors can be tuned.
+  async dumpChatItems() {
+    const html = await this.root
+      .evaluate((SEL) => {
+        for (const s of SEL.chatItem) {
+          const els = document.querySelectorAll(s);
+          if (els.length) return [...els].slice(-4).map((e) => e.outerHTML).join('\n<!-- next -->\n');
+        }
+        return '';
+      }, SEL)
+      .catch(() => '');
+    if (!html) return;
+    await fs.promises.mkdir('debug', { recursive: true }).catch(() => {});
+    await fs.promises.writeFile('debug/chat-items.html', html).catch(() => {});
   }
 
   // Picks who the next message goes to: null = everyone, otherwise an attendee's display name.
@@ -734,9 +798,28 @@ export class Zoom {
       console.log(`[DRY RUN] → ${to || 'Everyone'}: ${text.replace(/\n/g, ' ⏎ ')}`);
       return;
     }
+    this.sending = true;
+    try {
+      await this.#send(text, to);
+    } finally {
+      this.sending = false;
+    }
+  }
+
+  async #hold(on) {
+    await this.root.evaluate((v) => (window.__agentHold = v), on).catch(() => {});
+  }
+
+  async #send(text, to) {
     await this.openChat();
     if (to) {
-      await this.setReceiver(to); // always re-select – never trust an old selection
+      await this.#hold(true);
+      try {
+        await this.setReceiver(to); // always re-select – never trust an old selection
+      } finally {
+        await this.#hold(false);
+      }
+      await this.scrollChatToBottom(); // back to the newest messages straight away – "to:" stays selected
       const label = await this.receiverLabel();
       if (label && !label.toLowerCase().includes(to.toLowerCase())) {
         await this.ensureEveryone();
