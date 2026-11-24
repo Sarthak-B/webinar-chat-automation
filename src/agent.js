@@ -297,6 +297,23 @@ const perMin = (arr) => {
 };
 let lastSend = 0;
 
+// Proof the agent is still connected: a message it sends to Everyone must appear in its own chat.
+// Two in a row that don't → the Zoom window has dropped out of the webinar → the watchdog rejoins.
+let echoMisses = 0;
+let echoProven = false; // the check only counts once it has worked at least once (Zoom markup can change)
+function checkEcho(text) {
+  setTimeout(async () => {
+    if (!running) return;
+    if (await zoom.seenInChat(text)) {
+      echoMisses = 0;
+      echoProven = true;
+    } else if (echoProven) {
+      echoMisses++;
+      log(`⚠ Sent "${text.slice(0, 40)}…" but it did not appear in the chat (${echoMisses} in a row)`);
+    }
+  }, 6000);
+}
+
 async function senderLoop() {
   while (running) {
     const now = Date.now();
@@ -325,6 +342,7 @@ async function senderLoop() {
     try {
       await zoom.send(job.text, job.to);
       ownTexts.add(norm(job.text));
+      if (!job.to) checkEcho(job.text);
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
       if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
@@ -604,7 +622,8 @@ function noteObjection(key, sender) {
 }
 
 async function chatLoop() {
-  const sync = new ChatSync();
+  let sync = new ChatSync();
+  let joinSeen = zoom.joinCount;
   let emptySince = Date.now();
   let diagN = 0;
   let dumped = false;
@@ -615,6 +634,10 @@ async function chatLoop() {
       windows = await zoom.readChatWindows();
     } catch (e) {
       log('readChat failed:', e.message);
+    }
+    if (zoom.joinCount !== joinSeen) {
+      joinSeen = zoom.joinCount; // rejoined: start fresh, so chat from before is not answered again
+      sync = new ChatSync();
     }
     const now = windows.at(-1) || [];
     // Nothing readable for 5 min → log what the page looks like (max 3 times) so selectors can be fixed
@@ -707,6 +730,43 @@ async function shutdown(reason) {
   await zoom.close();
 }
 
+// Every 15 s: is the agent still really in the webinar? If not, rejoin by itself (timed chats that came
+// due meanwhile are sent if still within the grace time, otherwise skipped – nothing is sent twice).
+let problemSince = 0;
+let rejoins = 0;
+async function watchdog() {
+  let why = await zoom.connectionProblem().catch(() => '');
+  if (!why && echoMisses >= 2) why = `${echoMisses} sent messages did not appear in the chat`;
+  if (!why) {
+    problemSince = 0;
+    return;
+  }
+  if (!problemSince) {
+    problemSince = Date.now();
+    log(`⚠ Connection check: ${why} – checking again`);
+    if (echoMisses < 2) return; // a screen-text hint gets one more check before rejoining
+  }
+  if (rejoins >= 6) return;
+  rejoins++;
+  echoMisses = 0;
+  problemSince = 0;
+  log(`⚠ The agent dropped out of the webinar (${why}) – rejoining (attempt ${rejoins})`);
+  record('NEEDS TEAM', 'Zoom', '', 'Agent disconnected', `Agent dropped out of the webinar (${why}) – rejoining by itself. If this repeats, check nobody else opened the webinar with the agent's Zoom account.`);
+  const deadline = Date.now() + 10 * 60_000;
+  for (let i = 1; Date.now() < deadline && running; i++) {
+    try {
+      const how = await zoom.join(cfg.joinUrl, { panelistUrl: cfg.panelistUrl, directUrl: cfg.directUrl, deadline, onWait: (m) => log(m) });
+      const role = await zoom.role().catch(() => 'unknown');
+      log(`Rejoined via ${how} as ${role}`);
+      record('JOINED', '', '', '', `rejoined via ${how} · role: ${role}`);
+      return;
+    } catch (e) {
+      log(`Rejoin attempt ${i} failed: ${e.message}`);
+      await sleep(15_000);
+    }
+  }
+}
+
 process.on('SIGTERM', () => shutdown('SIGTERM').then(() => process.exit(0)));
 process.on('SIGINT', () => shutdown('SIGINT').then(() => process.exit(0)));
 
@@ -717,6 +777,7 @@ while (running) {
   if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length) await shutdown('all timed chats done');
   else if (Date.now() - startedAt > cfg.maxRuntimeMin * 60_000) await shutdown('max runtime reached');
   else if (await zoom.hasEnded().catch(() => false)) await shutdown('webinar ended');
+  else await watchdog();
 }
 await Promise.allSettled(workers);
 process.exit(0);

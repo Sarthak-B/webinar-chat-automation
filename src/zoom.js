@@ -29,6 +29,8 @@ export const SEL = {
   participantCount: ['.footer-button__participants-icon .footer-button__number-counter', '.footer-button__number-counter', 'button[aria-label*="participant" i] [class*="counter"]', 'button[aria-label*="participant" i]'],
   registration: ['input[type="email"]:visible', 'input[name*="email" i]:visible', 'button:has-text("Register")'],
   meetingEnded: ['text=/meeting has been ended|webinar has ended|This meeting has ended/i'],
+  // the agent is no longer really in the webinar (Zoom often leaves the old screen up, so typing still "works")
+  disconnected: /joined (this|the) (meeting|webinar) (from|on) another device|signed in (on|from) another device|you have been removed|removed (you )?from (this|the) (meeting|webinar)|connection (was|has been|is) lost|lost connection|unable to connect|reconnecting|you are offline|network (is )?unstable.*reconnect/i,
 };
 
 async function first(page, list, { timeout = 0 } = {}) {
@@ -353,6 +355,8 @@ export class Zoom {
   //     audience link and the agent logs a WARNING (attendees can't read other people's chats).
   async join(joinUrl, { panelistUrl = '', directUrl = '', deadline, onWait } = {}) {
     const opts = { deadline, onWait };
+    this.ui = null;
+    this.joinCount = (this.joinCount || 0) + 1; // the chat reader starts fresh after every (re)join
     // Direct link from the dashboard: no redirect, no registration lookup, no audience token –
     // straight into that webinar as the logged-in (host) account.
     if (directUrl) {
@@ -494,6 +498,36 @@ export class Zoom {
     }
     if (btn) await btn.click().catch(() => {});
     await this.page.waitForTimeout(1500);
+  }
+
+  // '' when fine, otherwise why the agent is no longer really in the webinar
+  async connectionProblem() {
+    if (this.page.isClosed()) return 'browser page closed';
+    const texts = await Promise.all(
+      [this.page.mainFrame(), this.root].map((f) => f.evaluate(() => document.body?.innerText || '').catch(() => '')),
+    );
+    const m = texts.join('\n').match(SEL.disconnected);
+    if (m) return `Zoom says: "${m[0]}"`;
+    if (!(await first(this.root, SEL.inMeeting))) return 'meeting controls are gone';
+    return '';
+  }
+
+  // Did a message we just sent really show up in the chat? (proves the agent is still connected)
+  async seenInChat(text) {
+    const want = String(text).replace(/\s+/g, ' ').trim().slice(0, 60).toLowerCase();
+    return this.root
+      .evaluate(
+        ([SEL, want]) => {
+          for (const s of SEL.chatText) {
+            const els = document.querySelectorAll(s);
+            if (!els.length) continue;
+            return [...els].slice(-40).some((e) => (e.innerText || e.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase().startsWith(want));
+          }
+          return false;
+        },
+        [SEL, want],
+      )
+      .catch(() => false);
   }
 
   async hasEnded() {
