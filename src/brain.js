@@ -37,7 +37,8 @@ export function firstName(display) {
 // ---------- language ----------
 // Roman-script Hindi words that don't double as common English words.
 const HINGLISH = new Set(
-  ('hai hain hu hoon ho hoga hogi honge tha thi kya kyu kyun kaise kaisa kaisi kab kahan kaha kitna kitni kitne kaun ' +
+  ('hindi mein boliye bolo boliye bolie samjhaiye samjhaye na hindime ' +
+    'hai hain hu hoon ho hoga hogi honge tha thi kya kyu kyun kaise kaisa kaisi kab kahan kaha kitna kitni kitne kaun ' +
     'nahi nahin nhi haan han ji bhai mujhe muje mera meri mere mujhko humko hum aap aapka aapki aapke apna apni apne tum tera ' +
     'karo karna karni karne kar karu karun karunga karenge kiya kiye diya dijiye dijie batao bataiye btao bata samajh samjha samjhao ' +
     'chahiye chaiye milega milegi milenge sakta sakte sakti skta skte raha rahi rahe rha rhi rhe wala wali wale abhi bhi toh ' +
