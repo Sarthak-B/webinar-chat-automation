@@ -360,10 +360,14 @@ If Zoom asks for a verification code or CAPTCHA (common on a new device or locat
 - **Sheet:** "15 Days Challenge Chats" (`1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w`), shared as Editor with the service account. The agent's logs, Numbers and History still go to the main sheets.
 - **Joins via:** https://sb.flexifunnels.com/fifteendays (or paste a direct Zoom link).
 - **Rules (buyers' session):** timed chats plus short replies that clear doubts. No number asks, no lead saving, no pricing lock. If an optional `Attendee Replies` tab exists in the 15 Days sheet, its facts are used.
-- **One-time:** the dashboard backend needs the updated `apps-script/Code.gs`.
-  1. Open the Apps Script project and replace the code with the new file. **Keep your own `KEY` line** (the team password) and your `HISTORY_SHEET_ID`.
-  2. Click **Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy**. The URL stays the same.
-  3. The first time, Google asks you to authorise access to the 15 Days sheet. Allow it.
+- **No Webinar History** is written for the 15 Days webinar. The Agent Log on the dashboard still shows everything live.
+
+### 15 Days Apps Script (its own script, in the 15 Days sheet)
+
+1. Open **15 Days Challenge Chats** → **Extensions → Apps Script** → delete everything → paste `apps-script/Code-15days.gs`.
+2. Set `KEY` to the **same team password** as the 10 Min Business script.
+3. **Deploy → New deployment → ⚙ Web app** → Execute as **Me** · Who has access **Anyone** → **Deploy → Authorize**.
+4. Copy the Web app URL (`…/exec`). Paste it in the dashboard: **Settings ⚙ → 15 Days Apps Script URL → Save**. To make it work for the whole team without each person pasting it, send the URL to be built in.
 
 ### 15 Days Challenge Zoom account
 

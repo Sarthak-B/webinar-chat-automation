@@ -629,7 +629,7 @@ async function shutdown(reason) {
     fs.rmSync('.session-ok', { force: true });
     log('WARNING: Zoom session is no longer logged in – not saving it (run save-session again)');
   }
-  await Promise.all([agentLog.close(), numbers.close(), history.write()]);
+  await Promise.all([agentLog.close(), numbers.close(), cfg.buyers ? null : history.write()]); // 15 Days: no webinar history
   await zoom.close();
 }
 

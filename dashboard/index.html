@@ -787,6 +787,7 @@ body.is-demo .demo-banner{display:block}
     <div class="fgroup"><span class="label"><b>B</b> / Google Sheet feed</span>
       <div class="field"><label for="cScript">Apps Script web-app URL</label><input id="cScript" placeholder="https://script.google.com/macros/s/…/exec"></div>
       <div class="field"><label for="cKey">Team password <span>(the KEY in the Apps Script)</span></label><input id="cKey" type="password" autocomplete="off"></div>
+      <div class="field"><label for="cScript15">15 Days Apps Script URL <span>(from the 15 Days Challenge Chats sheet)</span></label><input id="cScript15" placeholder="https://script.google.com/macros/s/…/exec"></div>
       <div class="field"><label for="cSheetUrl">Chat sheet link <span>(for "open sheet" buttons)</span></label><input id="cSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
       <div class="field"><label for="cHistoryUrl">Webinar History sheet link <span>(optional, for its "open sheet" button)</span></label><input id="cHistoryUrl" placeholder="https://docs.google.com/spreadsheets/d/…"></div>
       <p class="small">Open the chat sheet → Extensions → Apps Script. Paste the code below and set <code>KEY</code> (the team password). In Project Settings → Script properties, add <code>GITHUB_TOKEN</code>. Then Deploy → New deployment → Web app (Execute as: Me · Who has access: Anyone) and copy the URL here.</p>
@@ -836,9 +837,11 @@ const store = {
 const DEFAULT_CFG = { owner: 'Sarthak-B', repo: 'webinar-chat-automation', token: '', workflow: 'webinar-agent.yml',
   // Shared backend (protected by the team password – the URL alone gives no access)
   script: 'https://script.google.com/macros/s/AKfycbxTem-HRvv5rgihalWUA35SCYDe9q4AVGp-cZbibWqPNxdooE0uTxeOb4YgBLVS-FcQ/exec', key: '',
+  script15: '', // 15 Days Challenge Chats sheet's Apps Script (…/exec)
   sheetUrl: 'https://docs.google.com/spreadsheets/d/1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8/edit', historyUrl: 'https://docs.google.com/spreadsheets/d/1mm1gDGITxgqOHHKr_sz_kGRA0_skORh6StMTG_wNrno/edit', demo: null };
 // Shared defaults (Apps Script URL, sheet links) are written by the FlexiFunnels loader, so teammates only need the team password.
-let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.defaults', {}), ...store.get('autopilot.cfg', {}) };
+const noBlanks = (o) => Object.fromEntries(Object.entries(o || {}).filter(([, v]) => v !== '' && v != null)); // an empty field never wipes a built-in default
+let cfg = { ...DEFAULT_CFG, ...noBlanks(store.get('autopilot.defaults', {})), ...noBlanks(store.get('autopilot.cfg', {})) };
 const configured = () => cfg.owner && cfg.repo && cfg.script && cfg.key; // GitHub token optional: the Apps Script holds it
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
@@ -886,7 +889,10 @@ async function gh(path, opts = {}) {
 }
 const repo = () => `/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`;
 async function feed(params) {
-  const u = new URL(cfg.script); u.searchParams.set('key', cfg.key);
+  // 15 Days day tabs come from the 15 Days sheet's own Apps Script (same team password)
+  const fifteen = params.book === 'fifteen';
+  if (fifteen && cfg.script15) { params = { ...params }; delete params.book; }
+  const u = new URL(fifteen && cfg.script15 ? cfg.script15 : cfg.script); u.searchParams.set('key', cfg.key);
   Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
   const res = await fetch(u.toString());
   const data = await res.json();
@@ -1003,7 +1009,7 @@ async function loadTabs() {
     else {
       const d = await feed({ action: 'tabs', ...bookParam() });
       S.tabs = d.tabs.filter((t) => t.schedule);
-      if (isFifteen() && !S.tabs.some((t) => /\bday\s*\d+/i.test(t.name))) throw new Error('The dashboard backend (Apps Script) needs the update for the 15 Days webinar – paste the new Code.gs and redeploy (SETUP.md).');
+      if (isFifteen() && !S.tabs.some((t) => /\bday\s*\d+/i.test(t.name))) throw new Error('Add the 15 Days Apps Script URL in Settings (⚙) – see SETUP.md "15 Days Apps Script".');
     }
     setPill('#pillSheet', 'ok', 'Sheet feed connected');
     renderTabs();
@@ -1766,13 +1772,13 @@ function out(o) {
 }`;
 function openDrawer() {
   $('#cOwner').value = cfg.owner; $('#cRepo').value = cfg.repo; $('#cToken').value = cfg.token; $('#cWorkflow').value = cfg.workflow;
-  $('#cScript').value = cfg.script; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cHistoryUrl').value = cfg.historyUrl || ''; $('#cDemo').checked = cfg.demo === true;
+  $('#cScript').value = cfg.script; $('#cScript15').value = cfg.script15 || ''; $('#cKey').value = cfg.key; $('#cSheetUrl').value = cfg.sheetUrl; $('#cHistoryUrl').value = cfg.historyUrl || ''; $('#cDemo').checked = cfg.demo === true;
   $('#scriptCode').value = SCRIPT_CODE;
   $('#drawer').classList.add('on'); $('#scrim').classList.add('on');
 }
 function closeDrawer() { $('#drawer').classList.remove('on'); $('#scrim').classList.remove('on'); }
 function readForm() {
-  return { owner: $('#cOwner').value.trim(), repo: $('#cRepo').value.trim(), token: $('#cToken').value.trim(), workflow: $('#cWorkflow').value.trim() || 'webinar-agent.yml', script: $('#cScript').value.trim(), key: $('#cKey').value.trim(), sheetUrl: $('#cSheetUrl').value.trim(), historyUrl: $('#cHistoryUrl').value.trim(), demo: $('#cDemo').checked };
+  return { owner: $('#cOwner').value.trim(), repo: $('#cRepo').value.trim(), token: $('#cToken').value.trim(), workflow: $('#cWorkflow').value.trim() || 'webinar-agent.yml', script: $('#cScript').value.trim(), script15: $('#cScript15').value.trim(), key: $('#cKey').value.trim(), sheetUrl: $('#cSheetUrl').value.trim(), historyUrl: $('#cHistoryUrl').value.trim(), demo: $('#cDemo').checked };
 }
 async function testConn() {
   const prev = cfg; cfg = { ...cfg, ...readForm(), demo: false }; const out = [];
