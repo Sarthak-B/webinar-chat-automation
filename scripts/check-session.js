@@ -11,7 +11,12 @@ try {
   await page.goto('https://zoom.us/profile', { waitUntil: 'domcontentloaded', timeout: 45_000 });
   await page.waitForTimeout(3000);
   ok = !/signin|login/i.test(page.url());
-  if (ok) await context.storageState({ path: file });
+  if (ok) {
+    const t = (await page.locator('body').innerText().catch(() => '')) || '';
+    const email = (t.match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [''])[0];
+    console.log(`Logged in as ${email.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown account'}`);
+    await context.storageState({ path: file });
+  }
 } catch (e) {
   console.error('check failed:', e.message);
 }

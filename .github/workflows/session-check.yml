@@ -1,16 +1,21 @@
-name: Zoom session check
+name: Zoom session keep-alive
 
-# Every morning: make sure the saved Zoom login still works, and refresh it.
-# If it's logged out, this job fails → GitHub emails you, so you can re-run save-session before the webinar.
+# Every 6 hours: open Zoom with each saved login so it stays active, and save the refreshed cookies back.
+# A login that's used regularly lasts much longer than one that sits unused between webinars.
+# If a login has expired, this job fails → GitHub emails you, so you can run refresh-session.sh before the webinar.
 on:
   schedule:
-    - cron: '35 2 * * *'  # 8:05 AM IST
+    - cron: '20 */6 * * *'
   workflow_dispatch:
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        account: [business, fifteen]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,19 +26,28 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Restore session
+        id: restore
         env:
-          ZOOM_SESSION_B64: ${{ secrets.ZOOM_SESSION_B64 }}
-        run: echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json
+          S_BUSINESS: ${{ secrets.ZOOM_SESSION_B64 }}
+          S_FIFTEEN: ${{ secrets.ZOOM_SESSION_B64_FIFTEEN }}
+          ACC: ${{ matrix.account }}
+        run: |
+          if [ "$ACC" = "fifteen" ]; then S="$S_FIFTEEN"; echo "name=ZOOM_SESSION_B64_FIFTEEN" >> "$GITHUB_OUTPUT"; else S="$S_BUSINESS"; echo "name=ZOOM_SESSION_B64" >> "$GITHUB_OUTPUT"; fi
+          if [ -z "$S" ]; then echo "No saved session for $ACC yet – skipping"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
+          echo "$S" | base64 -d | gunzip > zoom-session.json
 
       - name: Check login
+        if: steps.restore.outputs.skip != '1'
         run: npm run check-session
 
       - name: Save refreshed session
+        if: steps.restore.outputs.skip != '1'
         env:
           GH_TOKEN: ${{ secrets.SECRETS_PAT }}
+          NAME: ${{ steps.restore.outputs.name }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping refresh"; exit 0; fi
-          gzip -c zoom-session.json | base64 -w0 | gh secret set ZOOM_SESSION_B64 --repo "$GITHUB_REPOSITORY"
+          gzip -c zoom-session.json | base64 -w0 | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
 
       - name: Wipe session file
         if: always()
