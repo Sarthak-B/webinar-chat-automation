@@ -529,10 +529,9 @@ async function handle(sender, text) {
   }
   if (isTrivial(text)) return; // engagement replies ("1", "yes", 🔥) – no reply
 
-  // Answer first, number later: the first reply to a person never asks; after that a reply may add ONE soft
-  // invitation – only after the 1-hour mark, max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart.
-  const repliedBefore = person(sender).history.some((h) => h.who === 'me');
-  const askNow = !cfg.buyers && !numberLocked() && repliedBefore && canAsk(sender);
+  // Answer first, then – in the SAME reply – a smooth transition to the number (only after the 1-hour mark,
+  // max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart, never once they've shared it).
+  const askNow = !cfg.buyers && !numberLocked() && canAsk(sender);
   const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), askNow, ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
   if (d.action === 'reply' && d.reply) {

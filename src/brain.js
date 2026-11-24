@@ -225,7 +225,7 @@ Respond with JSON only.`;
         : hasNumber === true
         ? 'Number already shared: YES – do not ask again; if relevant, say it has been shared with our senior mentors, who will contact them (no thank-you).'
         : hasNumber === 'ask'
-        ? 'Number not shared yet. In THIS reply: first answer their doubt fully, then end with ONE soft, optional transition line – e.g. "If you\'d like personal guidance, you can share your number here and our senior mentor will call you." Make it feel like a helpful offer, not a demand.'
+        ? 'Number not shared yet. In THIS same reply: first clear their doubt properly, then flow naturally into the number in the next sentence – a bridge that grows out of their question (e.g. answer about doing it with a job → "…and if you\'d like, our senior mentor can plan this around your schedule – just share your number here."). One reply, answer first, transition second; it must read as one helpful thought, never as a separate demand or pressure.'
         : 'Number not shared yet, but do NOT ask for it in this reply – no hint, no mention of calls or contact numbers. Only answer their doubt.',
       history.length ? `This chat so far:\n${history.map((h) => `${h.who === 'me' ? 'Us' : 'Them'}: ${h.text}`).join('\n')}` : '',
       recent.length ? `Already sent recently to other people (don't repeat this phrasing):\n${recent.map((r) => `- ${r}`).join('\n')}` : '',
@@ -271,7 +271,7 @@ Respond with JSON only.`;
 Their new message: """${String(text).slice(0, 800)}"""
 
 Decide:
-- "reply": a real question or doubt you can answer from FACTS → write the reply.
+- "reply": a real question or doubt you can answer from FACTS → write the reply (answer first; follow the number instruction above for whether and how to transition to the number).
 - "ignore": greetings, city names, "yes"/"1"/T-F answers, emojis, compliments, reactions to the session, chat that needs no answer.
 - "escalate": ${this.buyers || numberLocked || (!askNow && !hasNumber) ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? ' and contact them on their number' : ' and asks for their number so the team can call'}`}.
 - "objection": one of [${objKeys}] if the message raises it, else null.
