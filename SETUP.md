@@ -404,21 +404,12 @@ The DeepSeek *chat app* is free. The *API* is prepaid, but very cheap.
 - Order of the AI chain: Groq 120b → Groq 20b → Kimi → DeepSeek → OpenAI. Only providers whose key exists are used. If one hits a limit or runs out of credits, the next one answers the same message. A provider that hit a rate limit is skipped for 1 minute, and one with a billing error for 30 minutes.
 - The run log shows the chain, e.g. `AI: Groq openai/gpt-oss-120b → Groq openai/gpt-oss-20b → OpenAI gpt-4o-mini`.
 
-## Always the same computer (no more Zoom verification codes)
+## Fewer Zoom verification codes (cloud only)
 
-GitHub's own servers are a new machine with a new IP every run, so Zoom sometimes treats the login as a "new device" and asks for an emailed code. There are two fixes.
+The agent always runs on GitHub's cloud servers. Each run gets a new server with a new IP, so Zoom sometimes asks for an emailed code when it has to sign in again. Three things keep this rare:
+- The **keep-alive** job opens both saved logins every 6 hours, so they rarely expire and the agent seldom has to sign in at all. This needs `SECRETS_PAT`.
+- Don't change the Zoom passwords without refreshing the session afterwards. A password change logs out every saved login.
+- If a code is asked for anyway, run `refresh-session.sh` (or `… fifteen`) once.
 
-### Option 1 (recommended): run the agent on your own always-on computer (self-hosted runner)
-Same machine and same internet connection every time. Self-hosted minutes are free.
-1. On that Mac: install Node 20 (`brew install node`) and the GitHub CLI (`brew install gh`).
-2. GitHub → repo **Settings → Actions → Runners → New self-hosted runner → macOS**. Run the commands shown there in Terminal: download, then `./config.sh …` with the token GitHub shows, pressing Enter for the defaults.
-3. Make it start by itself: in the same folder run `./svc.sh install && ./svc.sh start`.
-4. GitHub → repo **Settings → Secrets and variables → Actions → Variables** → add `AGENT_RUNNER` = `self-hosted`.
-5. On that same Mac run `bash ~/webinar-chat-automation/scripts/refresh-session.sh` (and `… fifteen`) once. The login now comes from the same computer the agent uses.
-6. Keep the Mac awake and online during webinars: **System Settings → Battery/Energy → Prevent automatic sleeping when the display is off**, plugged in. A Chrome window opens on it while the agent runs.
-7. Security, because the repo is public: **Settings → Actions → General → Fork pull request workflows → Require approval for all external contributors**.
-
-To go back to GitHub's servers, delete the `AGENT_RUNNER` variable.
-
-### Option 2: keep GitHub's servers but use a fixed IP (proxy)
+### Optional: fixed IP for the cloud runs (proxy)
 Rent a small server or static proxy, and add the Secret `ZOOM_PROXY` = `http://user:pass@IP:port`. Then refresh the session through the same proxy: `ZOOM_PROXY=http://user:pass@IP:port bash ~/webinar-chat-automation/scripts/refresh-session.sh`.

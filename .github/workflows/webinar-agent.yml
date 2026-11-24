@@ -52,8 +52,7 @@ concurrency:
 
 jobs:
   agent:
-    # AGENT_RUNNER variable: empty = GitHub's servers (new IP every run); 'self-hosted' = always the same computer
-    runs-on: ${{ vars.AGENT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest # always GitHub's cloud servers
     timeout-minutes: 355
     env:
       TZ: Asia/Kolkata
@@ -69,7 +68,7 @@ jobs:
 
       - name: Install Chromium
         run: |
-          if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ]; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
+          npx playwright install --with-deps chromium
 
       # Each webinar has its own Zoom account: 10 Min Business → ZOOM_SESSION_B64,
       # 15 Days Challenge → ZOOM_SESSION_B64_FIFTEEN. Never falls back to the other account's login.
@@ -152,8 +151,7 @@ jobs:
           PRICE_DEFER_MIN: ${{ vars.PRICE_DEFER_MIN }}
         # Zoom's web client behaves better in a real (virtual) display than in headless mode.
         run: |
-          # Linux servers have no screen → virtual screen (xvfb). A Mac/Windows self-hosted runner has a real one.
-          if [ "$RUNNER_OS" = "Linux" ] && command -v xvfb-run >/dev/null; then xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent; else npm run agent; fi
+          xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run agent
 
       # Screenshots + chat-panel HTML the agent saved when it couldn't read the chat (kept 3 days)
       - name: Upload debug snapshots

@@ -10,8 +10,7 @@ on:
 
 jobs:
   check:
-    # AGENT_RUNNER variable: empty = GitHub's servers (new IP every run); 'self-hosted' = always the same computer
-    runs-on: ${{ vars.AGENT_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest # always GitHub's cloud servers
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -26,7 +25,7 @@ jobs:
       - run: npm ci
       - shell: bash
         run: |
-          if [ "$RUNNER_ENVIRONMENT" = "github-hosted" ]; then npx playwright install --with-deps chromium; else npx playwright install chromium; fi
+          npx playwright install --with-deps chromium
 
       - name: Restore session
         id: restore
