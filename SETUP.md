@@ -274,7 +274,17 @@ Notes:
 
 ## What the History section shows
 
-When a webinar ends, the agent adds it to the Webinar History sheet: one **Summary** row, plus its **Q&A** rows. The dashboard's History section shows:
+When a webinar ends, the agent adds it to the Webinar History sheet, always in the same format (`src/historyFormat.js`):
+
+| Tab | What's in it |
+|---|---|
+| **Summary** (lime tab) | Every webinar, one row each. Live leads in bold green; **Live lead %** turns green (10%+), amber (5–10%) or red (under 5%); a missing attendee count shows amber. |
+| **Q&A** (blue tab) | Every question from every webinar, with a coloured **Status**: Answered (green), Number shared (purple), Handed to team (amber), Holding reply (grey), AI failed (red). |
+| **One tab per webinar**, e.g. *24 Nov · Variant 4 – 7.30 PM* | That webinar's numbers at a glance, then its numbered questions and replies. Newest webinar first. |
+
+The dashboard reads **Summary** and **Q&A**, so keep those two tab names. "Delete this webinar" and "Clear all history" on the dashboard also remove the webinar's own tab (after you paste the latest `apps-script/Code.gs` and deploy a new version).
+
+The dashboard's History section shows:
 
 | Number | Meaning |
 |---|---|

@@ -174,6 +174,7 @@ function clearData(ss, what) {
     const hb = historyBook();
     done.push('history: ' + wipe(hb.getSheetByName('Summary')));
     wipe(hb.getSheetByName('Q&A'));
+    webinarTabs(hb).forEach(function (sh) { hb.deleteSheet(sh); }); // the one-tab-per-webinar pages
   }
   return { ok: true, cleared: done };
 }
@@ -195,7 +196,15 @@ function deleteWebinar(id) {
     const v = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getDisplayValues();
     for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === id) { sh.deleteRow(i + 2); n++; }
   });
+  webinarTabs(hb).forEach(function (sh) { if (sh.getRange('A1').getNote() === id) hb.deleteSheet(sh); });
   return { ok: true, deleted: n };
+}
+// The agent's one-tab-per-webinar pages: every tab except Summary and Q&A whose title cell carries a webinar ID note.
+function webinarTabs(hb) {
+  return hb.getSheets().filter(function (sh) {
+    const t = sh.getName();
+    return t !== 'Summary' && t !== 'Q&A' && sh.getRange('A1').getNote() !== '';
+  });
 }
 
 // ---- GitHub, on the dashboard's behalf (token stays in Script properties) ----
