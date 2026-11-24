@@ -295,7 +295,8 @@ Their new message: """${String(text).slice(0, 800)}"""
 
 Decide:
 - "reply": a real question or doubt you can answer from FACTS → write the reply (answer first; follow the number instruction above for whether and how to transition to the number).
-- "ignore": greetings, city names, "yes"/"1"/T-F answers, emojis, compliments, reactions to the session, chat that needs no answer.
+- "ignore": greetings, city names, "yes"/"1"/T-F answers, emojis, compliments, positive reactions to the session, chat that needs no answer.
+- Complaints or negative feelings about the session ("boring", "too long", "waste of time", "is this a scam?") are NOT ignored: "reply" with one short, calm, respectful line that acknowledges them and invites them to stay (e.g. "Sorry it feels slow – the practical part is what Sir is building up to, so please stay with us."). Never argue, never be defensive, no claims or promises.
 - "escalate": ${this.buyers || numberLocked || (!askNow && !hasNumber) ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? '' : askNow ? ', then ends with the number transition described above' : ' (no number ask in this reply)'}`}.
 - "objection": one of [${objKeys}] if the message raises it, else null.
 - "safe_to_ask": false only for abusive, spam or hostile messages (we won't message them at all), else true.

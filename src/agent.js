@@ -527,7 +527,10 @@ async function handle(sender, text) {
     }
     text = rest; // "9876543210, EMI hai?" → one reply that thanks them AND answers (hasNumber is already set)
   }
-  if (isTrivial(text)) return; // engagement replies ("1", "yes", 🔥) – no reply
+  if (isTrivial(text)) {
+    record('NO REPLY', sender, '', text, 'engagement answer ("1", "yes", emoji…) – no reply needed');
+    return;
+  }
 
   // Answer first, then – in the SAME reply – a smooth transition to the number (only after the 1-hour mark,
   // max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart, never once they've shared it).
@@ -559,7 +562,8 @@ async function handle(sender, text) {
   } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges && !cfg.buyers) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
   }
-  // action "ignore" (greetings, compliments, chit-chat): no reply
+  // action "ignore" (greetings, compliments, chit-chat): no reply – logged so the dashboard shows why
+  if (d.action === 'ignore') record('NO REPLY', sender, '', text, d.reason ? `no reply needed · ${String(d.reason).slice(0, 80)}` : 'no reply needed');
 }
 
 // When the AI can't answer: acknowledge the doubt politely and (after the 1-hour mark) add the approved transition:

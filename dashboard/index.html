@@ -1479,7 +1479,7 @@ async function loadFeed() {
 let shownLog = 0, firstPaint = true; const seenRows = new Set();
 function todays(rows) { const t = todayStr(); return rows.filter((r) => r[0] === t); }
 function renderFeed() {
-  const rows = todays(S.log).filter((r) => !/^(START|STOP|IN)$/.test(String(r[2]).replace(/^DRY /, '')));
+  const rows = todays(S.log).filter((r) => !/^(START|STOP|IN|NO REPLY)$/.test(String(r[2]).replace(/^DRY /, '')));
   alertForTeam(rows);
   renderConversations();
   const list = $('#feedList');
@@ -1638,6 +1638,7 @@ function buildConversations() {
     if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
     if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number confirmed' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
+    else if (s === 'NO REPLY') { if (!c.hasIn && said) c.ev.push({ side: 'in', text: said, time }); c.ev.push({ side: 'sys', cls: 'muted', text: `No reply needed${note ? ` · ${String(note).replace(/^no reply needed( · )?/, '')}` : ''}`, time }); }
     else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ AI didn't reply – answer manually in Zoom${note ? ` · ${String(note).replace(/^AI did not answer – reply manually · /, '')}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
@@ -1692,7 +1693,7 @@ function renderConversations(switched = false) {
       <div class="meta">${esc(shortTime(e.time))}${e.side === 'out' ? (e.dry ? ' · dry run, not sent' : ` · ${c.broadcast ? 'to everyone' : 'private'} <span class="tick">✓✓</span>`) : ''}</div></div>`;
   });
   const lastEv = c.ev[c.ev.length - 1], lastAt = lastEv && parseClock(lastEv.time);
-  if (!c.broadcast && lastEv?.side === 'in' && !c.team && S.active && lastAt && Date.now() - lastAt < 25e3) html += '<div class="bw out"><div class="typing"><i></i><i></i><i></i></div></div>';
+  if (!c.broadcast && lastEv?.side === 'in' && lastEv?.cls !== 'muted' && !c.team && S.active && lastAt && Date.now() - lastAt < 25e3) html += '<div class="bw out"><div class="typing"><i></i><i></i><i></i></div></div>';
   box.innerHTML = html;
   if (changed || nearBottom) box.scrollTo({ top: box.scrollHeight, behavior: changed ? 'auto' : 'smooth' });
 }
