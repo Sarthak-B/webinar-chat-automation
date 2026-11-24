@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
-import { parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
-import { Brain, findPhone, isTrivial, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
+import { parseFifteen, startDate, isDayTab, parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
+import { Brain, FALLBACK, findPhone, isTrivial, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
 import { Zoom } from './zoom.js';
 import { History } from './history.js';
 
@@ -14,6 +14,12 @@ const startedAt = Date.now();
 
 // ---------- Sheet + knowledge ----------
 const sheet = new Sheet(cfg);
+// 15 Days challenge: the day tabs live in their own sheet (same service account); logs stay in the main sheet.
+const schedSheet = cfg.scheduleSheetId ? new Sheet({ ...cfg, sheetId: cfg.scheduleSheetId }) : sheet;
+const readSchedule = async () => {
+  const rows = await schedSheet.read(cfg.scheduleTab, cfg.buyers ? 'A1:H800' : 'A1:D600');
+  return { rows, items: cfg.buyers ? parseFifteen(rows, cfg.sessionStartClock) : parseSchedule(rows) };
+};
 const agentLog = new SheetLogger(sheet, cfg.logTab, ['Date', 'Time', 'Kind', 'To', 'Message sent', 'Attendee said', 'Note']);
 const numbers = new SheetLogger(sheet, cfg.numbersTab, ['Date', 'Time', 'Name', 'Number', 'Message', 'Webinar tab']);
 const today = new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' });
@@ -25,8 +31,8 @@ const record = (kind, to, sent, said = '', note = '') => {
 
 // ---------- Step 1: which tab? (asked before any schedule data is read) ----------
 async function chooseTab() {
-  const tabs = await sheet.listScheduleTabs();
-  if (!tabs.length) throw new Error('No schedule tabs (with a "Video Time" header) found in the sheet');
+  const tabs = cfg.buyers ? await schedSheet.listDayTabs() : await sheet.listScheduleTabs();
+  if (!tabs.length) throw new Error(cfg.buyers ? 'No "Day …" tabs found in the 15 Days sheet' : 'No schedule tabs (with a "Video Time" header) found in the sheet');
   if (cfg.scheduleTab) {
     if (!tabs.includes(cfg.scheduleTab)) throw new Error(`Tab "${cfg.scheduleTab}" not found. Schedule tabs: ${tabs.join(' | ')}`);
     return cfg.scheduleTab;
@@ -72,7 +78,8 @@ async function autoSlotSettings(slot) {
   const row = rows.find((r) => String(r[0] || '').trim().toLowerCase() === slot) || defaults[slot];
   return { tab: String(row[2] || '').trim(), mode: String(row[3] || 'full').trim().toLowerCase(), on: !/^(no|off|false|0)$/i.test(String(row[4] || 'yes').trim()) };
 }
-if (process.env.AUTO_SLOT) {
+log(`Webinar: ${cfg.webinarName}${cfg.buyers ? ' (buyers – timed chats + doubt clearing, no number asks, no pricing lock)' : ''}`);
+if (process.env.AUTO_SLOT && !cfg.buyers) {
   const slot = process.env.AUTO_SLOT;
   const a = await autoSlotSettings(slot);
   if (!a.on) {
@@ -90,15 +97,22 @@ if (process.env.AUTO_SLOT) {
 cfg.scheduleTab = await chooseTab();
 log(`Using tab "${cfg.scheduleTab}"`);
 
-const replies = parseReplies(await sheet.read(cfg.repliesTab));
-const objections = parseObjections(await sheet.read(cfg.objectionsTab));
+let replies = [];
+let objections = [];
 let numberBank = [];
-try {
-  numberBank = parseNumberBank(await sheet.read(cfg.numberBankTab));
-} catch (e) {
-  log(`No "${cfg.numberBankTab}" tab – using built-in number asks`);
+if (cfg.buyers) {
+  // optional "Attendee Replies" tab in the 15 Days sheet (same 2 columns as the business sheet)
+  replies = parseReplies(await schedSheet.read(cfg.repliesTab).catch(() => []));
+} else {
+  replies = parseReplies(await sheet.read(cfg.repliesTab));
+  objections = parseObjections(await sheet.read(cfg.objectionsTab));
+  try {
+    numberBank = parseNumberBank(await sheet.read(cfg.numberBankTab));
+  } catch (e) {
+    log(`No "${cfg.numberBankTab}" tab – using built-in number asks`);
+  }
 }
-if (!numberBank.length) {
+if (!numberBank.length && !cfg.buyers) {
   numberBank = [
     { angle: 'Free clarity', line: 'Drop your WhatsApp number here – a senior mentor will call you and map your personal roadmap, FREE 👇' },
     { angle: 'Commitment', line: "that's your first step. Step 2: share your contact number and our team will guide you 👇" },
@@ -108,10 +122,11 @@ if (!numberBank.length) {
 const brain = new Brain({ ...cfg, replies, objections, numberBank });
 log(`Loaded ${replies.length} reply facts, ${objections.length} objection lines, ${numberBank.length} number-ask angles · voice: ${cfg.personaName}`);
 
-const scheduleRows = await sheet.read(cfg.scheduleTab, 'A1:D600');
-let schedule = parseSchedule(scheduleRows);
+const first = await readSchedule();
+const scheduleRows = first.rows;
+let schedule = first.items;
 if (!schedule.length) throw new Error(`No timed chats found in "${cfg.scheduleTab}"`);
-log(`"${cfg.scheduleTab}": ${schedule.length} timed chats, ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
+log(`"${cfg.scheduleTab}": ${schedule.length} timed chats, ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}${schedule.skipped ? ` · ${schedule.skipped} non-chat rows (Poll/Q&A…) left out` : ''}`);
 
 // TEST MODE (dashboard "Play the tab's chats from now"): the whole tab is moved so its first chat goes
 // out ~2 minutes after start. The pricing lock moves with it, so the 1h15m rule still holds.
@@ -123,18 +138,19 @@ if (testShiftMs) {
 }
 
 // ---------- HARD RULE: no pricing before 1h15m into the session ----------
-let sessionStart = parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
-if (testShiftMs && parseSessionStart(scheduleRows)) sessionStart = new Date(sessionStart.getTime() + testShiftMs);
+let sessionStart = (cfg.buyers && startDate(cfg.sessionStartClock)) || parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
+if (testShiftMs && (cfg.buyers || parseSessionStart(scheduleRows))) sessionStart = new Date(sessionStart.getTime() + testShiftMs);
 let unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
-const pricingLocked = () => Date.now() < unlockAt.getTime();
-log(`Session start ${clock(sessionStart)} → pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
+if (cfg.buyers) unlockAt = new Date(0); // no pricing hold at all
+const pricingLocked = () => !cfg.buyers && Date.now() < unlockAt.getTime();
+log(cfg.buyers ? `Session start ${clock(sessionStart)} · buyers session – no pricing lock` : `Session start ${clock(sessionStart)} → pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
 const sentKeys = new Set();
 
 async function reloadSchedule() {
   try {
-    const rows = await sheet.read(cfg.scheduleTab, 'A1:D600');
-    schedule = shiftRows(parseSchedule(rows));
-    const st = parseSessionStart(rows);
+    const { rows, items } = await readSchedule();
+    schedule = shiftRows(items);
+    const st = cfg.buyers ? null : parseSessionStart(rows);
     if (st) {
       sessionStart = new Date(st.getTime() + testShiftMs);
       unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
@@ -415,6 +431,7 @@ async function askForNumber(sender, said, reason) {
 }
 
 function saveNumber(sender, text) {
+  if (cfg.buyers) return; // buyers' session: no lead collection
   const phone = findPhone(text);
   if (!phone) return;
   hasNumber.add(sender);
@@ -455,7 +472,7 @@ async function handle(sender, text) {
     return;
   }
 
-  if (phone && !thankedNumbers.has(phone)) {
+  if (phone && !thankedNumbers.has(phone) && !cfg.buyers) {
     thankedNumbers.add(phone);
     newNumberNames.push(firstName(sender));
     if (isTrivial(rest)) {
@@ -474,7 +491,7 @@ async function handle(sender, text) {
   if (d.action === 'reply' && d.reply) {
     history.question();
     enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang, qa: { name: sender, lang, question: text, status: 'Answered' } });
-    if (asksForNumber(d.reply)) noteAsk(sender);
+    if (!cfg.buyers && asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
     history.question();
@@ -483,13 +500,15 @@ async function handle(sender, text) {
     const qa = { name: sender, lang, question: text, status: 'Needs team' };
     if (d.safe_to_ask !== false) {
       // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
-      const reply = d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
+      const reply = cfg.buyers
+        ? d.reply || (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender))
+        : d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
       enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
-      if (!hasNumber.has(sender)) noteAsk(sender);
+      if (!hasNumber.has(sender) && !cfg.buyers) noteAsk(sender);
     } else {
       history.qaRow({ question: text }); // abusive/spam: no reply sent
     }
-  } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges) {
+  } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges && !cfg.buyers) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
   }
   // action "ignore" (greetings, compliments, chit-chat): no reply

@@ -1,5 +1,5 @@
 name: Webinar chat agent
-run-name: "${{ github.event_name == 'schedule' && format('Webinar agent · auto {0}', github.event.schedule == '35 4 * * 0' && 'Sunday 11 AM' || '7:30 PM') || format('Webinar agent · {0} · {1}', inputs.tab, inputs.mode) }}"
+run-name: "${{ github.event_name == 'schedule' && format('Webinar agent · auto {0}', github.event.schedule == '35 4 * * 0' && 'Sunday 11 AM' || '7:30 PM') || format('Webinar agent · {0}{1} · {2}', inputs.webinar == 'fifteen' && '15 Days · ' || '', inputs.tab, inputs.mode) }}"
 
 # Started from the dashboard (or Actions → Run workflow). It always asks which tab to read first.
 # Joins through the universal link https://sb.flexifunnels.com/genie-demo (redirects to the live webinar).
@@ -14,6 +14,11 @@ on:
     - cron: '35 4 * * 0'
   workflow_dispatch:
     inputs:
+      webinar:
+        description: 'Which webinar: business = 10 Min Business (FlexiGenie) · fifteen = 15 Days First Sale Challenge'
+        type: choice
+        options: ['business', 'fifteen']
+        default: 'business'
       tab:
         description: 'Sheet tab to read the timed chats from (exact name, e.g. "Variant 3 – 11 AM")'
         required: true
@@ -79,6 +84,7 @@ jobs:
       - name: Run agent
         env:
           SCHEDULE_TAB: ${{ inputs.tab }}
+          WEBINAR: ${{ inputs.webinar || 'business' }}
           AUTO_SLOT: ${{ github.event_name == 'schedule' && (github.event.schedule == '35 4 * * 0' && 'morning' || 'evening') || '' }}
           # Universal link https://sb.flexifunnels.com/genie-demo is the built-in default; a ZOOM_JOIN_URL variable or the join_url input overrides it
           ZOOM_JOIN_URL: ${{ inputs.join_url != '' && inputs.join_url || vars.ZOOM_JOIN_URL }}

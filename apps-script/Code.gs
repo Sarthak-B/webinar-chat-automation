@@ -10,12 +10,21 @@ const REPO = 'Sarthak-B/webinar-chat-automation';
 // The Webinar History sheet's ID (from its URL: /spreadsheets/d/THIS_PART/edit).
 // Leave empty if the agent writes the Summary / Q&A tabs into this same sheet.
 const HISTORY_SHEET_ID = '';
+// 15 Days First Sale Challenge: day tabs ("Day 0 Chats" …) with time | Minute | Second | Name | Role | Messege | Mode,
+// counted from FIFTEEN_START.
+const FIFTEEN_SHEET_ID = '1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w';
+const FIFTEEN_START = '7:00 PM';
 
 function doGet(e) {
   const p = e.parameter || {};
   if (p.key !== KEY) return out({ error: 'Wrong key' });
   const ss = SpreadsheetApp.getActive();
   try {
+    if (p.book === 'fifteen') {
+      const fb = SpreadsheetApp.openById(FIFTEEN_SHEET_ID);
+      if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\bday\s*\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
+      if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
+    }
     if (p.action === 'tabs') return out({ title: ss.getName(), tabs: ss.getSheets().map(describe) });
     if (p.action === 'schedule') return out(schedule(ss, p.tab));
     if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
@@ -57,6 +66,43 @@ function schedule(ss, tab) {
   const h = headerIndex(v);
   const items = h < 0 ? [] : v.slice(h + 1).filter(function (r) { return r[1] && r[2]; });
   return { tab: tab, start: v[0][0], items: items };
+}
+
+// ---- 15 Days day tabs → same shape as the business tabs: [video time, host time, chat, mode] ----
+function dayItems(sh) {
+  const n = Math.max(1, Math.min(sh.getLastRow(), 800));
+  const v = sh.getRange(1, 1, n, Math.max(1, Math.min(sh.getLastColumn(), 10))).getDisplayValues();
+  const norm = function (c) { return String(c || '').trim().toLowerCase(); };
+  let h = -1;
+  for (let i = 0; i < v.length && h < 0; i++) if (v[i].some(function (c) { return norm(c) === 'minute'; })) h = i;
+  if (h < 0) return [];
+  const head = v[h].map(norm);
+  const col = function (re) { for (let i = 0; i < head.length; i++) if (re.test(head[i])) return i; return -1; };
+  const cH = col(/^(time|hour|hours|hr)$/), cM = col(/^minutes?$/), cS = col(/^seconds?$/), cMsg = col(/^mess?[ae]ge?s?$|^message$|^chat$/), cMode = col(/^mode$/);
+  const num = function (r, c) { return c < 0 ? 0 : Number(String(r[c] || '').replace(/[^\d.]/g, '')) || 0; };
+  const m = FIFTEEN_START.match(/(\d{1,2})(?::(\d\d))?\s*([ap]m)?/i);
+  let base = (Number(m[1]) % 12 + (/pm/i.test(m[3] || '') ? 12 : 0)) * 3600 + Number(m[2] || 0) * 60;
+  const out = [];
+  for (let i = h + 1; i < v.length; i++) {
+    const r = v[i], text = String(r[cMsg] || '').trim(), mode = cMode < 0 ? '' : norm(r[cMode]);
+    if (!text || (mode && mode !== 'chat')) continue;
+    const off = num(r, cH) * 3600 + num(r, cM) * 60 + num(r, cS), t = base + off;
+    const hh = Math.floor(t / 3600) % 24, mm = Math.floor((t % 3600) / 60), ss = t % 60;
+    const host = ((hh % 12) || 12) + ':' + ('0' + mm).slice(-2) + ':' + ('0' + ss).slice(-2) + (hh >= 12 ? ' pm' : ' am');
+    const video = Math.floor(off / 3600) + ':' + ('0' + Math.floor((off % 3600) / 60)).slice(-2) + ':' + ('0' + (off % 60)).slice(-2);
+    out.push([video, host, text, mode || 'chat', off]);
+  }
+  out.sort(function (a, b) { return a[4] - b[4]; });
+  return out.map(function (r) { return r.slice(0, 4); });
+}
+function describeDay(sh) {
+  const items = dayItems(sh);
+  return { name: sh.getName(), schedule: true, day: Number((sh.getName().match(/day\s*(\d+)/i) || [])[1]), count: items.length, start: '', first: items.length ? items[0][1] : '', last: items.length ? items[items.length - 1][1] : '' };
+}
+function scheduleDay(fb, tab) {
+  const sh = fb.getSheetByName(tab);
+  if (!sh) return { error: 'Tab not found: ' + tab };
+  return { tab: tab, start: '', items: dayItems(sh) };
 }
 
 // Rows of "Agent Log" / "Numbers". First call (from=0): the latest 3000 rows. After that: only rows after `from`.

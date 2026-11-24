@@ -353,3 +353,14 @@ GitHub can start scheduled runs 5–15 minutes late, which is why they start abo
 Add two **Secrets**: `ZOOM_EMAIL` (the host account's email) and `ZOOM_PASSWORD`. If the saved session has expired, the agent signs in with them and saves the fresh session back to `ZOOM_SESSION_B64` (this needs `SECRETS_PAT`).
 
 If Zoom asks for a verification code or CAPTCHA (common on a new device or location), the agent does **not** try to get around it. It stops and says so. Then run `bash ~/webinar-chat-automation/scripts/refresh-session.sh` on the Mac.
+
+## 15 Days First Sale Challenge webinar
+
+- **Dashboard:** Launch → step 00 → **15 Days First Sale Challenge**, then pick the **day** tab. Times in the day tabs count from **7:00 PM**. Only rows with Mode `Chat` (or empty) are posted.
+- **Sheet:** "15 Days Challenge Chats" (`1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w`), shared as Editor with the service account. The agent's logs, Numbers and History still go to the main sheets.
+- **Joins via:** https://sb.flexifunnels.com/fifteendays (or paste a direct Zoom link).
+- **Rules (buyers' session):** timed chats plus short replies that clear doubts. No number asks, no lead saving, no pricing lock. If an optional `Attendee Replies` tab exists in the 15 Days sheet, its facts are used.
+- **One-time:** the dashboard backend needs the updated `apps-script/Code.gs`.
+  1. Open the Apps Script project and replace the code with the new file. **Keep your own `KEY` line** (the team password) and your `HISTORY_SHEET_ID`.
+  2. Click **Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy**. The URL stays the same.
+  3. The first time, Google asks you to authorise access to the 15 Days sheet. Allow it.

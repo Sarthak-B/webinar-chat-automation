@@ -24,7 +24,7 @@ export class History {
     this.log = log;
     this.sheet = new Sheet({ sheetId: cfg.historySheetId || cfg.sheetId, googleCreds: cfg.googleCreds });
     const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).slice(0, 16); // 2026-11-23 11:00
-    this.id = `${stamp} · ${cfg.scheduleTab}`;
+    this.id = `${stamp} · ${cfg.buyers ? '15 Days · ' : ''}${cfg.scheduleTab}`;
     this.started = clock();
     this.peak = 0;
     this.chatters = new Set();
@@ -56,7 +56,7 @@ export class History {
   summaryRow() {
     const att = this.peak;
     return [
-      this.id, this.today, this.cfg.scheduleTab, this.started, this.clock(),
+      this.id, this.today, `${this.cfg.buyers ? '15 Days · ' : ''}${this.cfg.scheduleTab}`, this.started, this.clock(),
       att || '', this.leads.size, pct(this.leads.size, att), ratio(this.leads.size, att),
       this.chatters.size, pct(this.chatters.size, att), this.questions, this.replies,
     ];

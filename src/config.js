@@ -17,11 +17,30 @@ const bool = (k, d = false) => {
 };
 const list = (k) => env(k, '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
+// The two webinars the agent can run. WEBINAR = business (default) | fifteen
+export const WEBINARS = {
+  business: { name: '10 Min Business', joinUrl: 'https://sb.flexifunnels.com/genie-demo' },
+  fifteen: {
+    name: '15 Days First Sale Challenge',
+    joinUrl: 'https://sb.flexifunnels.com/fifteendays',
+    sheetId: '1T4UCbX34Yyxw14VFcN1xsTMlMnH-ffR0f21BgYegZ5w', // "15 Days Challenge Chats" – one tab per day
+    start: '7:00 PM', // the Minute/Second columns count from here
+  },
+};
+
 export function loadConfig() {
+  const webinar = /^(fifteen|15)/i.test(env('WEBINAR', '')) ? 'fifteen' : 'business';
+  const W = WEBINARS[webinar];
   return {
+    webinar,
+    webinarName: W.name,
+    buyers: webinar === 'fifteen', // buyers' session: timed chats + doubt clearing only, no number asks, no pricing lock
+    // where the timed chats come from (logs, numbers etc. always go to the main chat sheet)
+    scheduleSheetId: webinar === 'fifteen' ? env('FIFTEEN_SHEET_ID', W.sheetId) : '',
+    sessionStartClock: webinar === 'fifteen' ? env('FIFTEEN_START', W.start) : '',
     // Zoom
     // One universal link for every webinar (redirects to the live Zoom webinar). Override with the ZOOM_JOIN_URL variable if it ever changes.
-    joinUrl: env('ZOOM_JOIN_URL', 'https://sb.flexifunnels.com/genie-demo'),
+    joinUrl: webinar === 'fifteen' ? env('FIFTEEN_JOIN_URL', W.joinUrl) : env('ZOOM_JOIN_URL', W.joinUrl),
     // Optional: the agent account's personal PANELIST link (Zoom emails it when you add the account as a panelist).
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
     testFromNow: /^(1|true|yes)$/i.test(env('TEST_FROM_NOW', '')), // test: move the tab's chats to start now

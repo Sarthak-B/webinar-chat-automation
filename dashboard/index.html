@@ -605,13 +605,20 @@ body.is-demo .demo-banner{display:block}
   <section id="launch">
     <div class="wrap">
       <div class="shead">
-        <div><span class="label"><b>02</b> / Launch sequence</span><h2 data-split>Two choices. <em class="it">Then hands off.</em></h2></div>
-        <p data-reveal>The agent asks for the tab first, so it only ever reads the variant you choose. Start it up to 45 minutes before the first chat. It waits, then joins 5 minutes early.</p>
+        <div><span class="label"><b>02</b> / Launch sequence</span><h2 data-split>Pick the webinar. <em class="it">Then hands off.</em></h2></div>
+        <p data-reveal>Choose the webinar, then the tab (or the day) it should read, so it only posts what you pick. Start it up to 45 minutes before the first chat. It waits, then joins 5 minutes early.</p>
       </div>
       <div class="launch">
         <div>
+          <div class="step active done" id="step0" data-reveal>
+            <div class="step-h"><span class="step-n">00</span><div><h3>Which webinar is it?</h3><p>Each webinar has its own sheet, join link and rules.</p></div></div>
+            <div class="seg" id="webinarSeg">
+              <button class="opt" data-webinar="business"><span class="tag">7:30 PM</span><b>10 Min Business</b><span>FlexiGenie sales webinar. Timed chats, AI replies that go for the number, 1h 15m pricing lock. Joins via sb.flexifunnels.com/genie-demo.</span></button>
+              <button class="opt" data-webinar="fifteen"><span class="tag">Buyers · 7 PM</span><b>15 Days First Sale Challenge</b><span>Buyers' session. Timed chats from the day's tab + replies that clear doubts. No number asks, no pricing lock. Joins via sb.flexifunnels.com/fifteendays.</span></button>
+            </div>
+          </div>
           <div class="step active" id="step1" data-reveal>
-            <div class="step-h"><span class="step-n">01</span><div><h3>Which tab should it read?</h3><p>Only tabs with a "Video Time" header are shown.</p></div>
+            <div class="step-h"><span class="step-n">01</span><div><h3 id="step1Title">Which tab should it read?</h3><p id="step1Sub">Only tabs with a "Video Time" header are shown.</p></div>
               <button class="btn ghost sm right" id="refreshTabs"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Refresh</button></div>
             <div class="tabs-grid" id="tabsGrid"><div class="empty">Loading tabs…</div></div>
           </div>
@@ -835,7 +842,11 @@ let cfg = { ...DEFAULT_CFG, ...store.get('autopilot.defaults', {}), ...store.get
 const configured = () => cfg.owner && cfg.repo && cfg.script && cfg.key; // GitHub token optional: the Apps Script holds it
 const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
-const S = { conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const WEBINARS = {
+  business: { name: '10 Min Business', join: 'https://sb.flexifunnels.com/genie-demo' },
+  fifteen: { name: '15 Days First Sale Challenge', join: 'https://sb.flexifunnels.com/fifteendays' },
+};
+const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'all', csearch: '', tabs: [], tab: null, mode: 'dry', schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -964,11 +975,34 @@ const Demo = (() => {
 
 // ---------- connection + loading ----------
 function setPill(id, cls, title) { const p = $(id); p.className = `pill ${cls}`; if (title) p.title = title; }
+const isFifteen = () => S.webinar === 'fifteen';
+const bookParam = () => (isFifteen() ? { book: 'fifteen' } : {});
+const joinLabel = () => WEBINARS[S.webinar].join.replace(/^https:\/\//, '');
+function renderWebinar() {
+  $$('#webinarSeg .opt').forEach((b) => b.classList.toggle('sel', b.dataset.webinar === S.webinar));
+  $('#step1Title').textContent = isFifteen() ? 'Which day is running?' : 'Which tab should it read?';
+  $('#step1Sub').textContent = isFifteen() ? 'The "Day …" tabs from the 15 Days Challenge Chats sheet. Times count from 7:00 PM.' : 'Only tabs with a "Video Time" header are shown.';
+  const j = $('#sumJoin'); if (j && !directState().on) { j.textContent = joinLabel(); j.title = WEBINARS[S.webinar].join; }
+}
+async function switchWebinar(w) {
+  if (w === S.webinar) return;
+  S.webinar = w; store.set('autopilot.webinar', w);
+  S.tab = null; S.schedule = []; S.tabs = []; renderWebinar(); renderSchedule(); renderLaunch();
+  $('#tabsGrid').innerHTML = '<div class="empty">Loading…</div>';
+  await loadTabs();
+  const last = store.get(`autopilot.lastTab.${S.webinar}`, null);
+  if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
+}
 async function loadTabs() {
   const grid = $('#tabsGrid');
+  renderWebinar();
   try {
-    if (isDemo()) S.tabs = Demo.tabs;
-    else { const d = await feed({ action: 'tabs' }); S.tabs = d.tabs.filter((t) => t.schedule); }
+    if (isDemo()) S.tabs = isFifteen() ? [0, 1, 2, 6, 7, 8, 9].map((n) => ({ name: `Day ${n} Chats`, schedule: true, day: n, count: 40 + n, first: '7:00:11 pm', last: '9:12:40 pm' })) : Demo.tabs;
+    else {
+      const d = await feed({ action: 'tabs', ...bookParam() });
+      S.tabs = d.tabs.filter((t) => t.schedule);
+      if (isFifteen() && !S.tabs.some((t) => /\bday\s*\d+/i.test(t.name))) throw new Error('The dashboard backend (Apps Script) needs the update for the 15 Days webinar – paste the new Code.gs and redeploy (SETUP.md).');
+    }
     setPill('#pillSheet', 'ok', 'Sheet feed connected');
     renderTabs();
   } catch (e) {
@@ -978,26 +1012,27 @@ async function loadTabs() {
 }
 async function selectTab(name) {
   S.tab = S.tabs.find((t) => t.name === name) || null;
-  store.set('autopilot.lastTab', name);
+  store.set(`autopilot.lastTab.${S.webinar}`, name);
   renderTabs(); renderChoices();
   try {
-    const d = isDemo() ? { items: Demo.rows, start: '' } : await feed({ action: 'schedule', tab: name });
+    const d = isDemo() ? { items: Demo.rows, start: '' } : await feed({ action: 'schedule', tab: name, ...bookParam() });
     S.schedule = toSchedule(d.items);
+    if (isFifteen()) { S.priceUnlock = null; throw null; } // buyers' session: no pricing lock
     // HARD RULE mirror: pricing unlocks 1h15m after the tab's session start (top-left cell)
     const st = parseClock(d.start) || (S.schedule[0] ? new Date(S.schedule[0].at.getTime() + 15 * 60e3) : null);
     S.priceUnlock = st ? new Date(st.getTime() + 75 * 60e3) : null;
-  } catch (e) { S.schedule = []; toast(e.message, true); }
+  } catch (e) { if (e) { S.schedule = []; toast(e.message, true); } }
   renderSchedule(); renderLaunch(); renderKpis();
 }
 
 // ---------- renders ----------
 function renderTabs() {
   const grid = $('#tabsGrid');
-  if (!S.tabs.length) { grid.innerHTML = '<div class="empty">No schedule tabs found in the sheet.</div>'; return; }
+  if (!S.tabs.length) { grid.innerHTML = `<div class="empty">${isFifteen() ? 'No "Day …" tabs found in the 15 Days sheet.' : 'No schedule tabs found in the sheet.'}</div>`; return; }
   grid.innerHTML = S.tabs.map((t) => `
     <button class="tabcard ${S.tab && S.tab.name === t.name ? 'sel' : ''}" data-tab="${esc(t.name)}" data-tilt>
       <span class="tick"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
-      <span class="slot">${/7[:.]?30|pm/i.test(t.name) && !/11\s*am/i.test(t.name) ? 'Evening · 7:30 PM' : 'Morning · 11 AM'}</span>
+      <span class="slot">${isFifteen() ? `15 Days · Day ${t.day ?? (t.name.match(/day\s*(\d+)/i) || [])[1] ?? ''} · 7 PM` : /7[:.]?30|pm/i.test(t.name) && !/11\s*am/i.test(t.name) ? 'Evening · 7:30 PM' : 'Morning · 11 AM'}</span>
       <h4>${esc(t.name)}</h4>
       <div class="meta"><span class="count">${t.count}<small>chats</small></span><span class="span">${esc(t.first)}<br>→ ${esc(t.last)}</span></div>
     </button>`).join('');
@@ -1013,6 +1048,8 @@ function renderChoices() {
     timed: 'Sir\'s timed chats go out on cue and every number typed is saved. The agent sends no private messages, so your team answers questions.',
     full: 'Only genuine questions get a reply. "Type 1" / "Yes" answers are left alone. Replies are short, professional and in the team\'s voice ("our team", "humari team"), in Hindi, English or Hinglish to match the attendee, paced like a person typing. Each one goes for the number. Keep someone watching "Needs the team".',
   };
+  if (isFifteen()) hints.full = 'Buyers\' session: the day\'s timed chats go out on cue and genuine doubts get a short, polite reply in the attendee\'s language. No number asks, no selling, no pricing lock. Anything it can\'t answer shows under "Needs the team".';
+  if (isFifteen()) hints.timed = 'Only the day\'s timed chats go out. No private replies – your team answers doubts.';
   $('#modeHint').innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${S.mode === 'full' ? 'var(--red)' : 'var(--acid)'}" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${hints[S.mode]}</span>`;
 }
 const modeName = { dry: 'Dry run', timed: 'Timed chats', full: 'Everything' };
@@ -1032,7 +1069,7 @@ function renderDirect() {
   $('#directHint').innerHTML = !d.on ? '' : d.ok
     ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--acid)" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg><span>${d.label}: no waiting, no universal link. It joins as soon as GitHub starts (about 2 minutes) and stays until the webinar ends.</span>`
     : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v5M12 16h.01"/></svg><span>${d.msg}</span>`;
-  const j = $('#sumJoin'); if (j) { j.textContent = d.on && d.ok ? `${d.label} · host` : 'sb.flexifunnels.com/genie-demo'; }
+  const j = $('#sumJoin'); if (j) { j.textContent = d.on && d.ok ? `${d.label} · host` : joinLabel(); }
 }
 function launchWindow() {
   if (!S.schedule.length) return null;
@@ -1046,7 +1083,8 @@ function renderLaunch() {
   $('#sumCount').textContent = S.schedule.length ? `${S.schedule.length}` : '-';
   $('#sumSpan').textContent = S.schedule.length ? `${fmtTime(S.schedule[0].at)} → ${fmtTime(S.schedule.at(-1).at)}` : '-';
   $('#sumMode').textContent = t ? modeName[S.mode] : '-';
-  $('#sumPrice').textContent = S.priceUnlock ? `${fmtTime(S.priceUnlock)} (1h 15m in)` : '-';
+  $('#sumPrice').textContent = isFifteen() ? 'No lock (buyers)' : S.priceUnlock ? `${fmtTime(S.priceUnlock)} (1h 15m in)` : '-';
+  $('#sumTitle').textContent = t ? `${isFifteen() ? '15 Days · ' : ''}${t.name}` : 'Choose a tab to begin';
   const w = launchWindow(); const now = Date.now(); const busy = S.active && ['queued', 'in_progress'].includes(S.active.status);
   let label = 'Launch the agent', note = 'Runs on GitHub Actions. You can stop it any time from here.', winLabel = 'Launch window', winText = '-', pct = 0, disabled = !t || !w;
   if (w) {
@@ -1057,7 +1095,7 @@ function renderLaunch() {
     } else if (now < w.opens) {
       label = 'Arm auto-launch'; winLabel = 'Window opens at';
       winText = `${fmtTime(new Date(w.opens))}<small>in ${countdown(w.opens - now)}</small>`; pct = 100 - Math.min(100, ((w.opens - now) / (3 * 3600e3)) * 100);
-      note = 'GitHub starts the agent automatically every day at ~6:35 PM (7:30 PM webinar) and Sundays ~10:05 AM (11 AM webinar), using the tabs in the sheet\'s "Auto Schedule" tab. Nothing to do here. Arm is only for a one-off run at another time.';
+      note = isFifteen() ? `GitHub jobs max out at 6 hours, so the agent can start at most ${LAUNCH_WINDOW_MIN} minutes before the first chat. Arm it and keep this tab open, or come back then (or paste the direct Zoom link).` : 'GitHub starts the agent automatically every day at ~6:35 PM (7:30 PM webinar) and Sundays ~10:05 AM (11 AM webinar), using the tabs in the sheet\'s "Auto Schedule" tab. Nothing to do here. Arm is only for a one-off run at another time.';
     } else if (now < w.last) {
       winLabel = now < w.first ? 'Window open · first chat in' : 'Webinar in progress · ends'; pct = 100;
       winText = now < w.first ? `${countdown(w.first - now)}<small>at ${fmtTime(new Date(w.first))}</small>` : `${fmtTime(new Date(w.last))}<small>${countdown(w.last - now)} left</small>`;
@@ -1297,7 +1335,7 @@ async function onLaunchClick(e) {
   if (d.on && !d.ok) return toast(d.msg, true);
   const testNow = $('#testNow').checked;
   if (!d.on && !testNow && Date.now() < w.opens) return arm(w.opens);
-  const ok = await confirmBox(`Launch on "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : 'sb.flexifunnels.com/genie-demo'} · ${S.schedule.length} timed chats${testNow ? ' starting ~2 min from now (TEST)' : ''}.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
+  const ok = await confirmBox(`Launch ${WEBINARS[S.webinar].name} · "${S.tab.name}"?`, `${modeName[S.mode]} · joins via ${d.on ? d.label.toLowerCase() + ' as the host, right away' : joinLabel()} · ${S.schedule.length} timed chats${testNow ? ' starting ~2 min from now (TEST)' : ''}.${S.mode === 'full' ? ' The agent will reply to attendees on its own.' : ''}`, 'Launch');
   if (ok) launch(e);
 }
 async function launch(e) {
@@ -1306,7 +1344,7 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
-    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}) } }) });
+    await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { webinar: S.webinar, tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}) } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
@@ -1834,7 +1872,7 @@ async function boot() {
   if (isDemo()) { Demo.log.length = 0; }
   if (!isDemo()) { try { S.defaultBranch = (await gh(repo())).default_branch || 'main'; } catch (e) { setPill('#pillGh', 'bad', e.message); } }
   await loadTabs();
-  const last = store.get('autopilot.lastTab', null);
+  const last = store.get(`autopilot.lastTab.${S.webinar}`, store.get('autopilot.lastTab', null));
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
   timers.push(setInterval(() => loadRuns(), 10_000));
@@ -1867,6 +1905,7 @@ $('#refreshTabs').addEventListener('click', async () => { await loadTabs(); if (
 $$('#modeSeg .opt').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; renderChoices(); renderLaunch(); }));
 $('#directUrl').addEventListener('input', () => { renderDirect(); renderLaunch(); });
 $('#testNow').addEventListener('change', renderLaunch);
+$$('#webinarSeg .opt').forEach((b) => b.addEventListener('click', () => switchWebinar(b.dataset.webinar)));
 renderSoundBtn();
 $('#soundBtn').addEventListener('click', () => {
   store.set('autopilot.sound', !soundOn()); renderSoundBtn(); unlockAudio();

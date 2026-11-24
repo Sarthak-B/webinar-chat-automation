@@ -34,6 +34,13 @@ export class Sheet {
     );
   }
 
+  // 15 Days sheet: every tab named "Day N …", sorted by day number
+  async listDayTabs() {
+    const meta = await this.api.spreadsheets.get({ spreadsheetId: this.id, fields: 'sheets.properties.title' });
+    const day = (t) => Number((t.match(/\bday\s*(\d+)/i) || [])[1]);
+    return meta.data.sheets.map((s) => s.properties.title).filter((t) => /\bday\s*\d+/i.test(t)).sort((a, b) => day(a) - day(b));
+  }
+
   // Creates the tab with a header row if it doesn't exist yet. Never touches existing tabs.
   async ensureTab(tab, header) {
     if (this.ready.has(tab)) return;
