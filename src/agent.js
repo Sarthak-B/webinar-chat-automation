@@ -160,14 +160,23 @@ else if (Date.now() < joinAt) {
 // ---------- Zoom ----------
 const zoom = new Zoom(cfg);
 await zoom.launch();
-const loggedIn = await zoom.isLoggedIn();
+let loggedIn = await zoom.isLoggedIn();
+if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
+  log('Zoom session expired – signing in with ZOOM_EMAIL / ZOOM_PASSWORD…');
+  const r = await zoom.login(cfg.zoomEmail, cfg.zoomPassword);
+  loggedIn = r.ok;
+  if (r.ok) {
+    log('Signed in to Zoom again – the fresh session is saved back to GitHub after this run');
+    record('LOGIN', '', '', '', 'session expired – signed in automatically');
+  } else log(`Automatic sign-in failed: ${r.reason}`);
+}
 if (loggedIn) {
   fs.writeFileSync('.session-ok', 'ok'); // tells the workflow it's safe to save the refreshed session
   log('Zoom session is logged in');
 } else {
   // Logged out = Zoom would let it in only as an attendee, who can't see other people's chats or
   // reply privately. Stop with a clear message instead of sitting in the webinar doing nothing.
-  const msg = 'Zoom login has expired. On your Mac run: npm run save-session, then update the ZOOM_SESSION_B64 secret (SETUP.md step 4) and launch again.';
+  const msg = 'Zoom login has expired and automatic sign-in did not work. On your Mac run: bash ~/webinar-chat-automation/scripts/refresh-session.sh, paste into the ZOOM_SESSION_B64 secret and launch again.';
   log(`ERROR: ${msg}`);
   record('ERROR', '', '', '', msg);
   await agentLog.close().catch(() => {});

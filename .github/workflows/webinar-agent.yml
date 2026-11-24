@@ -63,7 +63,8 @@ jobs:
         env:
           ZOOM_SESSION_B64: ${{ secrets.ZOOM_SESSION_B64 }}
         run: |
-          echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json
+          # a missing/broken session is OK when ZOOM_EMAIL + ZOOM_PASSWORD are set (the agent signs in)
+          if [ -n "$ZOOM_SESSION_B64" ] && echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json 2>/dev/null; then :; else echo '{}' > zoom-session.json; fi
           chmod 600 zoom-session.json
 
       - name: Hide pasted Zoom link from logs
@@ -84,6 +85,8 @@ jobs:
           # Optional: the agent account's personal panelist link (gives panelist powers)
           ZOOM_PANELIST_URL: ${{ secrets.ZOOM_PANELIST_URL }}
           ZOOM_DIRECT_URL: ${{ inputs.direct_url }}
+          ZOOM_EMAIL: ${{ secrets.ZOOM_EMAIL }}
+          ZOOM_PASSWORD: ${{ secrets.ZOOM_PASSWORD }}
           TEST_FROM_NOW: ${{ inputs.test_from_now }}
           AGENT_EMAIL: ${{ vars.AGENT_EMAIL || secrets.AGENT_EMAIL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}

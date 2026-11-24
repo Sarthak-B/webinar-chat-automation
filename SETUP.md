@@ -347,3 +347,9 @@ The first automatic run creates an **Auto Schedule** tab in the chat sheet. Set 
 - **On** (column E): `yes` or `no`. Set it to `no` to skip, for example on a holiday.
 
 GitHub can start scheduled runs 5–15 minutes late, which is why they start about an hour early. GitHub also pauses schedules in repos with no activity for 60 days, so make any small commit if that ever happens.
+
+## Automatic Zoom sign-in (when the saved session expires)
+
+Add two **Secrets**: `ZOOM_EMAIL` (the host account's email) and `ZOOM_PASSWORD`. If the saved session has expired, the agent signs in with them and saves the fresh session back to `ZOOM_SESSION_B64` (this needs `SECRETS_PAT`).
+
+If Zoom asks for a verification code or CAPTCHA (common on a new device or location), the agent does **not** try to get around it. It stops and says so. Then run `bash ~/webinar-chat-automation/scripts/refresh-session.sh` on the Mac.

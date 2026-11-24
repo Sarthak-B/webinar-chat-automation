@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { chromium } from 'playwright';
 
 // ---------------------------------------------------------------------------
@@ -122,13 +123,63 @@ export class Zoom {
       headless: this.headless,
       args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', '--disable-blink-features=AutomationControlled', '--window-size=1440,900'],
     });
+    let state;
+    try {
+      state = JSON.parse(fs.readFileSync(this.sessionFile, 'utf8')).cookies ? this.sessionFile : undefined;
+    } catch {
+      state = undefined; // missing/broken session file → start logged out (auto-login may fix it)
+    }
     this.context = await this.browser.newContext({
-      storageState: this.sessionFile,
+      storageState: state,
       viewport: { width: 1440, height: 900 },
       locale: 'en-US',
       timezoneId: 'Asia/Kolkata',
     });
     this.page = await this.context.newPage();
+  }
+
+  // Logs in with ZOOM_EMAIL / ZOOM_PASSWORD when the saved session has expired.
+  // Returns { ok, reason }. It never tries to get past a verification code or CAPTCHA – if Zoom asks
+  // for one, it stops and says so (then refresh the session from the Mac with refresh-session.sh).
+  async login(email, password) {
+    const p = await this.context.newPage();
+    try {
+      await p.goto('https://zoom.us/signin', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      await p.waitForTimeout(3000);
+      for (const b of ['button:has-text("Accept Cookies")', 'button:has-text("Accept")', '#onetrust-accept-btn-handler']) {
+        const c = p.locator(b).first();
+        if (await c.isVisible().catch(() => false)) await c.click().catch(() => {});
+      }
+      const emailBox = await first(p, ['#email', 'input[type="email"]', 'input[name="email"]'], { timeout: 4000 });
+      if (!emailBox) return { ok: false, reason: 'sign-in page did not show an email box' };
+      await emailBox.fill(email);
+      let pass = await first(p, ['#password', 'input[type="password"]']);
+      if (!pass || !(await pass.isVisible().catch(() => false))) {
+        const next = await first(p, ['button:has-text("Next")', 'button:has-text("Continue")', 'button[type="submit"]']);
+        if (next) await next.click().catch(() => {});
+        await p.waitForTimeout(3000);
+        pass = await first(p, ['#password', 'input[type="password"]'], { timeout: 4000 });
+      }
+      if (!pass) return { ok: false, reason: 'no password box (Zoom may want a code or SSO)' };
+      await pass.fill(password);
+      const go = await first(p, ['button:has-text("Sign In")', 'button:has-text("Sign in")', '#js_btn_login', 'button[type="submit"]']);
+      if (go) await go.click().catch(() => {});
+      else await pass.press('Enter');
+      for (let i = 0; i < 20; i++) {
+        await p.waitForTimeout(1500);
+        const url = p.url();
+        const body = ((await p.locator('body').innerText().catch(() => '')) || '').slice(0, 3000);
+        if (/verification code|verify it's you|enter the code|captcha|i'm not a robot|security check/i.test(body))
+          return { ok: false, reason: 'Zoom asked for a verification code / CAPTCHA' };
+        if (/incorrect|wrong password|invalid (email|password)/i.test(body)) return { ok: false, reason: 'Zoom says the email or password is wrong' };
+        if (!/signin|login/i.test(url)) break;
+      }
+    } catch (e) {
+      return { ok: false, reason: e.message };
+    } finally {
+      await p.close().catch(() => {});
+    }
+    return (await this.isLoggedIn()) ? { ok: true } : { ok: false, reason: 'still logged out after signing in' };
   }
 
   async isLoggedIn() {
