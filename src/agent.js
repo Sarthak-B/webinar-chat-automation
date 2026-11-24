@@ -517,7 +517,7 @@ async function handle(sender, text) {
     thankedNumbers.add(phone);
     newNumberNames.push(firstName(sender));
     if (isTrivial(rest)) {
-      // They shared their number: a short thank-you so they know the team will call.
+      // They shared their number: a short professional confirmation that the number went to our senior mentors.
       const thanks = await aiSlot(() => brain.compose({ purpose: 'thanks', said: text, ...ctx() }));
       enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text, note: lang });
       lastReplyTo.set(sender, Date.now());
@@ -637,9 +637,9 @@ async function socialProofLoop() {
     if (!names.length) continue;
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} & ${names.at(-1)}`;
     const lines = [
-      `Thank you ${list} 🙏 Our team will contact you shortly. Anyone else who would like guidance, please share your contact number here.`,
-      `${list} – thank you, our team will call you shortly. Baaki sabhi bhi guidance ke liye apna contact number share kar sakte hain.`,
-      `Thank you ${list}. Our team will get in touch with you soon. Others who would like a call can share their number in the chat.`,
+      `${list} – your numbers have been shared with our senior mentors, who will call you shortly. Anyone else who would like personal guidance, please share your contact number here.`,
+      `${list} – aapke numbers humare senior mentors ko bhej diye gaye hain, jald hi call aayega. Baaki sabhi bhi guidance ke liye apna contact number share kar sakte hain.`,
+      `Our senior mentors will be calling ${list} shortly. Others who would like a call, please share your number in the chat.`,
     ];
     enqueue({ prio: 3, text: lines[Math.floor(Math.random() * lines.length)], to: null, kind: 'SOCIAL PROOF' });
   }

@@ -66,6 +66,9 @@ export const asksForNumber = (t) =>
   );
 
 // Last-resort lines if the AI is unreachable (still in the attendee's language).
+let pickN = 0;
+const pick = (list) => list[pickN++ % list.length];
+
 export const FALLBACK = {
   ask: {
     english: (n) => `${n ? `${n}, ` : ''}please share your contact number here – our team will call you and guide you.`,
@@ -84,10 +87,21 @@ export const FALLBACK = {
     hinglish: (n) => `${n ? `${n} ji, ` : ''}aapka sawaal note kar liya hai – humari team ise check karke aapki help karegi.`,
     hindi: (n) => `${n ? `${n} जी, ` : ''}आपका सवाल नोट कर लिया है – हमारी टीम इसे देखकर आपकी मदद करेगी।`,
   },
+  // Number received: a professional confirmation (no "thank you"). A few wordings, picked in turn.
   thanks: {
-    english: (n) => `Thank you${n ? ` ${n}` : ''}. Our team will contact you on this number shortly.`,
-    hinglish: (n) => `Dhanyavaad${n ? ` ${n} ji` : ''}. Humari team jaldi hi aapse is number par sampark karegi.`,
-    hindi: (n) => `धन्यवाद${n ? ` ${n} जी` : ''}। हमारी टीम जल्द ही इस नंबर पर आपसे संपर्क करेगी।`,
+    english: (n) => pick([
+      `${n ? `${n}, your` : 'Your'} number has been shared with our senior mentors. They will get in touch with you shortly.`,
+      `${n ? `${n}, we` : 'We'} have forwarded your number to our senior mentor team – you will receive a call from them shortly.`,
+      `Your details have been passed on to our senior mentors${n ? `, ${n}` : ''}. Expect a call from them shortly.`,
+    ]),
+    hinglish: (n) => pick([
+      `${n ? `${n} ji, aapka` : 'Aapka'} number humare senior mentors ke saath share kar diya gaya hai. Woh jald hi aapse sampark karenge.`,
+      `${n ? `${n} ji, aapka` : 'Aapka'} number humari senior mentor team ko forward kar diya gaya hai – jald hi aapko unka call aayega.`,
+    ]),
+    hindi: (n) => pick([
+      `${n ? `${n} जी, आपका` : 'आपका'} नंबर हमारे सीनियर मेंटर्स के साथ साझा कर दिया गया है। वे जल्द ही आपसे संपर्क करेंगे।`,
+      `${n ? `${n} जी, आपका` : 'आपका'} नंबर हमारी सीनियर मेंटर टीम को भेज दिया गया है – जल्द ही आपको उनका कॉल आएगा।`,
+    ]),
   },
 };
 
@@ -145,6 +159,7 @@ ${angles}
 How to write:
 - Always speak as the team: "we", "our team", "humari team", "हमारी टीम". Never "I", "me", "my team", "meri team", and never promise to do something personally (no "bhejwa dunga", "I'll send"). E.g. "Our team will send the recording to your number" / "Humari team aapke number par recording bhejwa degi".
 - Professional and respectful: "aap"/"आप" (never "tum"), "ji" where natural, no slang, no jokes, no comments about the person's mood or excitement, no "bro/dear/buddy". At most one 🙏, usually no emoji.
+- Never thank them for sharing their number. When they have shared it, say it has been shared with our senior mentors, who will contact them.
 - Never say you are AI, a bot or an assistant. If asked whether this is a bot or really ${this.persona}, say politely that this is the FlexiFunnels team assisting on ${this.persona}'s behalf.
 - 1–2 short sentences (max ~220 characters, plus a link if needed). No bullet points, no signature, no "Dear".
 - Vary the wording across messages and don't reuse phrases from "Already sent recently" below. Use their first name only sometimes.
@@ -199,7 +214,7 @@ Respond with JSON only.`;
     return [
       `Attendee display name: ${sender}${name ? ` (first name: ${name})` : ''}`,
       `Language: ${lang}. ${LANG_RULE[lang] || LANG_RULE.english}`,
-      this.buyers ? 'Buyers session: do NOT ask for any phone number.' : `Number already shared: ${hasNumber ? 'YES – do not ask again; say our team will contact them on it' : 'NO – end by politely asking for their number'}`,
+      this.buyers ? 'Buyers session: do NOT ask for any phone number.' : `Number already shared: ${hasNumber ? 'YES – do not ask again; say it has been shared with our senior mentors, who will contact them (no thank-you)' : 'NO – end by politely asking for their number'}`,
       history.length ? `This chat so far:\n${history.map((h) => `${h.who === 'me' ? 'Us' : 'Them'}: ${h.text}`).join('\n')}` : '',
       recent.length ? `Already sent recently to other people (don't repeat this phrasing):\n${recent.map((r) => `- ${r}`).join('\n')}` : '',
     ]
@@ -264,6 +279,7 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
   // AI-written short messages: purpose = 'thanks' (they just shared their number) | 'ask' (nudge for the number)
   async compose({ purpose, sender, said, lang = 'english', history, recent, angle, pricingLocked = false }) {
     const name = firstName(sender);
+    if (purpose === 'thanks') return (FALLBACK.thanks[lang] || FALLBACK.thanks.english)(name);
     const task =
       purpose === 'thanks'
         ? 'They just shared their number. Thank them politely and say our team will contact them on it shortly. One sentence. Do NOT ask for anything else.'

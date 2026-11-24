@@ -951,7 +951,7 @@ const Demo = (() => {
     ['REPLY', 'price kya hai?', 'Ji, aaj ka offer $447 hai (₹36,999 incl. GST) – link: https://sb.flexifunnels.com/get?id=19029. Kripya apna contact number share kijiye, humari team aapko guide karegi.'],
     ['REPLY', 'Is EMI available?', 'Yes {n}, EMI starts at under ₹1,800/month on the same link. Please share your contact number and our team will help you with the plan.'],
     ['REPLY', 'recording milegi?', 'Ji {n}, humari team aapke number par recording bhejwa degi. Kripya apna WhatsApp number yahan share kijiye.'],
-    ['NUMBER', '98XXXXX421', 'Thank you {n}. Our team will contact you on this number shortly.'],
+    ['NUMBER', '98XXXXX421', '{n}, your number has been shared with our senior mentors. They will get in touch with you shortly.'],
     ['REPLY', 'क्या नौकरी के साथ ये कर सकते हैं?', 'जी हाँ {n}, रोज़ 60 मिनट काफ़ी हैं – कई लोगों ने जॉब के साथ ही शुरुआत की है। कृपया अपना नंबर शेयर करें, हमारी टीम आपको प्लान समझा देगी।'],
     ['NEEDS TEAM', 'I paid yesterday but did not get login details', 'We\'re sorry for the trouble, {n}. Our team will check your login right away – please share your contact number so they can call you.'],
     ['NUMBER', '91XXXXX077', 'धन्यवाद {n} जी। हमारी टीम जल्द ही इस नंबर पर आपसे संपर्क करेगी।'],
@@ -1596,7 +1596,7 @@ function buildConversations() {
     if (!to || to === 'Everyone') return;
     const c = get(to);
     if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
-    if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number thank-you' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
+    if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number confirmed' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
