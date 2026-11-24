@@ -178,7 +178,7 @@ const zoom = new Zoom(cfg);
 await zoom.launch();
 let loggedIn = await zoom.isLoggedIn();
 if (!loggedIn && cfg.zoomEmail && cfg.zoomPassword) {
-  log('Zoom session expired – signing in with ZOOM_EMAIL / ZOOM_PASSWORD…');
+  log(`Zoom session expired – signing in with ${cfg.buyers ? 'ZOOM_EMAIL_FIFTEEN / ZOOM_PASSWORD_FIFTEEN' : 'ZOOM_EMAIL / ZOOM_PASSWORD'}…`);
   const r = await zoom.login(cfg.zoomEmail, cfg.zoomPassword);
   loggedIn = r.ok;
   if (r.ok) {
@@ -192,7 +192,7 @@ if (loggedIn) {
 } else {
   // Logged out = Zoom would let it in only as an attendee, who can't see other people's chats or
   // reply privately. Stop with a clear message instead of sitting in the webinar doing nothing.
-  const msg = 'Zoom login has expired and automatic sign-in did not work. On your Mac run: bash ~/webinar-chat-automation/scripts/refresh-session.sh, paste into the ZOOM_SESSION_B64 secret and launch again.';
+  const msg = 'Zoom login has expired and automatic sign-in did not work. On your Mac run: bash ~/webinar-chat-automation/scripts/refresh-session.sh, paste into the ' + (cfg.buyers ? 'ZOOM_SESSION_B64_FIFTEEN' : 'ZOOM_SESSION_B64') + ' secret and launch again.';
   log(`ERROR: ${msg}`);
   record('ERROR', '', '', '', msg);
   await agentLog.close().catch(() => {});

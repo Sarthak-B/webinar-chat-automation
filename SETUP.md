@@ -364,3 +364,11 @@ If Zoom asks for a verification code or CAPTCHA (common on a new device or locat
   1. Open the Apps Script project and replace the code with the new file. **Keep your own `KEY` line** (the team password) and your `HISTORY_SHEET_ID`.
   2. Click **Deploy → Manage deployments → ✏️ (edit) → Version: New version → Deploy**. The URL stays the same.
   3. The first time, Google asks you to authorise access to the 15 Days sheet. Allow it.
+
+### 15 Days Challenge Zoom account
+
+The 15 Days webinar runs from a different Zoom account, so it has its own secrets:
+- `ZOOM_EMAIL_FIFTEEN` and `ZOOM_PASSWORD_FIFTEEN`: the agent signs in with these when it has no saved session or the session expired.
+- `ZOOM_SESSION_B64_FIFTEEN`: the saved session. It is created and refreshed automatically after each 15 Days run (needs `SECRETS_PAT`), or manually with `bash ~/webinar-chat-automation/scripts/refresh-session.sh fifteen`.
+
+A 15 Days run never uses the business account's login, and the reverse is also true.

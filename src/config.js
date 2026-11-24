@@ -45,8 +45,9 @@ export function loadConfig() {
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
     testFromNow: /^(1|true|yes)$/i.test(env('TEST_FROM_NOW', '')), // test: move the tab's chats to start now
     directUrl: env('ZOOM_DIRECT_URL', ''),
-    zoomEmail: env('ZOOM_EMAIL', ''), // used only if the saved session has expired
-    zoomPassword: env('ZOOM_PASSWORD', ''), // dashboard "Direct Zoom link": join this right away as the logged-in host
+    // used only if the saved session has expired – each webinar signs in with its own Zoom account
+    zoomEmail: webinar === 'fifteen' ? env('ZOOM_EMAIL_FIFTEEN', '') : env('ZOOM_EMAIL', ''),
+    zoomPassword: webinar === 'fifteen' ? env('ZOOM_PASSWORD_FIFTEEN', '') : env('ZOOM_PASSWORD', ''), // dashboard "Direct Zoom link": join this right away as the logged-in host
     sessionFile: env('ZOOM_SESSION_FILE', 'zoom-session.json'),
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered
