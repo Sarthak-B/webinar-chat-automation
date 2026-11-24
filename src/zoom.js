@@ -45,7 +45,7 @@ async function first(page, list, { timeout = 0 } = {}) {
 // zoom.us/j/123?pwd=x  →  app.zoom.us/wc/123/join?pwd=x   (keeps tk / pwd / uname)
 export function toWebClientUrl(url) {
   const u = new URL(url);
-  if (u.pathname.startsWith('/wc/')) return url;
+  if (u.pathname.startsWith('/wc/')) return url.replace(/(\/wc\/\d+)\/start\b/, '$1/join'); // never the host "start" URL
   const m = u.pathname.match(/\/(?:j|w|s|webinar\/register)\/(\d+)/);
   if (!m) return url;
   const params = new URLSearchParams(u.search);
@@ -332,36 +332,56 @@ export class Zoom {
   //  2. otherwise → the universal link, minus the audience token, joined as the logged-in account
   //     (works when that account is an alternative host); if Zoom asks to register, fall back to the
   //     audience link and the agent logs a WARNING (attendees can't read other people's chats).
-  async join(joinUrl, { panelistUrl = '', directUrl = '' } = {}) {
+  async join(joinUrl, { panelistUrl = '', directUrl = '', deadline, onWait } = {}) {
+    const opts = { deadline, onWait };
     // Direct link from the dashboard: no redirect, no registration lookup, no audience token –
     // straight into that webinar as the logged-in (host) account.
     if (directUrl) {
       const bare = String(directUrl).replace(/[\s-]/g, '');
       const target = /^\d{9,12}$/.test(bare) ? `https://app.zoom.us/wc/${bare}/join` : asSelf(toWebClientUrl(directUrl.trim()));
-      await this.enter(target);
+      await this.enter(target, opts);
       return 'direct link (host account)';
     }
     if (panelistUrl) {
-      await this.enter(toWebClientUrl(panelistUrl));
+      await this.enter(toWebClientUrl(panelistUrl), opts);
       return 'panelist link';
     }
     const audience = await this.resolveZoomUrl(joinUrl);
     const self = asSelf(audience);
     if (self !== audience) {
       try {
-        await this.enter(self, { failOnRegistration: true });
+        await this.enter(self, { failOnRegistration: true, ...opts });
         return 'logged-in account';
       } catch (e) {
         if (!/registration/i.test(e.message)) throw e;
       }
     }
-    await this.enter(audience);
+    await this.enter(audience, opts);
     // no audience token in the link → Zoom sees the logged-in account (host/alt host) anyway
     return self === audience ? 'logged-in account' : 'audience link';
   }
 
-  async enter(zoomUrl, { failOnRegistration = false } = {}) {
+  // Is Zoom offering this (host) account a "Start" button – i.e. the webinar is NOT live yet?
+  // The agent never presses it: starting the webinar is the team's job. It just waits.
+  async hostStartOffered() {
+    for (const f of this.page.frames()) {
+      const hit = await f
+        .evaluate(() =>
+          [...document.querySelectorAll('button, [role="button"], a')].some((b) => {
+            const t = (b.innerText || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+            return b.offsetParent && /^(start|start (this )?(webinar|meeting)|start practice session)$/i.test(t);
+          }),
+        )
+        .catch(() => false);
+      if (hit) return true;
+    }
+    return false;
+  }
+
+  // Waits (idle) until the webinar is live, then goes in. deadline = when to give up (ms timestamp).
+  async enter(zoomUrl, { failOnRegistration = false, deadline = Date.now() + 10 * 60_000, onWait = () => {} } = {}) {
     const page = this.page;
+    zoomUrl = toWebClientUrl(zoomUrl);
     await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const name = await first(page, SEL.nameInput, { timeout: 8000 });
@@ -369,12 +389,28 @@ export class Zoom {
       await name.fill(this.agentName);
     }
     const join = await first(page, SEL.joinButton, { timeout: 5000 });
-    if (join) await join.click().catch(() => {});
+    if (join && !(await this.hostStartOffered())) await join.click().catch(() => {});
 
     // Wait for the meeting UI (footer with Leave/End). Webinars that haven't started show a waiting page.
     // The join form / join button can also be inside the iframe, so try those in every frame too.
     this.ui = null;
-    for (let i = 0; i < 120; i++) {
+    let lastReload = Date.now();
+    let lastNote = 0;
+    for (let i = 0; ; i++) {
+      // never step into a webinar that isn't live: if Zoom offers "Start", wait and check again
+      if (await this.hostStartOffered()) {
+        if (Date.now() - lastNote > 5 * 60_000) {
+          lastNote = Date.now();
+          onWait('Webinar not started yet – waiting for the team to start it (the agent never starts it)');
+        }
+        if (Date.now() > deadline) throw new Error('webinar was never started');
+        if (Date.now() - lastReload > 60_000) {
+          lastReload = Date.now();
+          await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+        }
+        await page.waitForTimeout(10_000);
+        continue;
+      }
       this.ui = await this.findMeetingFrame();
       if (this.ui) break;
       for (const f of page.frames()) {
@@ -384,8 +420,18 @@ export class Zoom {
         if (j && (await j.isVisible().catch(() => false))) await j.click().catch(() => {});
       }
       if (failOnRegistration && i < 6 && (await first(page, SEL.registration))) throw new Error('registration required');
+      const body = ((await page.locator('body').innerText().catch(() => '')) || '').slice(0, 2000);
+      if (/not started|will begin soon|waiting for the host|please wait for the host/i.test(body) && Date.now() - lastNote > 5 * 60_000) {
+        lastNote = Date.now();
+        onWait('Webinar not started yet – waiting');
+      }
+      if (Date.now() > deadline) throw new Error('Timed out waiting to get into the webinar');
+      // a waiting page can sit there forever: reload every 2 minutes so a newly started webinar is picked up
+      if (Date.now() - lastReload > 120_000) {
+        lastReload = Date.now();
+        await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
+      }
       await page.waitForTimeout(5000);
-      if (i === 119) throw new Error('Timed out waiting to get into the webinar');
     }
     await page.waitForTimeout(3000);
     const audio = await first(this.root, SEL.audioDialogClose);

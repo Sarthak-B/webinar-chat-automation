@@ -218,9 +218,13 @@ if (loggedIn) {
 
 let triedAlt = false;
 async function joinWithRetry() {
-  for (let i = 1; i <= 4; i++) {
+  // Stays idle until the webinar is live, then joins. Keeps trying until JOIN_WAIT_MIN (default 75) after
+  // the first timed chat – so a late start is still picked up.
+  const deadline = cfg.directUrl && cfg.testFromNow ? Date.now() + 60 * 60_000 : schedule[0].at.getTime() + cfg.joinWaitMin * 60_000;
+  log(`Waiting for the webinar to go live – will keep trying until ${clock(new Date(deadline))}`);
+  for (let i = 1; Date.now() < deadline; i++) {
     try {
-      const how = await zoom.join(cfg.joinUrl, { panelistUrl: cfg.panelistUrl, directUrl: cfg.directUrl });
+      const how = await zoom.join(cfg.joinUrl, { panelistUrl: cfg.panelistUrl, directUrl: cfg.directUrl, deadline, onWait: (m) => log(m) });
       const role = await zoom.role().catch(() => 'unknown');
       log(`Joined the webinar via ${how} as ${role}`);
       record('JOINED', '', '', '', `via ${how} · role: ${role}`);
@@ -258,7 +262,7 @@ async function joinWithRetry() {
     }
   }
   // No live webinar (holiday, cancelled, not scheduled today): finish cleanly instead of failing.
-  const msg = 'No live webinar found to join (tried for ~40 min). Nothing was sent. If there is no webinar on some days, set "On" to no in the Auto Schedule tab.';
+  const msg = `No live webinar found to join (waited until ${clock()}). Nothing was sent. If there is no webinar on some days, set "On" to no in the Auto Schedule tab.`;
   log(`NO WEBINAR: ${msg}`);
   record('NO WEBINAR', '', '', '', msg);
   await agentLog.close().catch(() => {});

@@ -63,7 +63,8 @@ export function loadConfig() {
     agentName: env('AGENT_NAME', 'FlexiFunnels Support'),
     teamNames: list('TEAM_NAMES'), // chats from these names are never answered
     headless: bool('HEADLESS', false), // CI runs headed inside xvfb; Zoom is friendlier to that
-    joinEarlyMin: num('JOIN_EARLY_MIN', 5), // join this many minutes before the first chat row
+    joinEarlyMin: num('JOIN_EARLY_MIN', 5), // start trying to join this many minutes before the first chat row
+    joinWaitMin: num('JOIN_WAIT_MIN', 75), // keep waiting for the webinar to go live until this long after the first chat
 
     // Google Sheet
     // FlexiGenie chat sheet (built-in default; a SHEET_ID variable overrides it). The ID alone gives no access.
