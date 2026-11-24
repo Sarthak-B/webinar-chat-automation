@@ -84,11 +84,15 @@ export function loadConfig() {
     runUrl: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : '',
 
     // AI
-    // AI: DeepSeek is used when DEEPSEEK_API_KEY is set (much cheaper), otherwise OpenAI. Same prompts and rules.
-    aiBase: env('DEEPSEEK_API_KEY', '') ? 'https://api.deepseek.com' : 'https://api.openai.com/v1',
-    aiName: env('DEEPSEEK_API_KEY', '') ? 'DeepSeek' : 'OpenAI',
-    openaiKey: env('DEEPSEEK_API_KEY', '') || req('OPENAI_API_KEY'),
-    model: env('DEEPSEEK_API_KEY', '') ? env('DEEPSEEK_MODEL', 'deepseek-chat') : env('OPENAI_MODEL', 'gpt-4o-mini'),
+    // AI provider, first one whose key exists: Kimi (KIMI_API_KEY) → DeepSeek (DEEPSEEK_API_KEY) → OpenAI.
+    // All three speak the OpenAI chat format; same prompts and rules for every one.
+    ...(() => {
+      if (env('KIMI_API_KEY', ''))
+        return { aiName: 'Kimi', aiBase: env('KIMI_BASE_URL', 'https://api.moonshot.ai/v1'), openaiKey: env('KIMI_API_KEY', ''), model: env('KIMI_MODEL', 'kimi-k3') };
+      if (env('DEEPSEEK_API_KEY', ''))
+        return { aiName: 'DeepSeek', aiBase: 'https://api.deepseek.com', openaiKey: env('DEEPSEEK_API_KEY', ''), model: env('DEEPSEEK_MODEL', 'deepseek-chat') };
+      return { aiName: 'OpenAI', aiBase: 'https://api.openai.com/v1', openaiKey: req('OPENAI_API_KEY'), model: env('OPENAI_MODEL', 'gpt-4o-mini') };
+    })(),
     aiConcurrency: num('AI_CONCURRENCY', 4),
 
     // Behaviour

@@ -197,20 +197,20 @@ Respond with JSON only.`;
   }
 
   async #chat(user, temperature = 0.8) {
-    const res = await fetch(`${this.base}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: this.model,
-        temperature,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: this.system },
-          { role: 'user', content: user },
-        ],
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
+    const call = (body) =>
+      fetch(`${this.base}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(25_000),
+      });
+    const messages = [
+      { role: 'system', content: this.system },
+      { role: 'user', content: user },
+    ];
+    let res = await call({ model: this.model, temperature, response_format: { type: 'json_object' }, messages });
+    // some providers/models (e.g. Kimi thinking models) only accept their default temperature or no JSON mode
+    if (res.status === 400) res = await call({ model: this.model, messages });
     if (!res.ok) throw new Error(`${this.aiName} ${res.status}: ${(await res.text()).slice(0, 200)}`);
     const data = await res.json();
     const txt = String(data.choices[0].message.content || '').replace(/```(?:json)?/gi, '');
