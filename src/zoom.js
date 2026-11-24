@@ -515,6 +515,17 @@ export class Zoom {
   // Returns the messages currently rendered in the chat panel: [{ sender, text }]
   async readChat() {
     await this.openChat();
+    // Zoom only draws the messages near the bottom of the panel. If the list was left scrolled up (e.g. after
+    // clicking someone's name to reply), new messages may not be drawn – so always look at the newest ones.
+    await this.scrollChatToBottom();
+    // a "new messages" / "jump to latest" button means the list is not at the bottom – click it
+    for (const sel of ['button:has-text("new message")', 'button:has-text("New messages")', '[class*="new-message"] button', '[class*="unread"][class*="button"]']) {
+      const b = this.root.locator(sel).first();
+      if (await b.isVisible().catch(() => false)) {
+        await b.click().catch(() => {});
+        break;
+      }
+    }
     return this.root.evaluate((SEL) => {
       const q = (root, list) => {
         for (const s of list) {
