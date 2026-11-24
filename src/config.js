@@ -96,6 +96,7 @@ export function loadConfig() {
     autoReply: bool('AUTO_REPLY', true),
     lateGraceSec: num('LATE_GRACE_SEC', 90), // skip timed chats more overdue than this
     // HARD RULE: no pricing (amounts, EMI, token, offers, payment links) before this many minutes into the session.
+    numberUnlockMin: num('NUMBER_UNLOCK_MIN', 60), // HARD RULE: no number asks before this many minutes into the session
     priceUnlockMin: num('PRICE_UNLOCK_MIN', 75),
     priceDeferMin: num('PRICE_DEFER_MIN', 5), // pricing timed chats up to this many min early are held and posted at unlock
     sendGapMs: num('SEND_GAP_MS', 2500), // min gap between any two chat sends

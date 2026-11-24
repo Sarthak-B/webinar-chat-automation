@@ -81,6 +81,12 @@ export const FALLBACK = {
     hinglish: () => `Sir is session mein aage poora offer aur pricing detail mein batayenge – kripya tab tak bane rahiye.`,
     hindi: () => `सर इस सेशन में आगे पूरा ऑफ़र और प्राइसिंग विस्तार से बताएंगे – कृपया तब तक जुड़े रहिए।`,
   },
+  // Before 1 hour into the session (no number asks allowed): a doubt the AI can't answer
+  later: {
+    english: (n) => `${n ? `${n}, ` : ''}Sir will cover this in today's session – please stay connected till the end.`,
+    hinglish: (n) => `${n ? `${n} ji, ` : ''}Sir aaj ke session mein ise detail mein cover karenge – kripya end tak jude rahiye.`,
+    hindi: (n) => `${n ? `${n} जी, ` : ''}सर आज के सेशन में इसे विस्तार से बताएंगे – कृपया अंत तक जुड़े रहिए।`,
+  },
   // Buyers' session (15 Days challenge): a doubt the AI can't clear – no number ask, just support.
   help: {
     english: (n) => `${n ? `${n}, ` : ''}thanks for asking – our team will check this and help you with it.`,
@@ -222,13 +228,19 @@ Respond with JSON only.`;
       .join('\n');
   }
 
-  #guard(reply, { hasNumber, lang, sender, needsAsk = true, pricingLocked = false }) {
+  #guard(reply, { hasNumber, lang, sender, needsAsk = true, pricingLocked = false, numberLocked = false }) {
     let r = teamVoice(String(reply || '').trim());
     if (!r) return null;
+    // HARD RULE: no number ask (not even a hint) before 1 hour into the session – drop those sentences.
+    if (numberLocked && asksForNumber(r)) {
+      r = r.split(/(?<=[.!?।])\s+/).filter((x) => !asksForNumber(x)).join(' ').trim();
+      if (!r) r = (FALLBACK.later[lang] || FALLBACK.later.english)(firstName(sender));
+      return r;
+    }
     // HARD RULE: no pricing before the pricing section – replace the whole reply with a safe one.
     if (pricingLocked && mentionsPrice(r)) r = (FALLBACK.pricelock[lang] || FALLBACK.pricelock.english)();
     if (urlsIn(r).some((u) => !this.allowedUrls.has(u))) return null; // never send a link that isn't in the sheet
-    if (needsAsk && !hasNumber && !this.buyers && !asksForNumber(r)) {
+    if (needsAsk && !numberLocked && !hasNumber && !this.buyers && !asksForNumber(r)) {
       // Number first: the AI forgot the ask – add a natural one in their language.
       const ask = FALLBACK.ask[lang] || FALLBACK.ask.english;
       r = `${/[.!?।]$/.test(r) ? r : `${r}.`} ${ask('').replace(/^./, (c) => c.toUpperCase())}`;
@@ -237,20 +249,23 @@ Respond with JSON only.`;
   }
 
   // A question/message → { action: reply|ignore|escalate, reply, objection, safe_to_ask, reason }
-  async decide({ sender, text, hasNumber = false, lang, history, recent, pricingLocked = false }) {
+  async decide({ sender, text, hasNumber = false, lang, history, recent, pricingLocked = false, numberLocked = false }) {
     lang = lang || detectLang(text) || 'english';
     const objKeys = this.objections.map((o) => o.key).join(', ');
     const lock = pricingLocked
-      ? `\nPRICING IS LOCKED RIGHT NOW (hard rule): do NOT mention any price, amount, ₹/$ figure, EMI, token, discount, offer validity or purchase/payment link – not even if they ask directly. If they ask about price/EMI/payment, say politely that Sir will share the complete offer and pricing details later in this session and ask them to stay till then${hasNumber ? '' : ', then ask for their number'}.`
+      ? `\nPRICING IS LOCKED RIGHT NOW (hard rule): do NOT mention any price, amount, ₹/$ figure, EMI, token, discount, offer validity or purchase/payment link – not even if they ask directly. If they ask about price/EMI/payment, say politely that Sir will share the complete offer and pricing details later in this session and ask them to stay till then${hasNumber || numberLocked ? '' : ', then ask for their number'}.`
       : '';
-    const user = `${this.#context({ sender, lang, hasNumber, history, recent })}${lock}
+    const numLock = numberLocked && !this.buyers
+      ? `\nNUMBER ASKS ARE LOCKED RIGHT NOW (hard rule): do NOT ask for, hint at or mention their phone/WhatsApp/contact number or a call from the team in any way. Just answer the question politely (or say Sir will cover it in the session).`
+      : '';
+    const user = `${this.#context({ sender, lang, hasNumber: hasNumber || numberLocked, history, recent })}${lock}${numLock}
 
 Their new message: """${String(text).slice(0, 800)}"""
 
 Decide:
 - "reply": a real question or doubt you can answer from FACTS → write the reply.
 - "ignore": greetings, city names, "yes"/"1"/T-F answers, emojis, compliments, reactions to the session, chat that needs no answer.
-- "escalate": ${this.buyers ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? ' and contact them on their number' : ' and asks for their number so the team can call'}`}.
+- "escalate": ${this.buyers || numberLocked ? "you're not sure of the answer, or it's an account/login/payment/refund/technical problem, or anything that needs a human. Also write a short, polite reply that says our team will check and help them (do NOT ask for a number)" : `can't be answered from FACTS, complaints, refunds for an existing purchase, account/login/payment problems, anything that needs a human. Also write a short, polite reply that says our team will look into it${hasNumber ? ' and contact them on their number' : ' and asks for their number so the team can call'}`}.
 - "objection": one of [${objKeys}] if the message raises it, else null.
 - "safe_to_ask": false only for abusive, spam or hostile messages (we won't message them at all), else true.
 JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":string|null,"safe_to_ask":boolean,"reason":string}`;
@@ -265,7 +280,7 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
     out.safe_to_ask = out.safe_to_ask !== false;
     out.lang = lang;
     if (out.action !== 'ignore' && out.safe_to_ask) {
-      const guarded = this.#guard(out.reply, { hasNumber, lang, sender, pricingLocked });
+      const guarded = this.#guard(out.reply, { hasNumber, lang, sender, pricingLocked, numberLocked: numberLocked && !this.buyers });
       if (out.reply && !guarded && out.action === 'reply') {
         return { ...out, action: 'escalate', reply: null, reason: 'blocked a link that is not in the sheet' };
       }

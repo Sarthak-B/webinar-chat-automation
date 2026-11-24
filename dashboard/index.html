@@ -1016,7 +1016,7 @@ async function switchWebinar(w) {
   S.webinar = w; store.set('autopilot.webinar', w);
   S.tab = null; S.schedule = []; S.tabs = []; renderWebinar(); renderSchedule(); renderLaunch();
   // each webinar has its own Agent Log / Numbers – reload the live feed from the right sheet
-  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true; ringPrimed = false; rung.clear();
+  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true; ringPrimed = false; rung.clear(); alertPrimed = false; alerted.clear();
   loadFeed();
   $('#tabsGrid').innerHTML = '<div class="empty">Loading…</div>';
   await loadTabs();
@@ -1455,7 +1455,7 @@ async function stopRun() {
 }
 
 // ---------- feed ----------
-const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
+const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
 async function loadFeed() {
   try {
     if (isDemo()) {
@@ -1480,6 +1480,7 @@ let shownLog = 0, firstPaint = true; const seenRows = new Set();
 function todays(rows) { const t = todayStr(); return rows.filter((r) => r[0] === t); }
 function renderFeed() {
   const rows = todays(S.log).filter((r) => !/^(START|STOP|IN)$/.test(String(r[2]).replace(/^DRY /, '')));
+  alertForTeam(rows);
   renderConversations();
   const list = $('#feedList');
   const vis = rows.filter((r) => S.filter === 'all' || kindOf(r[2]) === S.filter).slice(-150).reverse();
@@ -1501,6 +1502,45 @@ function renderFeed() {
   $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
   firstPaint = false;
 }
+// A clock that keeps ticking in background tabs: browsers slow normal timers in hidden tabs to once a minute,
+// but timers inside a Web Worker keep their pace. Falls back to setInterval if workers aren't allowed.
+const workerTimers = [];
+function everyMs(ms, fn) {
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob([`setInterval(() => postMessage(0), ${ms});`], { type: 'text/javascript' })));
+    w.onmessage = () => fn();
+    workerTimers.push(w);
+    return { worker: w };
+  } catch { return setInterval(fn, ms); }
+}
+
+// ---------- team alerts: a different, urgent sound when the AI couldn't answer or a question needs a person ----------
+const alerted = new Set(); let alertPrimed = false;
+function alertTone() {
+  if (!soundOn()) return; unlockAudio(); if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  [[520, 0], [390, 0.22], [520, 0.44], [390, 0.66]].forEach(([f, d]) => { // low two-tone "attention" pattern (the number chime is high and rising)
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t0 + d); g.gain.exponentialRampToValueAtTime(0.45, t0 + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d + 0.2);
+    o.connect(g).connect(audioCtx.destination); o.start(t0 + d); o.stop(t0 + d + 0.22);
+  });
+}
+function alertForTeam(rows) {
+  const team = rows.filter((r) => /^(AI FAILED|NEEDS TEAM)$/.test(String(r[2]).replace(/^DRY /, '')));
+  const fresh = team.filter((r) => !alerted.has(r.slice(1, 6).join('|')));
+  team.forEach((r) => alerted.add(r.slice(1, 6).join('|')));
+  if (!alertPrimed) { alertPrimed = true; return; } // rows already there when the page opened don't alert
+  if (!fresh.length) return;
+  alertTone();
+  fresh.forEach((r) => {
+    const ai = /AI FAILED/.test(r[2]);
+    const msg = `${ai ? '⚠ AI didn\'t reply' : '🙋 Needs the team'} – ${r[3]}: "${String(r[5]).slice(0, 80)}"${ai ? ' · reply manually in Zoom' : ''}`;
+    toast(msg, true);
+    try { if (soundOn() && 'Notification' in window && Notification.permission === 'granted') new Notification(ai ? 'AI didn\'t reply – answer manually' : 'Question needs the team', { body: `${r[3]}: ${r[5]}`, requireInteraction: ai, silent: true }); } catch {}
+  });
+  const t = document.title; document.title = `(!) ${fresh.length} need a reply`; setTimeout(() => { document.title = t; }, 10000);
+}
+
 // ---------- number alerts: a chime for every NEW full mobile number (10 digits) ----------
 const rung = new Set(); let ringPrimed = false, audioCtx = null;
 const soundOn = () => store.get('autopilot.sound') !== false;
@@ -1595,9 +1635,10 @@ function buildConversations() {
     if (s === 'SKIPPED') { all.ev.push({ side: 'sys', text: `Skipped, too late: ${sent.split('\n')[0]}`, time }); return; }
     if (!to || to === 'Everyone') return;
     const c = get(to);
-    if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
+    if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
     if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number confirmed' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
+    else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ AI didn't reply – answer manually in Zoom${note ? ` · ${String(note).replace(/^AI did not answer – reply manually · /, '')}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
   });
@@ -2055,7 +2096,7 @@ function moveGlider() {
 // ---------- boot ----------
 let timers = [];
 async function boot() {
-  timers.forEach(clearInterval); timers = [];
+  timers.forEach((t) => (t && t.worker ? t.worker.terminate() : clearInterval(t))); timers = [];
   document.body.classList.toggle('is-demo', isDemo()); $('#pillDemo').hidden = !isDemo();
   S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; H.list = []; H.loadedFor = null; seenRows.clear(); firstPaint = true;
   setSheetLink();
@@ -2065,9 +2106,9 @@ async function boot() {
   const last = store.get(`autopilot.lastTab.${S.webinar}`, store.get('autopilot.lastTab', null));
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
-  timers.push(setInterval(() => loadRuns(), 10_000));
-  timers.push(setInterval(() => { if (!document.hidden) loadFeed(); }, isDemo() ? 4_000 : 3_000)); // live chats every 3 s (paused while this tab is hidden)
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFeed(); });
+  timers.push(everyMs(10_000, () => loadRuns()));
+  // live chats every 3 s – also while this tab is in the background, so number chimes and alerts are never missed
+  timers.push(everyMs(isDemo() ? 4_000 : 3_000, () => loadFeed()));
   timers.push(setInterval(() => loadWorkflows(), 60_000));
   timers.push(setInterval(() => loadHistoryList(), isDemo() ? 20_000 : 60_000));
 }

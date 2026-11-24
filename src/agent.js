@@ -145,8 +145,10 @@ let sessionStart = (cfg.buyers && startDate(cfg.sessionStartClock)) || parseSess
 if (testShiftMs && (cfg.buyers || parseSessionStart(scheduleRows))) sessionStart = new Date(sessionStart.getTime() + testShiftMs);
 let unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
 if (cfg.buyers) unlockAt = new Date(0); // no pricing hold at all
+// HARD RULE: no number asks of any kind before 1 hour into the session (NUMBER_UNLOCK_MIN, default 60)
+const numberLocked = () => !cfg.buyers && Date.now() < sessionStart.getTime() + cfg.numberUnlockMin * 60_000;
 const pricingLocked = () => !cfg.buyers && Date.now() < unlockAt.getTime();
-log(cfg.buyers ? `Session start ${clock(sessionStart)} · buyers session – no pricing lock` : `Session start ${clock(sessionStart)} → pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
+log(cfg.buyers ? `Session start ${clock(sessionStart)} · buyers session – no pricing lock` : `Session start ${clock(sessionStart)} → number asks from ${clock(new Date(sessionStart.getTime() + cfg.numberUnlockMin * 60_000))} (${cfg.numberUnlockMin} min) · pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
 const sentKeys = new Set();
 
 async function reloadSchedule() {
@@ -453,7 +455,7 @@ function canAsk(sender) {
 }
 // AI-written private "share your number" line in their language, only for people who are really engaged.
 async function askForNumber(sender, said, reason) {
-  if (!cfg.autoReply || !cfg.numberNudges || !canAsk(sender)) return;
+  if (!cfg.autoReply || !cfg.numberNudges || numberLocked() || !canAsk(sender)) return;
   if (person(sender).msgs < cfg.nudgeAfterMessages) return; // one "Yes" isn't enough – don't bomb everyone
   noteAsk(sender);
   const angle = numberBank.length ? numberBank[bankIdx++ % numberBank.length] : null;
@@ -500,7 +502,7 @@ async function aiSlot(fn) {
 async function handle(sender, text) {
   const phone = findPhone(text);
   const lang = langOf(sender);
-  const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent, pricingLocked: pricingLocked() });
+  const ctx = () => ({ sender, lang, history: person(sender).history.slice(0, -1), recent: recentSent, pricingLocked: pricingLocked(), numberLocked: numberLocked() });
   const rest = phone ? text.replace(/\+?\d[\d\s-]{8,16}\d/g, ' ').replace(/^[\s,.;:-]+/, '').trim() : text;
 
   if (!cfg.autoReply) {
@@ -532,20 +534,24 @@ async function handle(sender, text) {
   if (d.action === 'reply' && d.reply) {
     history.question();
     enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang, qa: { name: sender, lang, question: text, status: 'Answered' } });
-    if (!cfg.buyers && asksForNumber(d.reply)) noteAsk(sender);
+    if (!cfg.buyers && !numberLocked() && asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
     history.question();
-    record('NEEDS TEAM', sender, '', text, d.reason || '');
-    log(`NEEDS TEAM: ${sender}: ${text}`);
+    // AI didn't answer (no credits, outage, timeout…) → its own alert on the dashboard so a person replies
+    const aiFailed = /^AI error/i.test(d.reason || '');
+    record(aiFailed ? 'AI FAILED' : 'NEEDS TEAM', sender, '', text, aiFailed ? `AI did not answer – reply manually · ${String(d.reason).slice(0, 160)}` : d.reason || '');
+    log(`${aiFailed ? 'AI FAILED' : 'NEEDS TEAM'}: ${sender}: ${text}`);
     const qa = { name: sender, lang, question: text, status: 'Needs team' };
     if (d.safe_to_ask !== false) {
       // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
       const reply = cfg.buyers
         ? d.reply || (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender))
+        : numberLocked()
+        ? d.reply || (FALLBACK.later[lang] || FALLBACK.later.english)(firstName(sender))
         : d.reply || (await aiSlot(() => brain.compose({ purpose: hasNumber.has(sender) ? 'thanks' : 'ask', said: text, ...ctx() })));
       enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
-      if (!hasNumber.has(sender) && !cfg.buyers) noteAsk(sender);
+      if (!hasNumber.has(sender) && !cfg.buyers && !numberLocked()) noteAsk(sender);
     } else {
       history.qaRow({ question: text }); // abusive/spam: no reply sent
     }
@@ -632,7 +638,7 @@ async function chatLoop() {
 async function socialProofLoop() {
   while (running) {
     await sleep(cfg.socialProofEveryMin * 60_000);
-    if (!running || !newNumberNames.length) continue;
+    if (!running || !newNumberNames.length || numberLocked()) continue; // its "share your number" line waits for the 1-hour mark
     const names = [...new Set(newNumberNames.splice(0))].filter(Boolean).slice(-3);
     if (!names.length) continue;
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} & ${names.at(-1)}`;
