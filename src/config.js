@@ -95,6 +95,10 @@ export function loadConfig() {
         const k = env('GROQ_API_KEY', ''), base = 'https://api.groq.com/openai/v1';
         chain.push({ name: 'Groq', base, key: k, model: env('GROQ_MODEL', 'openai/gpt-oss-120b') });
         chain.push({ name: 'Groq', base, key: k, model: env('GROQ_MODEL_BACKUP', 'openai/gpt-oss-20b') }); // separate free limit
+        // more Groq models – each has its own free per-minute limit, so a burst of questions doesn't stop the AI
+        chain.push({ name: 'Groq', base, key: k, model: 'llama-3.3-70b-versatile' });
+        chain.push({ name: 'Groq', base, key: k, model: 'meta-llama/llama-4-scout-17b-16e-instruct' });
+        chain.push({ name: 'Groq', base, key: k, model: 'llama-3.1-8b-instant' });
       }
       if (env('KIMI_API_KEY', '')) chain.push({ name: 'Kimi', base: env('KIMI_BASE_URL', 'https://api.moonshot.ai/v1'), key: env('KIMI_API_KEY', ''), model: env('KIMI_MODEL', 'kimi-k3') });
       if (env('DEEPSEEK_API_KEY', '')) chain.push({ name: 'DeepSeek', base: 'https://api.deepseek.com', key: env('DEEPSEEK_API_KEY', ''), model: env('DEEPSEEK_MODEL', 'deepseek-chat') });

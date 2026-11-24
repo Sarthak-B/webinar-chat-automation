@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
 import { parseFifteen, startDate, isDayTab, parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
-import { Brain, FALLBACK, findPhone, isTrivial, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
+import { Brain, FALLBACK, findPhone, isTrivial, needsReply, stripQuote, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
 import { Zoom } from './zoom.js';
 import { ChatSync } from './chatsync.js';
 import { History } from './history.js';
@@ -517,6 +517,7 @@ async function aiSlot(fn) {
 }
 
 // Only genuine questions get a reply. "Type 1" / "Yes" / emojis / city names get nothing.
+const lastHoldTo = new Map();
 async function handle(sender, text) {
   const phone = findPhone(text);
   const lang = langOf(sender);
@@ -549,6 +550,12 @@ async function handle(sender, text) {
     record('NO REPLY', sender, '', text, 'engagement answer ("1", "yes", emoji…) – no reply needed');
     return;
   }
+  // City names, "first time", "type 2", "Cosmetic", "thank you sir"… are answers to Sir, not questions:
+  // no AI call (saves the free AI limit for real questions) and no reply.
+  if (!needsReply(text)) {
+    record('NO REPLY', sender, '', text, 'not a question – no reply needed');
+    return;
+  }
 
   // Answer first, then – in the SAME reply – a smooth transition to the number (only after the 1-hour mark,
   // max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart, never once they've shared it).
@@ -571,8 +578,9 @@ async function handle(sender, text) {
       // Handed to the team: the agent sends NOTHING (no half-answer, no "our team will review") –
       // the dashboard alert tells a person to reply in Zoom.
       history.qaRow({ question: text });
-    } else if (d.safe_to_ask !== false) {
-      // AI did not answer at all → the approved holding line, so the attendee isn't left waiting
+    } else if (d.safe_to_ask !== false && Date.now() - (lastHoldTo.get(sender) || 0) > 15 * 60_000) {
+      // AI did not answer at all → the approved holding line (max once per person per 15 min)
+      lastHoldTo.set(sender, Date.now());
       enqueue({ prio: 1, text: fallbackReply(sender, lang, { aiFailed, askNow }), to: sender, kind: 'REPLY', said: text, note: `AI failed · fallback · ${lang}`, qa });
       if (!hasNumber.has(sender) && !cfg.buyers && askNow) noteAsk(sender);
     }
@@ -678,10 +686,11 @@ function handleIncoming(m) {
   const { name, isTeam } = cleanSender(m.sender);
   if (!name || isTeam) return;
   record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
-  noteIncoming(name, m.text);
+  const said = stripQuote(m.text); // without Zoom's 'Replying to "…"' part
+  noteIncoming(name, said);
   history.chatter(name);
-  saveNumber(name, m.text);
-  queueAttendee(name, m.text);
+  saveNumber(name, said);
+  queueAttendee(name, said);
 }
 
 // "Thank you A, B & C. Our team is calling you shortly." – only real names of people who shared numbers.
