@@ -67,7 +67,8 @@ export function loadConfig() {
 
     // Google Sheet
     // FlexiGenie chat sheet (built-in default; a SHEET_ID variable overrides it). The ID alone gives no access.
-    sheetId: env('SHEET_ID', '1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8'),
+    // 10 Min Business → FlexiGenie chat sheet · 15 Days → 15 Days Challenge Chats sheet (logs, numbers, everything)
+    sheetId: webinar === 'fifteen' ? env('FIFTEEN_SHEET_ID', W.sheetId) : env('SHEET_ID', '1sx70CnDmaDxci5xJ81UiAuZ1ZgoVLAKgOAX_cJOa4l8'),
     googleCreds: req('GOOGLE_SERVICE_ACCOUNT_JSON'),
     scheduleTab: env('SCHEDULE_TAB', ''), // empty = ask which tab (terminal) – the dashboard always passes one
     repliesTab: env('REPLIES_TAB', 'Attendee Replies'),

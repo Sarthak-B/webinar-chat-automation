@@ -10,6 +10,7 @@
  *
  * Day tabs ("Day 0 Chats", "Day 2 Chats" …): time (hours) | Minute | Second | Name | Role | Messege | Mode
  * Times count from START. Only Mode = Chat (or empty) rows are listed – the same rows the agent posts.
+ * The agent writes this webinar's "Agent Log" (chats + replies) and "Numbers" tabs into THIS sheet too.
  */
 const KEY = 'CHANGE-ME-to-the-team-password';
 const START = '7:00 PM';
@@ -31,6 +32,8 @@ function doGet(e) {
       if (!sh) return out({ error: 'Tab not found: ' + p.tab });
       return out({ tab: p.tab, start: '', items: dayItems(sh) });
     }
+    if (p.action === 'rows') return out(rows(ss, p.tab, Number(p.from || 0)));
+    if (p.action === 'clear') return out(clearData(ss, p.what));
     if (p.action === 'whoami') return out({ ok: true, sheet: ss.getName() });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -78,6 +81,26 @@ function describeDay(sh) {
     first: items.length ? items[0][1] : '',
     last: items.length ? items[items.length - 1][1] : '',
   };
+}
+
+// Rows of "Agent Log" / "Numbers". First call (from=0): the latest 3000 rows. After that: only rows after `from`.
+function rows(ss, tab, from) {
+  const sh = ss.getSheetByName(tab);
+  if (!sh) return { total: 0, rows: [] };
+  const last = sh.getLastRow();
+  const start = from > 0 ? Math.max(2, from + 1) : Math.max(2, last - 2999);
+  const end = Math.min(last, start + 2999);
+  const data = end >= start ? sh.getRange(start, 1, end - start + 1, sh.getLastColumn()).getDisplayValues() : [];
+  return { total: end, from: start, rows: data };
+}
+
+// Dashboard "Clear" buttons (permanent – the dashboard asks first). what: chats | numbers | all
+function clearData(ss, what) {
+  const wipe = function (sh) { if (!sh) return 0; const n = sh.getLastRow() - 1; if (n > 0) sh.deleteRows(2, n); return Math.max(0, n); };
+  const done = [];
+  if (what === 'chats' || what === 'all') done.push('chats: ' + wipe(ss.getSheetByName('Agent Log')));
+  if (what === 'numbers' || what === 'all') done.push('numbers: ' + wipe(ss.getSheetByName('Numbers')));
+  return { ok: true, cleared: done };
 }
 
 function out(o) {

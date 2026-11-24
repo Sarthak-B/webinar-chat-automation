@@ -376,3 +376,10 @@ The 15 Days webinar runs from a different Zoom account, so it has its own secret
 - `ZOOM_SESSION_B64_FIFTEEN`: the saved session. It is created and refreshed automatically after each 15 Days run (needs `SECRETS_PAT`), or manually with `bash ~/webinar-chat-automation/scripts/refresh-session.sh fifteen`.
 
 A 15 Days run never uses the business account's login, and the reverse is also true.
+
+### Separate sheets per webinar
+
+- **10 Min Business** uses the FlexiGenie chat sheet for everything: timed-chat tabs, Agent Log, Numbers and Auto Schedule. History goes to the Webinar History sheet.
+- **15 Days** uses the 15 Days Challenge Chats sheet for everything: Day tabs, plus its own Agent Log and Numbers tabs, which the agent creates. It has no history.
+- The dashboard shows the live feed, numbers and "Open sheet" link for the webinar picked in step 00.
+- The 15 Days Apps Script (`Code-15days.gs`) serves that sheet's tabs and rows and the Clear buttons. Paste the latest version and redeploy it as a **New version**.
