@@ -49,10 +49,11 @@ export function stripQuote(text) {
 // Sentences that promise something nobody will do (the team does not follow up on chat questions).
 // "your number has been shared with our senior mentors, who will contact you" is the one allowed promise.
 const PROMISE_RE =
-  /\b(get back to you|reach out|will (contact|call|review|look into|check|follow up|send|share|provide|arrange|schedule|update|help you set|repeat|guide you on)|we('| wi)ll (check|review|look|send|call|arrange|share|provide)|team will|support team|our team is|jaanch|check karegi|check karenge|sampark karegi|sampark karenge|contact karegi|contact karenge|call karegi|call karenge|update degi|update denge|overview de|bhej denge|bhejwa|madad karegi|repeat karenge|will repeat|note kar li|note kar liya|noted your)/i;
-// allowed: Sir covering it later in the session (but not "Sir will repeat"), and – once a number is shared –
+  /\b(sir (will|is going to|aage|aaj|is session|ise|isko|batayenge|bataenge|cover|repeat|explain|show|dikhayenge)|batayenge|bataenge|dikhayenge|cover karenge|get back to you|reach out|will (contact|call|review|look into|check|follow up|send|share|provide|arrange|schedule|update|help you set|repeat|guide you on)|we('| wi)ll (check|review|look|send|call|arrange|share|provide)|team will|support team|our team is|jaanch|check karegi|check karenge|sampark karegi|sampark karenge|contact karegi|contact karenge|call karegi|call karenge|update degi|update denge|overview de|bhej denge|bhejwa|madad karegi|repeat karenge|will repeat|note kar li|note kar liya|noted your)/i;
+// allowed: the pricing line ("the complete offer and pricing come later in this session"), and – once a number is shared –
 // that our senior mentors have it and will contact them
-const SIR_LATER = /\bsir\b(?![^.]*\brepeat)[^.]*\b(cover|share|show|explain|reveal|discuss|batayenge|bataenge|dikhayenge|share karenge|cover karenge)/i;
+// the recording can't respond – "Sir will cover / repeat / explain…" is a promise too; only the pricing line is fine
+const SIR_LATER = /\b(offer and pricing|offer aur pricing|ऑफ़र और प्राइसिंग)\b[^.]*\b(later|aage|आगे)/i;
 const MENTOR_LINE = /senior mentor|mentors? (ko|ke|have|has)|(number|details)[^.]*(shared|forwarded|passed)/i;
 
 // Removes sentences that promise a follow-up nobody will do. Returns '' when what's left is only filler
@@ -136,15 +137,15 @@ export const FALLBACK = {
   },
   // Before the pricing section: never reveal numbers – point them to later in the session.
   pricelock: {
-    english: () => `Sir will share the complete offer and pricing details later in this session – please stay till then.`,
-    hinglish: () => `Sir is session mein aage poora offer aur pricing detail mein batayenge – kripya tab tak bane rahiye.`,
-    hindi: () => `सर इस सेशन में आगे पूरा ऑफ़र और प्राइसिंग विस्तार से बताएंगे – कृपया तब तक जुड़े रहिए।`,
+    english: () => `The complete offer and pricing come later in this session – please stay connected till then.`,
+    hinglish: () => `Poora offer aur pricing is session mein aage aayegi – kripya tab tak jude rahiye.`,
+    hindi: () => `पूरा ऑफ़र और प्राइसिंग इस सेशन में आगे आएगी – कृपया तब तक जुड़े रहिए।`,
   },
   // Before 1 hour into the session (no number asks allowed): a doubt the AI can't answer
   later: {
-    english: (n) => `${n ? `${n}, ` : ''}Sir will cover this in today's session – please stay connected till the end.`,
-    hinglish: (n) => `${n ? `${n} ji, ` : ''}Sir aaj ke session mein ise detail mein cover karenge – kripya end tak jude rahiye.`,
-    hindi: (n) => `${n ? `${n} जी, ` : ''}सर आज के सेशन में इसे विस्तार से बताएंगे – कृपया अंत तक जुड़े रहिए।`,
+    english: (n) => `${n ? `${n}, ` : ''}please stay connected till the end of the session.`,
+    hinglish: (n) => `${n ? `${n} ji, ` : ''}kripya session ke end tak jude rahiye.`,
+    hindi: (n) => `${n ? `${n} जी, ` : ''}कृपया सेशन के अंत तक जुड़े रहिए।`,
   },
   // Buyers' session (15 Days challenge): a doubt the AI can't clear – no number ask, just support.
   help: {
@@ -179,7 +180,7 @@ export function teamVoice(t) {
 }
 
 // Does this text REVEAL pricing? Money amounts, EMI / token / discount, offer deadlines, checkout links.
-// (Saying "Sir will share the pricing later" is fine – it reveals nothing.)
+// (Saying "the offer and pricing come later in this session" is fine – it reveals nothing.)
 export const mentionsPrice = (t) =>
   /₹|\$\s?\d|\brs\.?\s?\d|\binr\s?\d|\b\d[\d,.]*\s?(rupees|rupaye|rupay|lakh|lac|\/-|\/day|\/month|per day|per month)|\bemi\b|\bईएमआई\b|\btoken\b|\bdiscount|\d+\s?%\s?off|today only|aaj hi|get\?id=|reserve2k|\/checkout/i.test(
     String(t),
@@ -211,6 +212,8 @@ export class Brain {
     const objs = this.objections.map((o) => `${o.key}: ${o.objection} → ${o.chat}`).join('\n');
     const angles = this.numberBank.map((b) => `- ${b.angle}: ${b.line}`).join('\n');
     return `You are the FlexiFunnels team, replying on behalf of ${this.persona} (the presenter) to ONE attendee in a private Zoom chat during this FlexiGenie webinar. Write like a polite, professional support executive: courteous, clear and to the point – never casual, never over-familiar, never robotic.
+
+THIS WEBINAR IS A RECORDING. ${this.persona} cannot hear, see or answer the chat. So NEVER promise or suggest what Sir will say, show, cover, explain, repeat or answer ("Sir will cover this", "Sir will repeat", "Sir will reply") – the only allowed reference is that the complete offer and pricing come later in this session. The recording often asks everyone to type something (their city, "1", "yes", their goal, their business) – those answers are "ignore". Reply ONLY to someone asking us a genuine personal question or doubt that needs a real answer.
 
 GOAL: first clear their doubt properly – a genuine, helpful answer. Getting their number matters, but it comes gently and only when the instructions for this message allow it: never pushy, never "drop your number" on every reply, never pressure or urgency. If they have ALREADY shared the number, never ask again.
 
@@ -247,7 +250,7 @@ Respond with JSON only.`;
 
 GOAL: clear their doubt quickly and keep them engaged and motivated to follow today's session. This is NOT a sales session.
 - Never ask for a phone number. Never sell, never mention prices, offers, upgrades or payment links.
-- Answer practical "how do I…" doubts about today's steps briefly and correctly (e.g. where to click, what to do next, "Sir will show this step in today's session"). If you are not sure, or it is an account/login/payment/refund/technical problem, use "escalate".
+- Answer practical "how do I…" doubts about today's steps briefly and correctly (e.g. where to click, what to do next). If you are not sure, or it is an account/login/payment/refund/technical problem, use "escalate".
 ${bank ? `\nFACTS you can rely on:\n${bank}\n` : ''}
 How to write:
 - Speak as the team ("we", "our team", "humari team"), never "I" / "my team" / "meri team".
@@ -338,8 +341,7 @@ Respond with JSON only.`;
     // HARD RULE: no number ask (not even a hint) before 1 hour into the session – drop those sentences.
     if (numberLocked && asksForNumber(r)) {
       r = r.split(/(?<=[.!?।])\s+/).filter((x) => !asksForNumber(x)).join(' ').trim();
-      if (!r) r = (FALLBACK.later[lang] || FALLBACK.later.english)(firstName(sender));
-      return r;
+      return r || null;
     }
     // HARD RULE: no pricing before the pricing section – replace the whole reply with a safe one.
     if (pricingLocked && mentionsPrice(r)) r = (FALLBACK.pricelock[lang] || FALLBACK.pricelock.english)();
@@ -359,10 +361,10 @@ Respond with JSON only.`;
     lang = lang || detectLang(text) || 'english';
     const objKeys = this.objections.map((o) => o.key).join(', ');
     const lock = pricingLocked
-      ? `\nPRICING IS LOCKED RIGHT NOW (hard rule): do NOT mention any price, amount, ₹/$ figure, EMI, token, discount, offer validity or purchase/payment link – not even if they ask directly. If they ask about price/EMI/payment, say politely that Sir will share the complete offer and pricing details later in this session and ask them to stay till then${hasNumber || numberLocked ? '' : ', then ask for their number'}.`
+      ? `\nPRICING IS LOCKED RIGHT NOW (hard rule): do NOT mention any price, amount, ₹/$ figure, EMI, token, discount, offer validity or purchase/payment link – not even if they ask directly. If they ask about price/EMI/payment, say politely that the complete offer and pricing come later in this session and ask them to stay till then${hasNumber || numberLocked ? '' : ', then ask for their number'}.`
       : '';
     const numLock = numberLocked && !this.buyers
-      ? `\nNUMBER ASKS ARE LOCKED RIGHT NOW (hard rule): do NOT ask for, hint at or mention their phone/WhatsApp/contact number or a call from the team in any way. Just answer the question politely (or say Sir will cover it in the session).`
+      ? `\nNUMBER ASKS ARE LOCKED RIGHT NOW (hard rule): do NOT ask for, hint at or mention their phone/WhatsApp/contact number or a call from the team in any way. Just answer the question politely.`
       : '';
     const user = `${this.#context({ sender, lang, hasNumber: hasNumber ? true : askNow ? 'ask' : 'no', history, recent })}${lock}${numLock}
 

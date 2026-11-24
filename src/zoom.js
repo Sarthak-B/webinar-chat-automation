@@ -559,7 +559,7 @@ export class Zoom {
   async readChatWindows() {
     // While a reply is being sent (name click → type → back to Everyone) don't touch the panel –
     // just read it. The watcher inside the page keeps capturing messages meanwhile.
-    if (!this.sending) {
+    if (!this.sending && !this.sweeping) {
       await this.openChat();
       // If the list was left scrolled up (e.g. after clicking someone's name), new messages are not drawn.
       await this.scrollChatToBottom();
@@ -737,27 +737,37 @@ export class Zoom {
       }
     }
     const want = name || null;
-    const picked = await ui.evaluate((want) => {
-      const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      const target = want ? norm(want) : null;
-      const isEveryone = (t) => /^(everyone|all panelists and attendees|everyone \(in meeting\))$/.test(t);
-      const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
-      const inMessages = (el) => el.closest('[class*="chat-item"], [class*="chat-message"], [class*="new-chat-message"], [class*="chat-list"]');
-      const cands = [...document.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemradio"], li, a, button, div, span')]
-        .filter((el) => vis(el) && !inMessages(el) && !el.closest('[data-agent-recv]') && !el.querySelector('input, textarea'))
-        .map((el) => ({ el, t: norm(el.innerText || el.textContent) }))
-        .filter(({ t }) => (target ? t === target || t === `${target} (attendee)` || t.replace(/\s*\(.*?\)\s*$/, '') === target : isEveryone(t)));
-      // prefer real list items, and the innermost element
-      cands.sort((a, b) => (/(option|menuitem)/.test(b.el.getAttribute('role') || '') - /(option|menuitem)/.test(a.el.getAttribute('role') || '')) || a.el.contains(b.el) - b.el.contains(a.el));
-      const hit = cands[0];
-      if (!hit) {
-        const seen = [...document.querySelectorAll('[role="menuitem"], [role="option"], [role="listbox"] *, [class*="dropdown"] li, [class*="menu"] li, [class*="receiver"] li')]
-          .filter(vis).map((e) => norm(e.innerText)).filter(Boolean);
-        return { ok: false, seen: [...new Set(seen)].slice(0, 15) };
-      }
-      (hit.el.closest('[role="menuitem"], [role="option"], [role="menuitemradio"], li') || hit.el).click();
-      return { ok: true };
-    }, want);
+    // The "to:" list shows only part of the attendees at a time – scroll through it until the name appears.
+    let picked = { ok: false, seen: [] };
+    for (let step = 0; step < 25 && !picked.ok; step++) {
+      picked = await ui.evaluate(([want, step]) => {
+        const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const target = want ? norm(want) : null;
+        const isEveryone = (t) => /^(everyone|all panelists and attendees|everyone \(in meeting\))$/.test(t);
+        const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+        const inMessages = (el) => el.closest('[class*="chat-item"], [class*="chat-message"], [class*="new-chat-message"], [class*="chat-list"]');
+        const cands = [...document.querySelectorAll('[role="menuitem"], [role="option"], [role="menuitemradio"], li, a, button, div, span')]
+          .filter((el) => vis(el) && !inMessages(el) && !el.closest('[data-agent-recv]') && !el.querySelector('input, textarea'))
+          .map((el) => ({ el, t: norm(el.innerText || el.textContent) }))
+          .filter(({ t }) => (target ? t === target || t === `${target} (attendee)` || t.replace(/\s*\(.*?\)\s*$/, '') === target : isEveryone(t)));
+        cands.sort((a, b) => (/(option|menuitem)/.test(b.el.getAttribute('role') || '') - /(option|menuitem)/.test(a.el.getAttribute('role') || '')) || a.el.contains(b.el) - b.el.contains(a.el));
+        const hit = cands[0];
+        if (hit) {
+          (hit.el.closest('[role="menuitem"], [role="option"], [role="menuitemradio"], li') || hit.el).click();
+          return { ok: true };
+        }
+        // not visible yet: scroll the open list (the scrollable box that holds the "Everyone" option) one page down
+        const everyone = [...document.querySelectorAll('li, [role="menuitem"], [role="option"], [role="menuitemradio"], div, span')].find((el) => vis(el) && !inMessages(el) && isEveryone(norm(el.innerText)));
+        let box = everyone?.parentElement;
+        while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+        const atEnd = !box || box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+        if (box && !atEnd) box.scrollTop += Math.max(60, box.clientHeight * 0.8);
+        const seen = [...(box || document).querySelectorAll('li, [role="menuitem"], [role="option"], [role="menuitemradio"]')].filter(vis).map((e) => norm(e.innerText)).filter(Boolean);
+        return { ok: false, end: atEnd || step > 0 && !box, seen: [...new Set(seen)].slice(0, 15) };
+      }, [want, step]);
+      if (picked.ok || picked.end) break;
+      await this.page.waitForTimeout(250);
+    }
     if (!picked.ok) {
       if (!this.receiverDiag) {
         this.receiverDiag = true; // snapshot the open dropdown once, for the debug artifact
@@ -801,6 +811,45 @@ export class Zoom {
     return false;
   }
 
+  // Closes Zoom pop-ups that can cover the chat ("Reclaim host", hardware-acceleration tip, OK/Got it dialogs)
+  async dismissPopups() {
+    for (const sel of ['button:has-text("Stay Co-Host")', 'button:has-text("Got it")', 'button:has-text("OK")', 'button:has-text("Close")', '[aria-label="close" i]', '[aria-label="Close" i]']) {
+      const b = this.root.locator(sel).first();
+      if (await b.isVisible().catch(() => false)) await b.click({ timeout: 2000 }).catch(() => {});
+    }
+  }
+
+  // Number safety net: scrolls through the WHOLE chat from the top, so every message Zoom has – even ones that
+  // scrolled past during a busy moment – is read once. Returns every message seen.
+  async sweepChat() {
+    if (this.sending) return [];
+    await this.openChat();
+    this.sweeping = true;
+    try {
+      const all = [];
+      await this.root.evaluate(() => (window.__agentHold = true));
+      for (let step = 0; step < 400; step++) {
+        const r = await this.root.evaluate((step) => {
+          const lists = [...document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')].filter((el) => el.scrollHeight > el.clientHeight + 4);
+          const el = lists.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+          if (!el) return { msgs: window.__agentExtract ? window.__agentExtract() : [], done: true };
+          if (step === 0) el.scrollTop = 0;
+          else el.scrollTop += Math.max(80, el.clientHeight * 0.6);
+          return { done: el.scrollTop + el.clientHeight >= el.scrollHeight - 2 };
+        }, step);
+        await this.page.waitForTimeout(step === 0 ? 600 : 220); // let Zoom draw that part of the list
+        const msgs = await this.root.evaluate(() => (window.__agentExtract ? window.__agentExtract() : [])).catch(() => []);
+        all.push(...msgs, ...(r.msgs || []));
+        if (r.done && step > 0) break;
+      }
+      return all;
+    } finally {
+      await this.root.evaluate(() => (window.__agentHold = false)).catch(() => {});
+      await this.scrollChatToBottom();
+      this.sweeping = false;
+    }
+  }
+
   // keep the chat scrolled to the newest message (clicking a name can scroll it up)
   async scrollChatToBottom() {
     await this.root
@@ -813,9 +862,19 @@ export class Zoom {
   }
 
   async typeAndSend(text) {
-    const box = await first(this.root, SEL.chatInput);
+    let box = await first(this.root, SEL.chatInput);
     if (!box) throw new Error('chat input not found');
-    await box.click();
+    try {
+      await box.click({ timeout: 8000 });
+    } catch {
+      // something is covering the chat box (a Zoom pop-up, the panel closed…): close it, reopen the chat, try again
+      await this.page.keyboard.press('Escape').catch(() => {});
+      await this.dismissPopups().catch(() => {});
+      await this.openChat();
+      box = await first(this.root, SEL.chatInput);
+      if (!box) throw new Error('chat input not found');
+      await box.click({ timeout: 8000, force: true });
+    }
     const lines = text.split('\n');
     for (let i = 0; i < lines.length; i++) {
       if (i) await this.page.keyboard.press('Shift+Enter');
@@ -832,6 +891,7 @@ export class Zoom {
       console.log(`[DRY RUN] → ${to || 'Everyone'}: ${text.replace(/\n/g, ' ⏎ ')}`);
       return;
     }
+    for (let i = 0; this.sweeping && i < 150; i++) await this.page.waitForTimeout(200); // a chat sweep is running
     this.sending = true;
     try {
       await this.#send(text, to);

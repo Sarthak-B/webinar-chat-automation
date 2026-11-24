@@ -21,3 +21,9 @@ assert.equal(firstName('Oneplus Nord'), '');
 assert.equal(firstName('Md Kamal Hussain'), 'Kamal');
 assert.equal(detectLang('sir payment gateway wala sb repeat krdijiye plz'), 'hinglish');
 console.log('✓ reply-quality tests passed');
+
+// the webinar is a recording – no promises about what Sir will do
+assert.equal(stripPromises("Ilyas, Sir will cover this in today's session – please stay connected till the end."), '');
+assert.equal(stripPromises('Sir aaj ke session mein ise detail mein cover karenge – kripya end tak jude rahiye.'), '');
+assert.equal(stripPromises('The complete offer and pricing come later in this session – please stay connected till then.'), 'The complete offer and pricing come later in this session – please stay connected till then.');
+console.log('✓ recording-safe reply tests passed');

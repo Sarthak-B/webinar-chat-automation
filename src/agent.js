@@ -296,6 +296,17 @@ const perMin = (arr) => {
   return arr.length;
 };
 let lastSend = 0;
+// "Crowd mode": Sir (in the recording or a timed chat) asked everyone to type something, so dozens of
+// people answer at once. Then only clear, real questions get an AI reply.
+let lastPromptAt = 0;
+let lastIncomingAt = Date.now();
+const arrivals = []; // { at, sender }
+function crowdMode() {
+  const now = Date.now();
+  while (arrivals.length && now - arrivals[0].at > 60_000) arrivals.shift();
+  return now - lastPromptAt < 3 * 60_000 || new Set(arrivals.map((a) => a.sender)).size >= 6;
+}
+const STRONG_QUESTION = /[?？]|\b(what|how|why|when|where|which|kya|kaise|kese|kaisa|kyu|kyun|kab|kahan|kitna|kitni|kitne|price|cost|fee|fees|emi|refund|payment|pay|link|login|access|problem|issue|error|support|hindi)\b|क्या|कैसे|कितना|कब|कहाँ|क्यों/i;
 
 // Proof the agent is still connected: a message it sends to Everyone must appear in its own chat.
 // Two in a row that don't → the Zoom window has dropped out of the webinar → the watchdog rejoins.
@@ -343,6 +354,7 @@ async function senderLoop() {
       await zoom.send(job.text, job.to);
       ownTexts.add(norm(job.text));
       if (!job.to) checkEcho(job.text);
+      if (!job.to && /^TIMED/.test(job.kind) && /\b(type|comment|write|tell|reply|drop|answer|share your (city|goal|business|niche|experience))\b/i.test(job.text) && !asksForNumber(job.text)) lastPromptAt = Date.now();
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
       if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
@@ -556,6 +568,10 @@ async function handle(sender, text) {
     record('NO REPLY', sender, '', text, 'not a question – no reply needed');
     return;
   }
+  if (crowdMode() && !STRONG_QUESTION.test(text)) {
+    record('NO REPLY', sender, '', text, "answer to Sir's prompt (many people typing) – no reply needed");
+    return;
+  }
 
   // Answer first, then – in the SAME reply – a smooth transition to the number (only after the 1-hour mark,
   // max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart, never once they've shared it).
@@ -578,7 +594,7 @@ async function handle(sender, text) {
       // Handed to the team: the agent sends NOTHING (no half-answer, no "our team will review") –
       // the dashboard alert tells a person to reply in Zoom.
       history.qaRow({ question: text });
-    } else if (d.safe_to_ask !== false && Date.now() - (lastHoldTo.get(sender) || 0) > 15 * 60_000) {
+    } else if (cfg.buyers && d.safe_to_ask !== false && Date.now() - (lastHoldTo.get(sender) || 0) > 15 * 60_000) {
       // AI did not answer at all → the approved holding line (max once per person per 15 min)
       lastHoldTo.set(sender, Date.now());
       enqueue({ prio: 1, text: fallbackReply(sender, lang, { aiFailed, askNow }), to: sender, kind: 'REPLY', said: text, note: `AI failed · fallback · ${lang}`, qa });
@@ -629,6 +645,28 @@ function noteObjection(key, sender) {
   }
 }
 
+// Number safety net: read the whole chat from the top and save any number that isn't saved yet.
+let sweepSoon = false;
+let lastSweep = Date.now();
+async function sweepNumbers(why) {
+  lastSweep = Date.now();
+  sweepSoon = false;
+  if (cfg.buyers) return;
+  const msgs = await zoom.sweepChat().catch((e) => (log('chat sweep failed:', e.message), []));
+  let found = 0;
+  for (const m of msgs) {
+    const { name, isTeam } = cleanSender(m.sender);
+    if (!name || isTeam || ownTexts.has(norm(m.text))) continue;
+    const said = stripQuote(m.text);
+    const phone = findPhone(said);
+    if (!phone || savedNumbers.has(`${name.toLowerCase()}|${phone.slice(-10)}`)) continue;
+    found++;
+    record('IN', name, '', m.text, `found in chat check (${why})`);
+    saveNumber(name, said);
+  }
+  log(`Chat check (${why}): ${msgs.length} messages read, ${found} new number(s) saved`);
+}
+
 async function chatLoop() {
   let sync = new ChatSync();
   let joinSeen = zoom.joinCount;
@@ -669,7 +707,9 @@ async function chatLoop() {
         record('NEEDS TEAM', 'Zoom chat', '', 'Chat burst', 'A few messages may have scrolled past the agent – please glance at the Zoom chat');
       }
       for (const m of fresh) handleIncoming(m);
+      if (gap) sweepSoon = true;
     }
+    if (running && (sweepSoon || Date.now() - lastSweep > 15 * 60_000)) await sweepNumbers(sweepSoon ? 'after a busy moment' : 'every 15 min');
     await sleep(400);
   }
 }
@@ -687,6 +727,8 @@ function handleIncoming(m) {
   if (!name || isTeam) return;
   record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
   const said = stripQuote(m.text); // without Zoom's 'Replying to "…"' part
+  arrivals.push({ at: Date.now(), sender: name });
+  lastIncomingAt = Date.now();
   noteIncoming(name, said);
   history.chatter(name);
   saveNumber(name, said);
@@ -729,6 +771,7 @@ async function shutdown(reason) {
   if (!running) return;
   running = false;
   log('Stopping:', reason);
+  if (!/SIGTERM|SIGINT/.test(reason) && !(await zoom.hasEnded().catch(() => true))) await sweepNumbers('end of webinar'); // every number, before leaving
   record('STOP', '', '', '', reason);
   // Only keep the refreshed session if it's still logged in – never overwrite the good saved login
   // with a logged-out one.
@@ -785,7 +828,10 @@ while (running) {
   await sleep(15_000);
   const last = schedule.at(-1).at.getTime();
   // With a direct link it stays until the webinar itself ends (handy for tests outside the tab's times)
-  if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length) await shutdown('all timed chats done');
+  // After the last timed chat people still share numbers – keep listening until the chat has been quiet for
+  // 10 min (or 90 min after the last timed chat), unless Zoom ends the webinar first.
+  const quiet = Date.now() - lastIncomingAt > 10 * 60_000;
+  if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length && (quiet || Date.now() > last + 90 * 60_000)) await shutdown('all timed chats done and the chat has gone quiet');
   else if (Date.now() - startedAt > cfg.maxRuntimeMin * 60_000) await shutdown('max runtime reached');
   else if (await zoom.hasEnded().catch(() => false)) await shutdown('webinar ended');
   else await watchdog();
