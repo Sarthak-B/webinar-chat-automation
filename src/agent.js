@@ -550,9 +550,7 @@ async function handle(sender, text) {
       // The team can only help if they can call – the AI's reply says so and (if needed) asks for the number.
       const reply = cfg.buyers
         ? d.reply || (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender))
-        : numberLocked()
-        ? d.reply || (FALLBACK.later[lang] || FALLBACK.later.english)(firstName(sender))
-        : d.reply || (askNow ? (FALLBACK.ask[lang] || FALLBACK.ask.english)(firstName(sender)) : (FALLBACK.help[lang] || FALLBACK.help.english)(firstName(sender)));
+        : d.reply || fallbackReply(sender, lang, { aiFailed, askNow });
       enqueue({ prio: 1, text: reply, to: sender, kind: 'REPLY', said: text, note: `needs team · ${lang}`, qa });
       if (!hasNumber.has(sender) && !cfg.buyers && askNow) noteAsk(sender);
     } else {
@@ -562,6 +560,16 @@ async function handle(sender, text) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
   }
   // action "ignore" (greetings, compliments, chit-chat): no reply
+}
+
+// When the AI can't answer: acknowledge the doubt politely and (after the 1-hour mark) add the approved transition:
+//   "Sir will cover this in today's session – please stay connected till the end. If you'd like a mentor to guide
+//    your first steps personally, you can share your number here."
+function fallbackReply(sender, lang, { aiFailed, askNow }) {
+  const n = firstName(sender);
+  const first = (aiFailed || numberLocked() ? FALLBACK.later : FALLBACK.help)[lang] || FALLBACK.later.english;
+  const base = first(n);
+  return askNow && !numberLocked() ? `${base} ${(FALLBACK.ask[lang] || FALLBACK.ask.english)('')}` : base;
 }
 
 // Collect messages from one person for a few seconds, so "hi" + "price?" + "emi?" gets one reply.
