@@ -1356,7 +1356,7 @@ function renderLaunch() {
     } else if (now < w.opens) {
       label = 'Arm auto-launch'; winLabel = 'Window opens at';
       winText = `${fmtTime(new Date(w.opens))}<small>in ${countdown(w.opens - now)}</small>`; pct = 100 - Math.min(100, ((w.opens - now) / (3 * 3600e3)) * 100);
-      note = isFifteen() ? `GitHub jobs max out at 6 hours, so the agent can start at most ${LAUNCH_WINDOW_MIN} minutes before the first chat. Arm it and keep this tab open, or come back then (or paste the direct Zoom link).` : 'GitHub starts the agent automatically every day at ~6:35 PM (7:30 PM webinar) and Sundays ~10:05 AM (11 AM webinar), using the tabs in the sheet\'s "Auto Schedule" tab. Nothing to do here. Arm is only for a one-off run at another time.';
+      note = isFifteen() ? `GitHub jobs max out at 6 hours, so the agent can start at most ${LAUNCH_WINDOW_MIN} minutes before the first chat. Arm it and keep this tab open, or come back then (or paste the direct Zoom link).` : 'The sheet starts the agent by itself every day at ~6:30 PM (7:30 PM webinar) and Sundays ~10 AM (11 AM webinar), using the "Auto Schedule" tab – no need to arm or keep anything open. Arming here is only a backup: it never starts a second agent.';
     } else if (now < w.last) {
       winLabel = now < w.first ? 'Window open · first chat in' : 'Webinar in progress · ends'; pct = 100;
       winText = now < w.first ? `${countdown(w.first - now)}<small>at ${fmtTime(new Date(w.first))}</small>` : `${fmtTime(new Date(w.last))}<small>${countdown(w.last - now)} left</small>`;
@@ -1646,11 +1646,17 @@ async function launch(e) {
   $('#blastDone').className = 'done'; blast.classList.add('on', 'go');
   const dispatch = (async () => {
     if (isDemo()) { await sleep(800); return; }
+    // one agent at a time: another device (or the sheet's automatic start) may have launched it already
+    for (const st of ['in_progress', 'queued']) {
+      const r = await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/runs?status=${st}&per_page=1`).catch(() => null);
+      if (r && r.total_count > 0) { const x = new Error('already running'); x.already = true; throw x; }
+    }
     await gh(`${repo()}/actions/workflows/${encodeURIComponent(cfg.workflow)}/dispatches`, { method: 'POST', body: JSON.stringify({ ref: S.defaultBranch, inputs: { webinar: S.webinar, tab: S.tab.name, mode: S.mode, ...(directState().ok ? { direct_url: directValue() } : {}), ...($('#testNow').checked ? { test_from_now: 'true' } : {}), zoom_account: S.acct } }) });
   })();
   for (const n of ['3', '2', '1']) { $('#blastCount').innerHTML = `<span>${n}</span>`; await sleep(900); }
   $('#blastCount').innerHTML = '';
   let err = null; try { await dispatch; } catch (x) { err = x; }
+  if (err?.already) { err = null; $('#blastTitle').textContent = 'Already running'; $('#blastText').textContent = 'The agent was already started (by the sheet or another device) – nothing more to do. Follow it in Live.'; $('#blastDone .ck path').setAttribute('d', 'M5 12.5l4.5 4.5L19 7.5'); $('#blastDone').className = 'done on'; await sleep(2600); blast.classList.remove('on'); await sleep(700); blast.classList.remove('go'); S.armed = null; store.set('autopilot.armed', null); await loadRuns(); return; }
   $('#blastTitle').textContent = err ? 'Launch failed' : 'Agent dispatched';
   $('#blastText').textContent = err ? (/UrlFetchApp|external_request|permission/i.test(err.message) ? 'Apps Script needs permission once: open it, pick "authorize" at the top, press ▶ Run and allow. Then Deploy → Manage deployments → ✏️ → New version → Deploy.' : err.message) : `${S.tab.name} · ${modeName[S.mode]}. GitHub is starting a runner. Progress shows in the Live section.`;
   $('#blastDone .ck path').setAttribute('d', err ? 'M6 6l12 12M18 6L6 18' : 'M5 12.5l4.5 4.5L19 7.5'); // ✗ on failure, ✓ on success

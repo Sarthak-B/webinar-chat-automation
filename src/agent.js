@@ -221,6 +221,17 @@ if (loggedIn) {
 
 let triedAlt = false;
 async function joinWithRetry() {
+  // A run that starts hours before its webinar (e.g. a second launch that waited in GitHub's queue until the first
+  // agent finished at midnight) would sit idle all night – stop it cleanly instead.
+  const early = schedule[0].at.getTime() - Date.now();
+  if (!cfg.directUrl && !cfg.testFromNow && early > 3 * 3600e3) {
+    const msg = `Started ${Math.round(early / 3600e3)} h before the first chat (${clock(schedule[0].at)}) – this looks like an extra launch, so it stops. The next webinar starts on its own.`;
+    log(`TOO EARLY: ${msg}`);
+    record('NO WEBINAR', '', '', '', msg);
+    await agentLog.close().catch(() => {});
+    await zoom.close();
+    process.exit(0);
+  }
   // Stays idle until the webinar is live, then joins. Keeps trying until JOIN_WAIT_MIN (default 75) after
   // the first timed chat – so a late start is still picked up.
   const deadline = cfg.directUrl && cfg.testFromNow ? Date.now() + 60 * 60_000 : schedule[0].at.getTime() + cfg.joinWaitMin * 60_000;
