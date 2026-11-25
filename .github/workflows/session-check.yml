@@ -41,10 +41,13 @@ jobs:
         if: steps.restore.outputs.skip != '1'
         env:
           ZOOM_PROXY: ${{ secrets.ZOOM_PROXY }}
-        run: npm run check-session
+          # signs in again by itself if the saved login has expired
+          ZOOM_EMAIL: ${{ matrix.account == 'fifteen' && secrets.ZOOM_EMAIL_FIFTEEN || secrets.ZOOM_EMAIL }}
+          ZOOM_PASSWORD: ${{ matrix.account == 'fifteen' && secrets.ZOOM_PASSWORD_FIFTEEN || secrets.ZOOM_PASSWORD }}
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run check-session
 
       - name: Save refreshed session
-        if: steps.restore.outputs.skip != '1'
+        if: steps.restore.outputs.skip != '1' && success()
         env:
           GH_TOKEN: ${{ secrets.SECRETS_PAT }}
           NAME: ${{ steps.restore.outputs.name }}
