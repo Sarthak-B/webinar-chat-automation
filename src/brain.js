@@ -33,9 +33,13 @@ export function isTrivial(text) {
 // complaints and longer messages are.
 const QUESTION_WORDS =
   /\b(what|whats|how|why|when|where|which|who|whom|can|could|will|would|is|are|do|does|did|should|shall|may|price|prices|pricing|cost|fee|fees|emi|refund|money ?back|pay|payment|link|buy|purchase|join|enrol|enroll|register|start|help|explain|tell|share|send|repeat|recording|certificate|support|contact|number|whatsapp|call|problem|issue|error|working|access|login|kya|kyu|kyun|kaise|kese|kaisa|kab|kaha|kahan|kitna|kitni|kitne|kaun|kon|konsa|kaunsa|batao|bataiye|btaiye|btao|samjhao|samjhaiye|chahiye|chahta|chahti|possible|boring|scam|fake|waste|slow|lag|hindi|english|language|samajh|nahi|nhi)\b|[?？]|क्या|कैसे|कितना|कब|कहाँ|क्यों/i;
+// Problems and concerns always need a person or the AI – even short ones ("cant join", "no sound", "is this recorded")
+export const PROBLEM_WORDS =
+  /\b(cant|cnt|can't|cannot|unable|not able|not working|nahi ho|nhi ho|nahi chal|nhi chal|join|joining|audio|sound|voice|awaz|aawaz|video|screen|link|recording|recorded|record|live|scam|fake|fraud|cheat|refund|money back|payment|paid|charged|login|password|access|error|problem|issue|help|stuck|frozen|lag|slow|hindi|english|language)\b/i;
 export function needsReply(text) {
   const t = String(text || '').trim();
   if (!t) return false;
+  if (PROBLEM_WORDS.test(t)) return true;
   const words = t.split(/\s+/).filter(Boolean).length;
   if (words >= 7) return true;
   return QUESTION_WORDS.test(t);
@@ -203,6 +207,13 @@ export class Brain {
     this.persona = personaName || 'Sir';
     this.numberBank = numberBank;
     this.allowedUrls = new Set(replies.flatMap((r) => urlsIn(r.reply)).concat(objections.flatMap((o) => urlsIn(o.chat))));
+    this.system = this.buildSystemPrompt();
+  }
+
+  // New answers (e.g. saved by the team from the dashboard) – used from the next message on
+  setReplies(replies) {
+    this.replies = replies;
+    this.allowedUrls = new Set(replies.flatMap((r) => urlsIn(r.reply)).concat(this.objections.flatMap((o) => urlsIn(o.chat))));
     this.system = this.buildSystemPrompt();
   }
 

@@ -34,7 +34,7 @@ function doGet(e) {
       if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\bday\s*\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
       if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
       if (p.action === 'rows') return out(rows(fb, p.tab, Number(p.from || 0))); // 15 Days Agent Log / Numbers live in its own sheet
-      if (p.action === 'send') return out(queueReply(fb, p.to, p.text, p.from));
+      if (p.action === 'send') return out(queueReply(fb, p.to, p.text, p.from, p.learn === '1' ? p.question : ''));
       if (p.action === 'clear') { // 15 Days: only its own Agent Log / Numbers – never the 10 Min history
         const parts = p.what === 'all' ? ['chats', 'numbers'] : p.what === 'history' ? [] : [p.what];
         return out({ ok: true, done: parts.map(function (w) { return clearData(fb, w).cleared; }) });
@@ -48,7 +48,7 @@ function doGet(e) {
     if (p.action === 'gh') return out(github(p.method, p.path, p.body));
     if (p.action === 'clear') return out(clearData(ss, p.what));
     if (p.action === 'delwebinar') return out(deleteWebinar(p.id));
-    if (p.action === 'send') return out(queueReply(ss, p.to, p.text, p.from));
+    if (p.action === 'send') return out(queueReply(ss, p.to, p.text, p.from, p.learn === '1' ? p.question : ''));
     if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -216,7 +216,8 @@ function webinarTabs(hb) {
 
 // ---- Replies typed on the dashboard → the agent sends them in Zoom ----
 // Adds a row to the "Outbox" tab; the running agent picks it up within a few seconds and marks it sent.
-function queueReply(book, to, text, from) {
+// learnQuestion: also save this Q&A to "Attendee Replies" so the AI answers it itself next time
+function queueReply(book, to, text, from, learnQuestion) {
   text = String(text || '').trim();
   if (!text) return { error: 'Empty message' };
   if (text.length > 1000) return { error: 'Message too long (max 1000 characters)' };
@@ -229,7 +230,17 @@ function queueReply(book, to, text, from) {
   const id = Utilities.getUuid().slice(0, 8);
   // plain text in every cell (a reply starting with = or + must never become a formula)
   sh.getRange(sh.getLastRow() + 1, 1, 1, 6).setNumberFormat('@').setValues([[new Date().toISOString(), String(to || '').slice(0, 100), text, 'pending', id, String(from || 'dashboard').slice(0, 40)]]);
+  if (learnQuestion) learnAnswer(book, learnQuestion, text, to);
   return { ok: true, id: id };
+}
+function learnAnswer(book, question, answer, to) {
+  const sh = book.getSheetByName('Attendee Replies');
+  if (!sh) return;
+  question = String(question).trim().slice(0, 300);
+  // the attendee's first name → {Name}, so the answer fits anyone
+  const first = String(to || '').trim().split(/\s+/)[0];
+  if (first && first.length > 2) answer = answer.split(first).join('{Name}');
+  sh.getRange(sh.getLastRow() + 1, 1, 1, 2).setNumberFormat('@').setValues([['Asked: "' + question + '" (answered by the team)', answer]]);
 }
 
 // ---- Automatic start (GitHub's own schedule never fired for this repo, so this sheet starts the agent) ----

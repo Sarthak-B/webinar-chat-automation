@@ -27,3 +27,8 @@ assert.equal(stripPromises("Ilyas, Sir will cover this in today's session – pl
 assert.equal(stripPromises('Sir aaj ke session mein ise detail mein cover karenge – kripya end tak jude rahiye.'), '');
 assert.equal(stripPromises('The complete offer and pricing come later in this session – please stay connected till then.'), 'The complete offer and pricing come later in this session – please stay connected till then.');
 console.log('✓ recording-safe reply tests passed');
+
+// 26 Nov: problems/concerns must never be skipped
+for (const t of ['My friend he cnt joining', 'looks like this is recording', 'no sound', 'link not working', 'payment failed'])
+  assert.ok(needsReply(t), `should reach the AI/team: ${t}`);
+console.log('✓ problem/concern tests passed');

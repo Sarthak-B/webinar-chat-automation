@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { loadConfig } from './config.js';
 import { Sheet, SheetLogger } from './sheets.js';
 import { parseFifteen, startDate, isDayTab, parseSchedule, parseReplies, parseObjections, parseNumberBank, parseSessionStart, isPricingChat } from './schedule.js';
-import { Brain, FALLBACK, findPhone, isTrivial, needsReply, stripQuote, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
+import { Brain, FALLBACK, findPhone, isTrivial, needsReply, stripQuote, PROBLEM_WORDS, firstName, asksForNumber, detectLang, mentionsPrice } from './brain.js';
 import { Zoom } from './zoom.js';
 import { ChatSync } from './chatsync.js';
 import { History } from './history.js';
@@ -145,6 +145,23 @@ if (testShiftMs) {
 let sessionStart = (cfg.buyers && startDate(cfg.sessionStartClock)) || parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
 if (testShiftMs && (cfg.buyers || parseSessionStart(scheduleRows))) sessionStart = new Date(sessionStart.getTime() + testShiftMs);
 let unlockAt = new Date(sessionStart.getTime() + cfg.priceUnlockMin * 60_000);
+// facts the AI can always use: when this session runs (from the timesheet)
+const sessionFacts = () => {
+  const end = schedule.at(-1).at, hrs = Math.round(((end - sessionStart) / 3600e3) * 2) / 2;
+  return [{ when: 'Asks how long the session is / when it ends / what time it started', reply: `Today's session started at ${clock(sessionStart).replace(/:00(?= )/, '')} and runs till about ${clock(end).replace(/:\d\d(?= )/, '')} (around ${hrs} hours) – please stay connected till the end.` }];
+};
+brain.setReplies([...replies, ...sessionFacts()]);
+// answers the team saves from the dashboard land in the Attendee Replies tab – picked up every 5 min
+setInterval(async () => {
+  try {
+    const fresh = parseReplies(await (cfg.buyers ? schedSheet : sheet).read(cfg.repliesTab));
+    if (fresh.length && fresh.length !== replies.length) {
+      log(`Answers updated: ${fresh.length - replies.length > 0 ? '+' : ''}${fresh.length - replies.length} (now ${fresh.length})`);
+      replies = fresh;
+      brain.setReplies([...replies, ...sessionFacts()]);
+    }
+  } catch {}
+}, 5 * 60_000).unref();
 if (cfg.buyers) unlockAt = new Date(0); // no pricing hold at all
 // HARD RULE: no number asks of any kind before 1 hour into the session (NUMBER_UNLOCK_MIN, default 60)
 const numberLocked = () => !cfg.buyers && Date.now() < sessionStart.getTime() + cfg.numberUnlockMin * 60_000;
@@ -581,7 +598,7 @@ async function handle(sender, text) {
     record('NO REPLY', sender, '', text, 'not a question – no reply needed');
     return;
   }
-  if (crowdMode() && !STRONG_QUESTION.test(text)) {
+  if (crowdMode() && !STRONG_QUESTION.test(text) && !PROBLEM_WORDS.test(text)) {
     record('NO REPLY', sender, '', text, "answer to Sir's prompt (many people typing) – no reply needed");
     return;
   }
