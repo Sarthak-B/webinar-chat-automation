@@ -365,7 +365,8 @@ Respond with JSON only.`;
     if (!r) return null;
     // HARD RULE: no number ask (not even a hint) before 1 hour into the session – drop those sentences.
     if (numberLocked && asksForNumber(r)) {
-      r = r.split(/(?<=[.!?।])\s+/).filter((x) => !asksForNumber(x)).join(' ').trim();
+      // exception (Arman's rule): the recording answer ALWAYS keeps its "need it urgently? drop your number – our senior mentor team sends it" line
+      r = r.split(/(?<=[.!?।])\s+/).filter((x) => !asksForNumber(x) || RECORDING_OK.test(x)).join(' ').trim();
       return r || null;
     }
     // HARD RULE: no pricing before the pricing section – replace the whole reply with a safe one.
