@@ -15,7 +15,7 @@ await page.setContent(`<div class="chat-list" style="height:300px;overflow-y:aut
   list.addEventListener('scroll', draw); list.scrollTop = list.scrollHeight; draw();
   window.expected = all.filter((m) => /98\\d{8}/.test(m.t)).map((m) => m.s + ':' + m.t);
 </script>`);
-const fake = { root: page.mainFrame(), ui: page.mainFrame(), page, sending: true, openChat: async () => {}, scrollChatToBottom: async () => {} };
+const fake = Object.assign(Object.create(Zoom.prototype), { ui: page.mainFrame(), page, sending: true, openChat: async () => {}, scrollChatToBottom: async () => {} }); // root (getter) = ui
 await Zoom.prototype.readChatWindows.call(fake); // installs the in-page reader
 fake.sending = false;
 const msgs = await Zoom.prototype.sweepChat.call(fake);

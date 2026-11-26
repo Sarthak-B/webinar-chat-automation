@@ -521,6 +521,13 @@ if (!cfg.buyers) {
     if (n) log(`Loaded ${n} number(s) already saved today – they won't be saved or asked again`);
   } catch {}
 }
+// attendee messages already logged today (by an earlier run) – a restart never logs or answers them twice
+const loggedToday = new Map(); // "sender|text" → count
+try {
+  const rows = await sheet.read(cfg.logTab, 'A1:F20000');
+  for (const r of rows) if (String(r[0]).trim() === today && String(r[2]).trim() === 'IN') { const k = `${String(r[3]).trim()}|${String(r[5]).trim()}`; loggedToday.set(k, (loggedToday.get(k) || 0) + 1); }
+  if (loggedToday.size) log(`Loaded today's chat so far (${[...loggedToday.values()].reduce((a, b) => a + b, 0)} attendee messages) – none of them is logged or answered twice`);
+} catch {}
 const asks = new Map(); // name → { count, last } number asks sent (replies that ask count too)
 let bankIdx = 0;
 
@@ -555,7 +562,7 @@ async function askForNumber(sender, said, reason) {
   enqueue({ prio: 4, text, to: sender, kind: 'NUMBER ASK', said, note: `${reason}${angle ? ` · ${angle.angle}` : ''} · ${langOf(sender)}`, skipIf });
 }
 
-function saveNumber(sender, text) {
+function saveNumber(sender, text, when = '') {
   if (cfg.buyers) return; // buyers' session: no lead collection
   const phone = findPhone(text);
   if (!phone) return;
@@ -564,7 +571,7 @@ function saveNumber(sender, text) {
   const key = `${sender.toLowerCase()}|${phone.slice(-10)}`;
   if (savedNumbers.has(key)) return;
   savedNumbers.add(key);
-  numbers.add([today, clock(), sender, phone, text, cfg.scheduleTab]);
+  numbers.add([today, zoomTime(when) || clock(), sender, phone, text, cfg.scheduleTab]); // the time they SENT it in Zoom
   history.lead(phone);
   numbers.flush().catch((e) => log('numbers flush failed:', e.message));
   log(`Number from ${sender}: ${phone}`);
@@ -735,22 +742,84 @@ let lastSweep = Date.now();
 async function sweepNumbers(why) {
   lastSweep = Date.now();
   sweepSoon = false;
-  if (cfg.buyers) return;
   const msgs = await zoom.sweepChat().catch((e) => (log('chat sweep failed:', e.message), []));
+  const withIds = msgs.filter((m) => m.id && m.idx != null);
   let found = 0;
-  for (const m of msgs) {
-    const { name, isTeam } = cleanSender(m.sender);
-    if (!name || isTeam || ownTexts.has(norm(m.text))) continue;
-    const said = stripQuote(m.text);
-    const phone = findPhone(said);
-    if (!phone || savedNumbers.has(`${name.toLowerCase()}|${phone.slice(-10)}`)) continue;
-    found++;
-    record('IN', name, '', m.text, `found in chat check (${why})`);
-    saveNumber(name, said);
+  if (withIds.length) found = intake(withIds, { catchup: true });
+  else {
+    // older Zoom markup without message ids: numbers only
+    for (const m of msgs) {
+      const { name, isTeam } = cleanSender(m.sender || '');
+      if (!name || isTeam || ownTexts.has(norm(m.text))) continue;
+      const said = stripQuote(m.text);
+      const phone = findPhone(said);
+      if (!phone || savedNumbers.has(`${name.toLowerCase()}|${phone.slice(-10)}`)) continue;
+      found++;
+      record('IN', name, '', m.text, `found in chat check (${why})`);
+      saveNumber(name, said, m.time);
+    }
   }
-  log(`Chat check (${why}): ${msgs.length} messages read, ${found} new number(s) saved`);
+  const total = maxIdx >= 0 ? maxIdx + 1 : msgs.length;
+  log(`Chat check (${why}): read ${new Set(withIds.map((m) => m.idx)).size || msgs.length} of ${total} messages · ${found} not seen before · ${missingPositions()} still missing`);
 }
 
+// ---------- Every message, exactly once (by Zoom's message id and position) ----------
+const seenIds = new Set(); // Zoom message ids already taken in
+const byIdx = new Map(); // chat position → { sender, to, time }
+const pendingIds = new Map(); // id → message whose sender isn't known yet (group header off-screen)
+let firstIdx = null; // first chat position this run has seen
+let maxIdx = -1;
+let lastGapSweep = 0;
+// Takes in a batch of messages ({id, idx, sender, to, time, text}); returns how many were new.
+//   catchup: the chat as it was when this run joined, and everything the full-chat check finds – logged (unless an
+//            earlier run already logged it today), numbers saved, answered only if sent in the last 10 minutes
+//   otherwise: live messages – logged, numbers saved, answered
+function intake(list, { catchup = false } = {}) {
+  let fresh = 0;
+  const items = list.filter((m) => m && m.id && m.idx != null).sort((a, b) => a.idx - b.idx);
+  for (const m of items) if (m.sender) byIdx.set(m.idx, { sender: m.sender, to: m.to, time: m.time });
+  const take = (m) => {
+    if (seenIds.has(m.id)) return true;
+    let r = m;
+    if (!r.sender) {
+      const prev = byIdx.get(m.idx - 1); // a group continuation: same sender as the message above it
+      if (!prev?.sender) return false;
+      r = { ...m, sender: prev.sender, to: m.to || prev.to, time: m.time || prev.time };
+    }
+    byIdx.set(r.idx, { sender: r.sender, to: r.to, time: r.time });
+    seenIds.add(r.id);
+    pendingIds.delete(r.id);
+    if (firstIdx == null || r.idx < firstIdx) firstIdx = r.idx;
+    if (r.idx > maxIdx) maxIdx = r.idx;
+    fresh++;
+    if (catchup) {
+      const { name, isTeam } = cleanSender(r.sender);
+      const k = `${name}|${String(r.text).trim()}`;
+      if (name && !isTeam && loggedToday.get(k) > 0) {
+        loggedToday.set(k, loggedToday.get(k) - 1); // an earlier run logged it already
+        saveNumber(name, stripQuote(r.text), r.time); // (no-op if saved)
+        fresh--;
+      } else {
+        const sentAt = zoomDate(r.time);
+        const recent = sentAt && Date.now() - sentAt < 10 * 60_000;
+        handleIncoming(r, { note: `found in chat check${r.time ? ` · sent ${zoomTime(r.time)}` : ''}`, noReply: !recent });
+      }
+    } else handleIncoming(r);
+    return true;
+  };
+  for (const m of items) if (!take(m)) pendingIds.set(m.id, m);
+  for (const m of [...pendingIds.values()]) take(m); // a later batch may have filled in the sender
+  return fresh;
+}
+// positions between the first and newest message this run has seen, that it never got → fetch them
+function missingPositions() {
+  if (firstIdx == null) return 0;
+  let n = 0;
+  for (let i = firstIdx; i <= maxIdx; i++) if (!byIdx.has(i)) n++;
+  return n;
+}
+
+let joinedSeen = false;
 async function chatLoop() {
   let sync = new ChatSync();
   let joinSeen = zoom.joinCount;
@@ -768,6 +837,7 @@ async function chatLoop() {
     if (zoom.joinCount !== joinSeen) {
       joinSeen = zoom.joinCount; // rejoined: start fresh, so chat from before is not answered again
       sync = new ChatSync();
+      byIdx.clear(); pendingIds.clear(); firstIdx = null; maxIdx = -1; // positions restart after a rejoin (ids don't)
     }
     const now = windows.at(-1) || [];
     // Nothing readable for 5 min → log what the page looks like (max 3 times) so selectors can be fixed
@@ -783,8 +853,18 @@ async function chatLoop() {
     }
     // Every snapshot of the panel since the last read, oldest first. New messages are matched by their
     // order in the chat, so repeats ("ok", "0", the same question twice) are each handled exactly once.
+    let idPath = false;
     for (const win of windows) {
-      const { fresh, gap } = sync.ingest(win);
+      if (win.some((m) => m.id && m.idx != null)) {
+        idPath = true;
+        if (!joinedSeen) {
+          joinedSeen = true;
+          intake(win, { catchup: true });
+          sweepSoon = true; // then read the whole chat once: nothing typed before/while joining is lost
+        } else intake(win);
+        continue;
+      }
+      const { fresh, gap } = sync.ingest(win.filter((m) => m.sender));
       if (gap && Date.now() - lastGapLog > 60_000) {
         lastGapLog = Date.now();
         log(`⚠ Chat moved faster than Zoom keeps on screen – a few messages before "${String(fresh[0]?.text || '').slice(0, 40)}" may have been missed`);
@@ -793,12 +873,22 @@ async function chatLoop() {
       for (const m of fresh) handleIncoming(m);
       if (gap) sweepSoon = true;
     }
-    if (running && (sweepSoon || Date.now() - lastSweep > 15 * 60_000)) await sweepNumbers(sweepSoon ? 'after a busy moment' : 'every 15 min');
+    // a skipped position in the chat → fetch it right away (at most once a minute)
+    const missing = idPath ? missingPositions() : 0;
+    if (missing && Date.now() - lastGapSweep > 60_000) {
+      lastGapSweep = Date.now();
+      log(`${missing} message(s) scrolled past before they were read – fetching them`);
+      sweepSoon = true;
+    }
+    if (running && (sweepSoon || Date.now() - lastSweep > 5 * 60_000)) await sweepNumbers(sweepSoon ? 'fetching missed messages' : 'every 5 min');
     await sleep(400);
   }
 }
 
-function handleIncoming(m) {
+// "7:15:22 PM" (Zoom) → "7:15:22 pm" (sheet style)
+const zoomTime = (t) => { const m = String(t || '').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AP]M)$/i); return m ? `${Number(m[1])}:${m[2]}:${m[3] || '00'} ${m[4].toLowerCase()}` : ''; };
+const zoomDate = (t) => { const c = zoomTime(t); if (!c) return null; const [hms, ap] = c.split(' '); let [h, mi, se] = hms.split(':').map(Number); if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; const d = new Date(); d.setHours(h, mi, se, 0); return d; };
+function handleIncoming(m, { note = '', noReply = false } = {}) {
   if (ownTexts.has(norm(m.text))) {
     const self = cleanSender(m.sender).name.toLowerCase();
     if (self && !teamSet.has(self)) {
@@ -809,14 +899,14 @@ function handleIncoming(m) {
   }
   const { name, isTeam } = cleanSender(m.sender);
   if (!name || isTeam) return;
-  record('IN', name, '', m.text); // every attendee message, so the dashboard can show full conversations
+  record('IN', name, '', m.text, note || (m.time ? `sent ${zoomTime(m.time)}` : '')); // every attendee message, so the dashboard can show full conversations
   const said = stripQuote(m.text); // without Zoom's 'Replying to "…"' part
   arrivals.push({ at: Date.now(), sender: name });
   lastIncomingAt = Date.now();
   noteIncoming(name, said);
   history.chatter(name);
-  saveNumber(name, said);
-  queueAttendee(name, said);
+  saveNumber(name, said, m.time);
+  if (!noReply) queueAttendee(name, said);
 }
 
 // "Thank you A, B & C. Our team is calling you shortly." – only real names of people who shared numbers.

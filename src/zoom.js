@@ -575,7 +575,12 @@ export class Zoom {
     if (!this.ui) this.ui = await this.findMeetingFrame();
     return this.root.evaluate((SEL) => {
       if (!window.__agentExtract) {
-        window.__agentExtract = () => {
+        // Every message Zoom draws: { id, idx, sender, to, time, text }.
+        //   idx  = its position in the whole chat (from id="chat-item-container-N") – never changes
+        //   id   = Zoom's own message id (the text box id) – unique per message
+        //   sender/to/time come from the message's aria-label "Name to Hosts and Panelists, 7:15:22 PM, text",
+        //   or from the group header above it (Zoom shows the name once for consecutive messages).
+        window.__agentExtractFull = () => {
           const q = (root, list) => {
             for (const s of list) {
               const el = root.querySelector(s);
@@ -591,30 +596,49 @@ export class Zoom {
               break;
             }
           }
-          let lastSender = '';
+          const idxOf = (el) => {
+            const m = String(el.id || '').match(/(\d+)$/);
+            return m ? Number(m[1]) : null;
+          };
+          // draw order isn't chat order in Zoom's virtual list – sort by position
+          items.sort((x, y) => (idxOf(x) ?? 0) - (idxOf(y) ?? 0));
+          const clean = (t) => String(t || '').trim().replace(/\s+/g, ' ').replace(/\s+to\s+(Everyone|Hosts? and Panelists|All Panelists.*|Me|You)\b.*$/i, '').replace(/\s*\((Privately|Direct Message)\)\s*$/i, '').trim();
+          let last = { sender: '', to: '', time: '', idx: null };
           const out = [];
           for (const item of items) {
+            const idx = idxOf(item);
             const senderEl = q(item, SEL.chatSender);
-            // Zoom groups consecutive messages from one person and shows the name only once.
-            let sender = (senderEl?.textContent || lastSender).trim().replace(/\s+/g, ' ');
-            sender = sender.replace(/\s+to\s+(Everyone|Hosts? and Panelists|All Panelists.*|Me|You)\b.*$/i, '').replace(/\s*\((Privately|Direct Message)\)\s*$/i, '').trim();
-            lastSender = sender;
+            const head = {
+              sender: senderEl ? clean(senderEl.getAttribute('data-name') || senderEl.textContent) : '',
+              to: (item.querySelector('.chat-item__receiver, [class*="receiver"]')?.getAttribute('data-name') || '').trim(),
+              time: (item.querySelector('[class*="time-stamp"], [class*="timestamp"]')?.textContent || '').trim(),
+            };
+            // a group continuation inherits the header only from the message right above it
+            const inherit = !head.sender && ((idx == null && last.idx == null) || (last.idx != null && idx === last.idx + 1)) ? last : null; // no positions (older markup): page order
             let textEls = [];
-            for (const s of SEL.chatText) {
-              const found = item.querySelectorAll(s);
+            for (const sel of SEL.chatText) {
+              const found = item.querySelectorAll(sel);
               if (found.length) {
                 textEls = [...found];
                 break;
               }
             }
-            for (const t of textEls) {
+            textEls.forEach((t, k) => {
               const text = (t.innerText || t.textContent || '').trim();
-              // messages at the very top whose name is drawn above the visible part have no sender – skip
-              if (text && sender) out.push({ sender, text });
-            }
+              if (!text) return;
+              let sender = head.sender || inherit?.sender || '', to = head.to || inherit?.to || '', time = head.time || inherit?.time || '';
+              const aria = t.closest('[aria-label]')?.getAttribute('aria-label') || '';
+              const m = aria.match(/^(.+?) to (.+?), (\d{1,2}:\d{2}(?::\d{2})?\s?[AP]M), /i);
+              // each message's own aria-label has its exact sender and send time – trust it over the group header
+              if (m) { sender = head.sender || clean(m[1]) || sender; to = head.to || m[2].trim() || to; time = m[3]; }
+              out.push({ id: t.id || (idx != null ? `i${idx}-${k}` : ''), idx, sender, to, time, text });
+            });
+            const s0 = out.at(-1);
+            last = { sender: s0?.sender || '', to: s0?.to || '', time: s0?.time || '', idx };
           }
           return out;
         };
+        window.__agentExtract = () => window.__agentExtractFull().filter((m) => m.sender);
       }
       if (!window.__agentObs) {
         window.__agentSnaps = [];
@@ -622,16 +646,18 @@ export class Zoom {
         // snapshot right inside the observer callback (runs once per batch of DOM changes, before the
         // browser paints) – so every state Zoom draws is captured, however fast messages arrive
         const toBottom = () => {
-          for (const el of document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')) {
-            if (el.scrollHeight - el.clientHeight - el.scrollTop > 4) el.scrollTop = el.scrollHeight;
-          }
+          const item = document.querySelector('[id^="chat-item-container-"], .chat-item-container');
+          let el = item && item.parentElement;
+          while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+          const boxes = el ? [el] : [...document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')];
+          for (const b of boxes) if (b.scrollHeight - b.clientHeight - b.scrollTop > 4) b.scrollTop = b.scrollHeight;
         };
         const snap = () => {
           try {
             // keep the list at the newest message (Zoom doesn't draw new ones while scrolled up),
             // except in the moment the agent is clicking someone's name to reply
             if (!window.__agentHold) toBottom();
-            const w = window.__agentExtract();
+            const w = window.__agentExtractFull();
             const sig = JSON.stringify(w);
             if (!w.length || sig === window.__agentLast) return;
             window.__agentLast = sig;
@@ -643,7 +669,7 @@ export class Zoom {
         window.__agentObs.observe(document.body, { childList: true, subtree: true, characterData: true });
       }
       const snaps = window.__agentSnaps.splice(0);
-      snaps.push(window.__agentExtract());
+      snaps.push(window.__agentExtractFull());
       return snaps;
     }, SEL);
   }
@@ -824,22 +850,26 @@ export class Zoom {
   async sweepChat() {
     if (this.sending) return [];
     await this.openChat();
+    // the in-page reader is set up by the live read – make sure it exists (and keep what that read returns)
+    const pre = (await this.root.evaluate(() => !!window.__agentExtractFull).catch(() => false)) ? [] : (await this.readChatWindows().catch(() => [])).flat();
     this.sweeping = true;
     try {
-      const all = [];
+      const all = [...pre];
       await this.root.evaluate(() => (window.__agentHold = true));
-      for (let step = 0; step < 400; step++) {
+      for (let step = 0; step < 600; step++) {
         const r = await this.root.evaluate((step) => {
-          const lists = [...document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')].filter((el) => el.scrollHeight > el.clientHeight + 4);
-          const el = lists.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
-          if (!el) return { msgs: window.__agentExtract ? window.__agentExtract() : [], done: true };
+          // the box that really scrolls: the nearest scrollable parent of a chat message
+          const item = document.querySelector('[id^="chat-item-container-"], .chat-item-container, [class*="chat-item"][class*="container"]');
+          let el = item && item.parentElement;
+          while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+          if (!el) return { done: true };
           if (step === 0) el.scrollTop = 0;
-          else el.scrollTop += Math.max(80, el.clientHeight * 0.6);
+          else el.scrollTop += Math.max(60, el.clientHeight * 0.5);
           return { done: el.scrollTop + el.clientHeight >= el.scrollHeight - 2 };
         }, step);
-        await this.page.waitForTimeout(step === 0 ? 600 : 220); // let Zoom draw that part of the list
-        const msgs = await this.root.evaluate(() => (window.__agentExtract ? window.__agentExtract() : [])).catch(() => []);
-        all.push(...msgs, ...(r.msgs || []));
+        await this.page.waitForTimeout(step === 0 ? 700 : 200); // let Zoom draw that part of the list
+        const msgs = await this.root.evaluate(() => (window.__agentExtractFull ? window.__agentExtractFull() : [])).catch(() => []);
+        all.push(...msgs);
         if (r.done && step > 0) break;
       }
       return all;
@@ -854,7 +884,10 @@ export class Zoom {
   async scrollChatToBottom() {
     await this.root
       .evaluate(() => {
-        for (const el of document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')) {
+        const item = document.querySelector('[id^="chat-item-container-"], .chat-item-container');
+        let box = item && item.parentElement;
+        while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+        for (const el of box ? [box] : document.querySelectorAll('[class*="chat-list"], [class*="chat-container"] [class*="scroll"], [class*="chat-content"]')) {
           if (el.scrollHeight > el.clientHeight) el.scrollTop = el.scrollHeight;
         }
       })
