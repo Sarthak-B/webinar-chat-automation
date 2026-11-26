@@ -251,7 +251,8 @@ async function joinWithRetry() {
   }
   // Stays idle until the webinar is live, then joins. Keeps trying until JOIN_WAIT_MIN (default 75) after
   // the first timed chat – so a late start is still picked up.
-  const deadline = cfg.directUrl && cfg.testFromNow ? Date.now() + 60 * 60_000 : schedule[0].at.getTime() + cfg.joinWaitMin * 60_000;
+  // keep trying until 75 min after the first chat – or, when (re)started mid-webinar, until the last timed chat
+  const deadline = cfg.directUrl && cfg.testFromNow ? Date.now() + 60 * 60_000 : Math.max(schedule[0].at.getTime() + cfg.joinWaitMin * 60_000, schedule.at(-1).at.getTime());
   log(`Waiting for the webinar to go live – will keep trying until ${clock(new Date(deadline))}`);
   for (let i = 1; Date.now() < deadline; i++) {
     try {
