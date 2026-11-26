@@ -786,9 +786,10 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
 .autol .cur small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
 .autol .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .autol select,.autol input[type=time]{width:100%;height:40px;padding:0 10px;border-radius:12px;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);font-size:13.5px;color-scheme:dark}
-.autol .acts2{display:flex;gap:8px}
-.summary .autol .btn{height:42px;font-size:13.5px;flex:1}
-.autol .btn.ghost.sm{flex:0 0 auto}
+.autol .acts2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.autol .acts2:has(#autoOff[hidden]){grid-template-columns:minmax(0,1fr)}
+.summary .autol .btn{width:100%;min-width:0;height:42px;font-size:13.5px;padding:0 16px}
+.summary .autol #autoOff{width:auto;color:var(--red)}
 .autol .why{font-size:12px;color:var(--muted);margin-top:10px}
 </style>
 <noscript><style>[data-reveal]{opacity:1!important;transform:none!important;filter:none!important}.curtain{display:none}</style></noscript>
@@ -905,7 +906,7 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
             <div class="ah"><span class="label">Auto launch</span><span class="ast" id="autoSt">Checking…</span></div>
             <div class="cur" id="autoCur">Loading the saved auto launch…</div>
             <div class="row">
-              <select id="autoSlot" aria-label="Which webinar slot"><option value="evening">Every day · 7:30 PM</option><option value="morning">Sundays · 11 AM</option></select>
+              <select id="autoSlot" aria-label="Which webinar slot"><option value="evening">Daily 7:30 PM</option><option value="morning">Sun 11 AM</option></select>
               <input id="autoTime" type="time" aria-label="Start the agent at" value="18:50">
             </div>
             <div class="acts2"><button class="btn ghost" id="autoSave" type="button">Save as auto launch</button><button class="btn ghost sm" id="autoOff" type="button" hidden>Turn off</button></div>
@@ -2688,6 +2689,7 @@ function renderAuto(keepInputs) {
     ? `<b>${esc(cur.tab)}</b> · ${esc(modeName[cur.mode] || cur.mode)} · Zoom ${esc(cur.account === 'auto' ? 'marketing@' : cur.account + '@')}<small>Agent starts at ${esc(cur.start)} ${slot === 'morning' ? 'every Sunday' : 'every day'}${AutoL.timers ? '' : ' – but the timer isn\'t installed: run installAutoStart once in the Apps Script'}${cur.saved ? ` · saved ${esc(cur.saved)}` : ''}</small>`
     : `Off – nothing starts by itself for this slot.${cur && cur.tab ? `<small>Last saved: ${esc(cur.tab)} · ${esc(cur.start)}</small>` : ''}`;
   $('#autoOff').hidden = !on;
+  $('#autoSave').textContent = on ? 'Save changes' : 'Save as auto launch';
   if (!keepInputs) $('#autoTime').value = (cur && to24(cur.start)) || (slot === 'morning' ? '10:20' : '18:50'); // defaults: 6:50 PM / 10:20 AM
 }
 async function saveAuto(on) {
