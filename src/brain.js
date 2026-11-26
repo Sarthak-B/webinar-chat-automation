@@ -242,7 +242,7 @@ ${angles}
 How to write:
 - Always speak as the team: "we", "our team", "humari team", "हमारी टीम". Never "I", "me", "my team", "meri team".
 - NEVER promise any follow-up. Nobody will "get back to you", "check and update", "look into it", "review your request", "reach out", "call you tomorrow", "schedule a call", "send the recording", "repeat that part" or "give an overview" – so never write anything like that, in any language ("jaanch karke update", "check karegi", "sampark karenge"…). The ONLY allowed lines about follow-up: after they share their number, it has been shared with our senior mentors; and the recording answers exactly as FACTS say (it is provided tomorrow; if they need it now, they drop their number and our senior mentor team gives it to them personally after the session).
-- NEVER invent anything that is not written in FACTS: no features, apps, integrations (n8n, mobile app…), member-area sections or menus, course structure, session length or timings, payment gateways/banks, support processes, results or income. If FACTS don't answer it, use "escalate" – a person from the team will answer.
+- Answer as many questions as you can yourself. Use FACTS first. When FACTS don't cover it, you may still give a short, general, honest answer from what FlexiFunnels / FlexiGenie is (an all-in-one funnel, website, payment and automation platform where everything – pages, leads, payments, hosting – lives in your FlexiFunnels account), but NEVER invent specific prices, discounts, dates, timings, guarantees, bonuses, links, banks, apps or integrations that are not in FACTS. If you truly can't say anything useful, say politely that this is covered in detail by our senior mentors and (when number asks are allowed) they can guide them personally.
 - Professional and respectful: "aap"/"आप" (never "tum"), "ji" where natural, no slang, no jokes, no comments about the person's mood or excitement, no "bro/dear/buddy". At most one 🙏, usually no emoji.
 - Never thank them for sharing their number. When they have shared it, say it has been shared with our senior mentors, who will contact them.
 - Never say you are AI, a bot or an assistant. If asked whether this is a bot or really ${this.persona}, say politely that this is the FlexiFunnels team assisting on ${this.persona}'s behalf.
@@ -387,10 +387,11 @@ Decide:
 - "reply": a real question or doubt you can answer from FACTS → write the reply (answer first; follow the number instruction above for whether and how to transition to the number).
 - "ignore": greetings, introductions ("hi I'm Sayyed"), city/state/country names, "first time", their profession or business type given as an answer to Sir's question ("Cosmetic", "own spices brand", "Life Coach"), poll answers ("type 2", "T2 & T3", "10%", "1 lakh", "F", "y", "me"), "yes"/"1", thanks, emojis, compliments, positive reactions – anything that needs no answer.
 - Complaints or negative feelings about the session ("boring", "too long", "waste of time", "is this a scam?") are NOT ignored: "reply" with one short, calm, respectful line that acknowledges them and invites them to stay (e.g. "Sorry it feels slow – the practical part is what Sir is building up to, so please stay with us."). Never argue, never be defensive, no claims or promises.
-- "escalate": FACTS don't answer it, you're not sure, or it's an account/login/payment/refund/technical problem or anything a person must handle. Set "reply" to null – the team is alerted and answers in Zoom; the agent sends nothing.
+- "escalate": ONLY for things a person must do – an existing buyer's account/login/payment/refund problem, or a technical problem with their purchase. Still write a short, kind reply (no promises) – it is sent, and the team is told to check it.
 - "objection": one of [${objKeys}] if the message raises it, else null.
 - "safe_to_ask": false only for abusive, spam or hostile messages (we won't message them at all), else true.
-JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":string|null,"safe_to_ask":boolean,"reason":string}`;
+- "from_facts": true when your reply is based on FACTS, false when it is a general answer (the team checks those once).
+JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":string|null,"safe_to_ask":boolean,"from_facts":boolean,"reason":string}`;
     let out;
     try {
       out = await this.#chatPatiently(user);
@@ -409,8 +410,8 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
       }
       out.reply = stripPromises(guarded);
       // a reply that was only promises ("our team will get back to you") → nothing is sent, the team is alerted
-      if (out.action === 'reply' && guarded && !out.reply) return { ...out, action: 'escalate', reply: null, reason: 'reply only promised a follow-up – needs a person' };
-      if (out.action === 'escalate') out.reply = null; // hand-offs never get an automatic reply
+      if (guarded && !out.reply) return { ...out, action: 'escalate', reply: null, reason: 'reply only promised a follow-up – needs a person' };
+      // escalations keep the AI's kind reply – it is sent, and the team is asked to check it
     } else {
       out.reply = null;
     }

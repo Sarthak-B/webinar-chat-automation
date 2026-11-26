@@ -369,6 +369,8 @@ input[readonly]{opacity:.7;cursor:default}
 .learn{flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);padding:0 6px;cursor:pointer}
 .learn input{accent-color:var(--acid);width:15px;height:15px}
 .learn small{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.rv{font:600 9.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:3px 6px;border-radius:99px;background:rgba(124,200,255,.14);color:var(--sky);margin-left:6px;vertical-align:middle}.rv.team{background:rgba(245,184,75,.15);color:var(--amber)}
+.sys.review{border-color:rgba(124,200,255,.35);color:var(--sky)}
 .sys.skip{margin:2px 0 10px;padding:0;background:none;border:0;font-size:11px;opacity:.6;align-self:flex-start}
 .sys.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.07)}
 .sys.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.07)}
@@ -933,7 +935,7 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
             <div class="side-list" id="numbersList"><div class="empty">No numbers yet.</div></div>
           </div>
           <div class="card" data-reveal>
-            <div class="card-h"><h3>Needs the team</h3><span class="label" id="teamCount">0</span></div>
+            <div class="card-h"><h3>Team inbox</h3><span class="label" id="teamCount">0</span></div>
             <div class="side-list" id="teamList"><div class="empty">Nothing waiting on you.</div></div>
           </div>
         </div>
@@ -1247,7 +1249,7 @@ async function switchWebinar(w) {
   S.webinar = w; store.set('autopilot.webinar', w);
   S.tab = null; S.schedule = []; S.tabs = []; renderWebinar(); renderSchedule(); renderLaunch();
   // each webinar has its own Agent Log / Numbers – reload the live feed from the right sheet
-  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true; ringPrimed = false; rung.clear(); alertPrimed = false; alerted.clear(); replyPrimed = false; replied.clear();
+  S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; seenRows.clear(); firstPaint = true; ringPrimed = false; rung.clear(); alertPrimed = false; alerted.clear(); replyPrimed = false; replied.clear(); reviewPrimed = false; reviewed.clear();
   loadFeed();
   $('#tabsGrid').innerHTML = '<div class="empty">Loading…</div>';
   await loadTabs();
@@ -1698,7 +1700,7 @@ async function stopRun() {
 }
 
 // ---------- feed ----------
-const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; return 'other'; };
+const kindOf = (k) => { const s = String(k).replace(/^DRY /, '').toUpperCase(); if (s.startsWith('TIMED')) return 'timed'; if (s === 'REPLY') return 'reply'; if (s === 'NUMBER') return 'number'; if (s === 'NUMBER ASK') return 'ask'; if (s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') return 'team'; if (s === 'FAILED') return 'fail'; if (s === 'IN') return 'in'; if (s === 'REVIEW') return 'review'; return 'other'; };
 let feedBusy = false;
 async function loadFeed() {
   // one refresh at a time: a slow Google response must never let two refreshes add the same rows twice
@@ -1778,9 +1780,9 @@ function renderFeed() {
   $('#copyNew').disabled = !unseen.length; $('#copyNew').classList.toggle('has', !!unseen.length);
   $('#numbersList').innerHTML = nums.length ? nums.map((c) => { const { time, name, num } = c; const t = niceTime(time); const isCopied = copied.has(c.key); const cp = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
     return `<div class="person numrow ${isCopied ? 'copied' : 'unseen'} ${isNew(['n', name, num])}"><span class="avatar">${esc(String(name).trim()[0] || '?').toUpperCase()}</span><div class="nr-main"><button class="nr-name" data-copy="${esc(String(name).trim())}" title="Copy name">${esc(name)}</button><button class="nr-num" data-copy="${esc(num)}" title="Copy number">${esc(num)}</button></div><button class="nr-time" data-copy="${esc(t)}" title="Copy the time they sent it">${esc(t)}</button>${isCopied ? '<span class="nr-done" title="Already copied">✓</span>' : '<span class="nr-new">NEW</span>'}<button class="copy" data-copy-row="${esc(c.key)}" aria-label="Copy name, number and time" title="Copy Name - Number - Time">${cp}</button></div>`; }).join('') : '<div class="empty">No numbers yet.</div>';
-  const team = rows.filter((r) => kindOf(r[2]) === 'team').reverse();
+  const team = rows.filter((r) => kindOf(r[2]) === 'team' || kindOf(r[2]) === 'review').reverse();
   $('#teamCount').textContent = team.length;
-  $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
+  $('#teamList').innerHTML = team.length ? team.map((r) => { const [, time, , to, , said, note] = r; return `<div class="person ${isNew(['t', ...r])}"><span class="avatar" style="color:var(--amber)">${esc(String(to).trim()[0] || '?').toUpperCase()}</span><div style="min-width:0"><div class="n">${esc(to)} ${kindOf(r[2]) === 'review' ? '<span class="rv">check reply</span>' : '<span class="rv team">needs you</span>'}</div><div class="d" style="font-family:var(--body);white-space:normal">"${esc(said)}"</div>${kindOf(r[2]) === 'review' && r[4] ? `<div class="d" style="font-family:var(--body);white-space:normal;color:var(--acid)">AI: ${esc(String(r[4]).slice(0, 160))}</div>` : note ? `<div class="d" style="color:var(--dim)">${esc(note)}</div>` : ''}</div><span class="t">${esc(String(time).replace(/:\d\d\s/, ' '))}</span></div>`; }).join('') : '<div class="empty">Nothing waiting on you.</div>';
   firstPaint = false;
 }
 // A clock that keeps ticking in background tabs: browsers slow normal timers in hidden tabs to once a minute,
@@ -1821,6 +1823,7 @@ let lastReplyTone = 0;
 function replyTone() { if (Date.now() - lastReplyTone < 1500) return; lastReplyTone = Date.now(); tones([[660, 0, 0.09], [990, 0.1, 0.12]], 'sine', 0.18); }
 function failTone() { tones([[180, 0, 0.16], [180, 0.22, 0.16], [180, 0.44, 0.16]], 'square', 0.22); }
 const replied = new Set(); let replyPrimed = false;
+const reviewed = new Set(); let reviewPrimed = false;
 function alertForTeam(rows) {
   // AI reply sent to an attendee → soft blip (not for rows already there when the page opened)
   const replies = rows.filter((r) => String(r[2]) === 'REPLY');
@@ -1828,6 +1831,15 @@ function alertForTeam(rows) {
   replies.forEach((r) => replied.add(r.slice(1, 6).join('|')));
   if (replyPrimed && newReplies.length) replyTone();
   replyPrimed = true;
+  // replies to check once: soft tone + toast, never repeated
+  const reviews = rows.filter((r) => String(r[2]) === 'REVIEW');
+  const newReviews = reviews.filter((r) => !reviewed.has(r.slice(1, 6).join('|')));
+  reviews.forEach((r) => reviewed.add(r.slice(1, 6).join('|')));
+  if (reviewPrimed && newReviews.length) {
+    tones([[523, 0, 0.14], [659, 0.16, 0.14], [523, 0.32, 0.2]], 'triangle', 0.2);
+    newReviews.forEach((r) => toast(`👀 Check this AI reply to ${r[3]}: "${String(r[4]).slice(0, 90)}"`));
+  }
+  reviewPrimed = true;
   const team = rows.filter((r) => /^(AI FAILED|NEEDS TEAM)$/.test(String(r[2]).replace(/^DRY /, '')));
   const fresh = team.filter((r) => !alerted.has(r.slice(1, 6).join('|')));
   team.forEach((r) => alerted.add(r.slice(1, 6).join('|')));
@@ -1869,7 +1881,7 @@ function ringForNew(nums) {
 }
 function renderSoundBtn() {
   const b = $('#soundBtn'); if (!b) return; const on = soundOn();
-  b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); b.title = on ? 'Sounds ON – number: bright chime · AI reply sent: soft blip · needs the team: low two-tone · AI failed: urgent buzz' : 'Sounds are OFF';
+  b.classList.toggle('off', !on); b.setAttribute('aria-pressed', on); b.title = on ? 'Sounds ON – number: bright chime · AI reply sent: soft blip · check an AI reply: gentle three-note · needs the team: low two-tone · AI failed: urgent buzz' : 'Sounds are OFF';
   b.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/>${on ? '' : '<path d="M3 3l18 18"/>'}</svg>${on ? 'Sound on' : 'Sound off'}`;
 }
 // ---------- conversations ----------
@@ -1952,6 +1964,7 @@ function buildConversations() {
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
     else if (s === 'NO REPLY') { if (!c.hasIn && said) c.ev.push({ side: 'in', text: said, time }); c.ev.push({ side: 'sys', cls: 'muted skip', text: /prompt|not a question|engagement/i.test(note || '') ? 'Skipped – answer to Sir, not a question' : `Skipped${note ? ` · ${String(note).replace(/^no reply needed( · )?/, '')}` : ''}`, time }); }
     else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ AI didn't reply – answer manually in Zoom${note ? ` · ${String(note).replace(/^AI did not answer – reply manually · /, '')}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
+    else if (s === 'REVIEW') { c.ev.push({ side: 'sys', cls: 'review', text: '👀 AI replied without a sheet answer – check it once; send a better reply below if needed', time }); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
   });

@@ -630,28 +630,24 @@ async function handle(sender, text) {
   const askNow = !cfg.buyers && !numberLocked() && canAsk(sender);
   const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), askNow, ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
-  if (d.action === 'reply' && d.reply) {
+  if ((d.action === 'reply' || d.action === 'escalate') && d.reply) {
+    // The AI answers as much as it can. A general answer (not from the sheet's facts) or a case a person should
+    // look at is still SENT – and once it's out, the dashboard shows "check this reply" so the team can follow up.
     history.question();
-    enqueue({ prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang, qa: { name: sender, lang, question: text, status: 'Answered' } });
+    const check = d.action === 'escalate' ? `needs a person – ${String(d.reason || '').slice(0, 100)}` : d.from_facts === false ? 'general answer – not from the sheet' : '';
+    enqueue({
+      prio: 2, text: d.reply, to: sender, kind: 'REPLY', said: text, note: lang, qa: { name: sender, lang, question: text, status: 'Answered' },
+      onDone: check ? (ok) => ok && record('REVIEW', sender, d.reply, text, `Check this reply once (${check}) – send a better one from the dashboard if needed`) : undefined,
+    });
     if (!cfg.buyers && !numberLocked() && asksForNumber(d.reply)) noteAsk(sender);
     lastReplyTo.set(sender, Date.now());
   } else if (d.action === 'escalate') {
     history.question();
-    // AI didn't answer (no credits, outage, timeout…) → its own alert on the dashboard so a person replies
+    // nothing sendable (AI down, or its reply was only a promise) → alert so a person replies
     const aiFailed = /^AI error/i.test(d.reason || '');
     record(aiFailed ? 'AI FAILED' : 'NEEDS TEAM', sender, '', text, aiFailed ? `AI did not answer – reply manually · ${String(d.reason).slice(0, 160)}` : d.reason || '');
     log(`${aiFailed ? 'AI FAILED' : 'NEEDS TEAM'}: ${sender}: ${text}`);
-    const qa = { name: sender, lang, question: text, status: 'Needs team' };
-    if (!aiFailed) {
-      // Handed to the team: the agent sends NOTHING (no half-answer, no "our team will review") –
-      // the dashboard alert tells a person to reply in Zoom.
-      history.qaRow({ question: text });
-    } else if (cfg.buyers && d.safe_to_ask !== false && Date.now() - (lastHoldTo.get(sender) || 0) > 15 * 60_000) {
-      // AI did not answer at all → the approved holding line (max once per person per 15 min)
-      lastHoldTo.set(sender, Date.now());
-      enqueue({ prio: 1, text: fallbackReply(sender, lang, { aiFailed, askNow }), to: sender, kind: 'REPLY', said: text, note: `AI failed · fallback · ${lang}`, qa });
-      if (!hasNumber.has(sender) && !cfg.buyers && askNow) noteAsk(sender);
-    }
+    history.qaRow({ question: text });
   } else if (d.safe_to_ask !== false && !phone && cfg.numberNudges && !cfg.buyers) {
     await aiSlot(() => askForNumber(sender, text, 'chatting, no number yet'));
   }
