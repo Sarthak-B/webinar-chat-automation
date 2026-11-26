@@ -21,6 +21,12 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 
 ---
 
+## Starting it: auto launch or by hand
+
+- **Auto launch (normal days):** on the dashboard pick the webinar, tab, mode and Zoom account, choose when the agent should start (default **6:50 PM** for the 7:30 PM webinar, **10:20 AM** Sundays), and press **Save as auto launch**. The settings go into the sheet's "Auto Schedule" tab; the Apps Script checks every 5 min and starts the agent at that time – no device needs to stay open. **Turn off** stops it for that slot.
+- **Launch by hand (webinar opens early/late, a different tab, a test):** press **Launch now** – it works any time up to 3 h before the first chat; the agent waits and joins ~5 min before the first chat. Never starts a second agent; if the auto launch already started one, it says so.
+- After updating `Code.gs`, run **installAutoStart** once in the Apps Script (it replaces the old fixed 6:30 PM timer with the 5-minute check).
+
 ## What the agent does
 
 > **Getting the phone number is the #1 goal. Clearing doubts comes second.** Every interaction is used to get the attendee's number, so a senior mentor can call them.

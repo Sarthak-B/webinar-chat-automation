@@ -49,6 +49,8 @@ function doGet(e) {
     if (p.action === 'clear') return out(clearData(ss, p.what));
     if (p.action === 'delwebinar') return out(deleteWebinar(p.id));
     if (p.action === 'send') return out(queueReply(ss, p.to, p.text, p.from, p.learn === '1' ? p.question : ''));
+    if (p.action === 'autoget') return out(autoGet(ss));
+    if (p.action === 'autosave') return out(autoSave(ss, p));
     if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -245,31 +247,117 @@ function learnAnswer(book, question, answer, to) {
 
 // ---- Automatic start (GitHub's own schedule never fired for this repo, so this sheet starts the agent) ----
 // Run installAutoStart ONCE from the editor (select it at the top → ▶ Run). It sets up:
-//   every day ~6:30 PM IST → the 7:30 PM webinar · Sunday ~10 AM IST → the 11 AM webinar · every 6 h → Zoom keep-alive.
-// Tab, mode and on/off for each slot come from the "Auto Schedule" tab, as before. Running it again replaces the timers.
+//   a check every 5 min that starts the agent at each slot's "Start agent at" time · every 6 h → Zoom keep-alive.
+// Each slot's tab, mode, Zoom account, start time and on/off live in the "Auto Schedule" tab – the dashboard's
+// "Save as auto launch" button writes them there (or edit the tab by hand). Running it again replaces the timers.
+const AUTO_TAB = 'Auto Schedule';
+const AUTO_HEADER = ['Slot', 'When', 'Tab to read', 'Mode (dry / timed / full)', 'On (yes / no)', 'Start agent at', 'Zoom account', 'Saved'];
+const AUTO_DEFAULTS = {
+  evening: ['evening', 'Every day · 7:30 PM webinar', 'Variant 4 – 7:30 PM', 'full', 'yes', '6:50 PM', 'auto', ''],
+  morning: ['morning', 'Sunday · 11 AM webinar', '', 'full', 'yes', '10:20 AM', 'auto', ''],
+};
 function installAutoStart() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (['autoStartEvening', 'autoStartMorning', 'keepZoomAlive'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
+    if (['autoStartEvening', 'autoStartMorning', 'autoTick', 'keepZoomAlive'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('autoStartEvening').timeBased().everyDays(1).atHour(18).nearMinute(30).inTimezone('Asia/Kolkata').create();
-  ScriptApp.newTrigger('autoStartMorning').timeBased().onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(10).nearMinute(0).inTimezone('Asia/Kolkata').create();
+  ScriptApp.newTrigger('autoTick').timeBased().everyMinutes(5).create();
   ScriptApp.newTrigger('keepZoomAlive').timeBased().everyHours(6).create();
-  Logger.log('Automatic start is on ✓ – 7:30 PM daily (agent starts ~6:30 PM) and Sunday 11 AM (agent starts ~10 AM).');
+  const rows = autoRows(SpreadsheetApp.getActive());
+  Logger.log('Automatic start is on ✓ – ' + rows.map(function (r) { return r.slot + ': ' + (r.on ? r.tab + ' · ' + r.mode + ' · agent starts ' + r.start : 'off'); }).join(' | '));
 }
-function autoStartEvening() { autoStart('evening'); }
-function autoStartMorning() { autoStart('morning'); }
-function autoStart(slot) {
-  // never two agents at once: skip if a webinar run is already queued or running
-  for (const status of ['in_progress', 'queued']) {
-    const r = github('GET', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/runs?status=' + status + '&per_page=1');
-    if (r.status === 200 && r.data && r.data.total_count > 0) { Logger.log('A webinar run is already ' + status + ' – not starting another'); return; }
+// "Auto Schedule" tab → [{ slot, days, tab, mode, on, start, account, row }] (creates / upgrades the tab if needed)
+function autoRows(ss) {
+  let sh = ss.getSheetByName(AUTO_TAB);
+  if (!sh) {
+    sh = ss.insertSheet(AUTO_TAB);
+    sh.getRange(1, 1, 3, AUTO_HEADER.length).setNumberFormat('@').setValues([AUTO_HEADER, AUTO_DEFAULTS.evening, AUTO_DEFAULTS.morning]);
+    sh.setFrozenRows(1);
   }
-  const r = github('POST', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/dispatches', JSON.stringify({
+  if (sh.getRange(1, 6).getDisplayValue() !== AUTO_HEADER[5]) { // older 5-column tab → add start time + account
+    sh.getRange(1, 1, 1, AUTO_HEADER.length).setValues([AUTO_HEADER]);
+    const n = Math.max(0, sh.getLastRow() - 1);
+    if (n) {
+      const v = sh.getRange(2, 1, n, 1).getDisplayValues();
+      v.forEach(function (r, i) {
+        const d = AUTO_DEFAULTS[String(r[0]).trim().toLowerCase()];
+        if (d) sh.getRange(i + 2, 2).setValue(d[1]), sh.getRange(i + 2, 6, 1, 2).setNumberFormat('@').setValues([[d[5], d[6]]]);
+      });
+    }
+  }
+  const n = Math.max(0, sh.getLastRow() - 1);
+  const v = n ? sh.getRange(2, 1, n, AUTO_HEADER.length).getDisplayValues() : [];
+  return v.filter(function (r) { return String(r[0]).trim(); }).map(function (r, i) {
+    const slot = String(r[0]).trim().toLowerCase();
+    return {
+      slot: slot, when: r[1], tab: String(r[2]).trim(), mode: (['dry', 'timed', 'full'].indexOf(String(r[3]).trim().toLowerCase()) >= 0 ? String(r[3]).trim().toLowerCase() : 'full'),
+      on: !/^(no|off|false|0)$/i.test(String(r[4] || 'yes').trim()), start: String(r[5] || (AUTO_DEFAULTS[slot] || [])[5] || '').trim(),
+      account: (['auto', 'marketing', 'arman'].indexOf(String(r[6]).trim()) >= 0 ? String(r[6]).trim() : 'auto'), saved: r[7], row: i + 2,
+    };
+  });
+}
+// "6:50 PM" / "18:50" → minutes after midnight (or -1)
+function clockMin(t) {
+  const m = String(t || '').trim().match(/^(\d{1,2})[:.](\d{2})\s*(am|pm)?$/i);
+  if (!m) return -1;
+  let h = Number(m[1]) % 12; if (!m[3]) h = Number(m[1]); else if (/pm/i.test(m[3])) h += 12;
+  return h * 60 + Number(m[2]);
+}
+// Every 5 min: starts a slot's run once, in the 30 min after its "Start agent at" time (morning = Sundays only).
+function autoTick() {
+  const ss = SpreadsheetApp.getActive();
+  const now = new Date();
+  const today = Utilities.formatDate(now, 'Asia/Kolkata', 'yyyy-MM-dd');
+  const nowMin = Number(Utilities.formatDate(now, 'Asia/Kolkata', 'H')) * 60 + Number(Utilities.formatDate(now, 'Asia/Kolkata', 'm'));
+  const sunday = Utilities.formatDate(now, 'Asia/Kolkata', 'u') === '7';
+  const props = PropertiesService.getScriptProperties();
+  autoRows(ss).forEach(function (r) {
+    if (!r.on || !r.tab) return;
+    if (r.slot === 'morning' && !sunday) return;
+    const at = clockMin(r.start);
+    if (at < 0 || nowMin < at || nowMin > at + 30) return;
+    const doneKey = 'AUTO_DONE_' + r.slot;
+    if (props.getProperty(doneKey) === today) return;
+    if (autoStart(r)) props.setProperty(doneKey, today); // once per slot per day (also when someone launched by hand); a failed start retries in 5 min
+  });
+}
+function autoStart(r) {
+  // never two agents at once: skip if a webinar run is already queued or running (e.g. launched by hand)
+  for (const status of ['in_progress', 'queued']) {
+    const x = github('GET', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/runs?status=' + status + '&per_page=1');
+    if (x.status === 200 && x.data && x.data.total_count > 0) { Logger.log('A webinar run is already ' + status + ' – not starting another'); return true; }
+  }
+  const res = github('POST', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/dispatches', JSON.stringify({
     ref: 'main',
-    inputs: { webinar: 'business', zoom_account: 'auto', tab: 'auto', mode: 'full', auto_slot: slot },
+    inputs: { webinar: 'business', zoom_account: r.account, tab: r.tab, mode: r.mode },
   }));
-  Logger.log('Automatic ' + slot + ' run: ' + (r.status === 204 ? 'started ✓' : 'FAILED ' + r.status + ' ' + JSON.stringify(r.data)));
-  if (r.status !== 204) throw new Error('Could not start the ' + slot + ' webinar run: ' + r.status); // Google emails you
+  Logger.log('Automatic ' + r.slot + ' run (' + r.tab + ' · ' + r.mode + '): ' + (res.status === 204 ? 'started ✓' : 'FAILED ' + res.status + ' ' + JSON.stringify(res.data)));
+  if (res.status !== 204) throw new Error('Could not start the ' + r.slot + ' webinar run: ' + res.status); // Google emails you
+  return true;
+}
+// Dashboard: read / save the auto-launch settings
+function autoGet(ss) {
+  const timers = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'autoTick'; });
+  return { ok: true, timers: timers, slots: autoRows(ss).map(function (r) { delete r.row; return r; }) };
+}
+function autoSave(ss, p) {
+  const slot = String(p.slot || '').trim().toLowerCase();
+  if (!/^[a-z0-9-]{2,20}$/.test(slot)) return { error: 'Bad slot' };
+  const rows = autoRows(ss);
+  const sh = ss.getSheetByName(AUTO_TAB);
+  let r = rows.filter(function (x) { return x.slot === slot; })[0];
+  const d = AUTO_DEFAULTS[slot] || [slot, '', '', 'full', 'yes', '', 'auto', ''];
+  const row = r ? r.row : sh.getLastRow() + 1;
+  const cur = r ? [slot, r.when, r.tab, r.mode, r.on ? 'yes' : 'no', r.start, r.account] : d.slice(0, 7);
+  if (p.tab !== undefined) cur[2] = String(p.tab).slice(0, 100);
+  if (p.mode !== undefined) { if (['dry', 'timed', 'full'].indexOf(p.mode) < 0) return { error: 'Bad mode' }; cur[3] = p.mode; }
+  if (p.on !== undefined) cur[4] = p.on === 'yes' ? 'yes' : 'no';
+  if (p.start !== undefined) { if (clockMin(p.start) < 0) return { error: 'Bad start time – use e.g. 6:50 PM' }; cur[5] = String(p.start).trim(); }
+  if (p.account !== undefined) { if (['auto', 'marketing', 'arman'].indexOf(p.account) < 0) return { error: 'Bad account' }; cur[6] = p.account; }
+  cur.push(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM h:mm a') + (p.by ? ' · ' + String(p.by).slice(0, 30) : ''));
+  sh.getRange(row, 1, 1, AUTO_HEADER.length).setNumberFormat('@').setValues([cur]);
+  // a slot saved again for today (e.g. a new start time) may still run today
+  if (clockMin(cur[5]) > Number(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'H')) * 60 + Number(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'm'))) PropertiesService.getScriptProperties().deleteProperty('AUTO_DONE_' + slot);
+  return autoGet(ss);
 }
 function keepZoomAlive() {
   github('POST', '/repos/' + REPO + '/actions/workflows/session-check.yml/dispatches', JSON.stringify({ ref: 'main' }));

@@ -5,12 +5,9 @@ run-name: "${{ inputs.auto_slot != '' && format('Webinar agent · auto {0}', inp
 # Joins through the universal link https://sb.flexifunnels.com/genie-demo (redirects to the live webinar).
 # Start it up to ~45 min before the first chat in the tab – the agent waits, then joins 5 min early.
 on:
-  # Automatic runs (UTC times). India = UTC+5:30.
-  #   every day 13:05 UTC = 6:35 PM IST  → the 7:30 PM webinar
-  #   Sunday   04:35 UTC = 10:05 AM IST → the 11 AM webinar
-  # Which tab + mode each one uses (or switching one off) = the "Auto Schedule" tab in the sheet.
-  # Automatic runs are started by the sheet's Apps Script (installAutoStart in apps-script/Code.gs) at ~6:35 PM
-  # daily and ~10:05 AM on Sunday – GitHub's own schedule never fired for this repo, so it isn't used.
+  # Automatic runs: the sheet's Apps Script (autoTick, every 5 min) starts this at each slot's "Start agent at" time
+  # (default 6:50 PM daily / 10:20 AM Sunday) with the tab, mode and Zoom account saved from the dashboard's
+  # "Save as auto launch" button (stored in the sheet's "Auto Schedule" tab). GitHub's own schedule never fired here.
   workflow_dispatch:
     inputs:
       webinar:
