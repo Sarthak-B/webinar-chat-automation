@@ -628,7 +628,8 @@ async function handle(sender, text) {
     record('NO REPLY', sender, '', text, 'not a question – no reply needed');
     return;
   }
-  if (crowdMode() && !STRONG_QUESTION.test(text) && !PROBLEM_WORDS.test(text)) {
+  // crowd mode only filters SHORT answers (≤3 words, e.g. "yes sir", "mumbai"); anything longer goes to the AI
+  if (crowdMode() && text.split(/\s+/).filter(Boolean).length <= 3 && !STRONG_QUESTION.test(text) && !PROBLEM_WORDS.test(text) && !/\b(contact|call|number|whatsapp|baat)\b/i.test(text)) {
     record('NO REPLY', sender, '', text, "answer to Sir's prompt (many people typing) – no reply needed");
     return;
   }
@@ -965,7 +966,8 @@ let problemSince = 0;
 let rejoins = 0;
 async function watchdog() {
   let why = await zoom.connectionProblem().catch(() => '');
-  if (!why && echoMisses >= 2) why = `${echoMisses} sent messages did not appear in the chat`;
+  // (a sent message not showing up in the agent's own chat view is NOT treated as a disconnect any more – it gave
+  // false alarms during busy moments; only Zoom's own disconnect messages or missing meeting controls count)
   if (!why) {
     problemSince = 0;
     return;
