@@ -1263,7 +1263,7 @@ const Demo = (() => {
 })();
 
 // ---------- connection + loading ----------
-function setPill(id, cls, title) { const p = $(id); p.className = `pill ${cls}`; if (title) p.title = title; }
+function setPill(id, cls, title) { const p = $(id); p.className = `pill ${cls}`; if (title) p.title = title; if (typeof renderGate === 'function') try { renderGate(); } catch (e) { } }
 const isFifteen = () => S.webinar === 'fifteen';
 const bookParam = () => (isFifteen() ? { book: 'fifteen' } : {});
 const joinLabel = () => WEBINARS[S.webinar].join.replace(/^https:\/\//, '');
@@ -2549,13 +2549,13 @@ function renderGate() {
   const rows = [
     ['#gGh', '#pillGh', { ok: 'Connected', bad: 'Not connected – open Settings and check the team password / GitHub token', wait: 'Checking…' }],
     ['#gSheet', '#pillSheet', { ok: 'Live chat feed connected', bad: 'Not connected – open Settings and check the sheet feed', wait: 'Checking…' }],
-    ['#gZoom', '#pillZoom', { ok: 'Zoom login works', warn: 'Checking the Zoom login now (takes ~2 min)…', bad: 'Login check failed – press "Check login" to sign in again', wait: 'No check yet – press "Check login"' }],
+    ['#gZoom', '#pillZoom', { ok: 'Zoom login works', warn: 'Checking the Zoom login now (takes ~2 min)…', bad: 'Login check failed – press "Check login" to sign in again', wait: 'Checking… (press "Check login" if this stays grey)' }],
   ];
   let green = 0;
   rows.forEach(([li, pill, msg]) => {
     const st = pillState(pill), el = $(li); el.className = st; if (st === 'ok') green++;
     $('small', el).textContent = msg[st] || msg.bad || '';
-    $('button', el).hidden = st === 'ok' || (li === '#gZoom' && st === 'warn');
+    $('button', el).hidden = st === 'ok' || (li === '#gZoom' ? st === 'warn' : st === 'wait'); // no 'Fix' while still checking
   });
   const ag = $('#gAgent'), running = !!S.active, ready = green === 3;
   ag.className = running ? 'ok' : ready ? 'wait' : 'wait locked';
@@ -2579,6 +2579,8 @@ let timers = [];
 async function boot() {
   timers.forEach((t) => (t && t.worker ? t.worker.terminate() : clearInterval(t))); timers = [];
   document.body.classList.toggle('is-demo', isDemo()); $('#pillDemo').hidden = !isDemo();
+  // show the checklist straight away (lights start grey 'Checking…' and turn green live) – once per visit, after the password
+  if (!Gate.seenThisVisit && $('#lock').hidden) { Gate.seenThisVisit = true; showGate(); }
   S.log = []; S.logTotal = 0; S.numbers = []; S.numTotal = 0; H.list = []; H.loadedFor = null; seenRows.clear(); firstPaint = true;
   setSheetLink();
   if (isDemo()) { Demo.log.length = 0; }
@@ -2587,7 +2589,6 @@ async function boot() {
   const last = store.get(`autopilot.lastTab.${S.webinar}`, store.get('autopilot.lastTab', null));
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
-  if (!Gate.seenThisVisit && $('#lock').hidden) { Gate.seenThisVisit = true; showGate(); } // after the password, once per visit
   timers.push(everyMs(10_000, () => loadRuns()));
   // live chats every 3 s – also while this tab is in the background, so number chimes and alerts are never missed
   timers.push(everyMs(isDemo() ? 4_000 : 3_000, () => loadFeed()));
