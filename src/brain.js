@@ -58,6 +58,8 @@ const PROMISE_RE =
 // that our senior mentors have it and will contact them
 // the recording can't respond – "Sir will cover / repeat / explain…" is a promise too; only the pricing line is fine
 const SIR_LATER = /\b(offer and pricing|offer aur pricing|ऑफ़र और प्राइसिंग)\b[^.]*\b(later|aage|आगे)/i;
+// the approved recording answers: "provided tomorrow", or "our senior mentor team will give you the recording after the session"
+const RECORDING_OK = /\brecording\b[^.]*\b(tomorrow|kal|senior mentor)|\bsenior mentor[^.]*\brecording\b|रिकॉर्डिंग[^।]*(कल|सीनियर मेंटर)/i;
 const MENTOR_LINE = /senior mentor|mentors? (ko|ke|have|has)|(number|details)[^.]*(shared|forwarded|passed)/i;
 
 // Removes sentences that promise a follow-up nobody will do. Returns '' when what's left is only filler
@@ -68,7 +70,7 @@ export function stripPromises(reply) {
   const masked = String(reply).replace(/https?:\/\/[^\s]*[^\s.,!?)]/g, (u) => `\u0000${urls.push(u) - 1}\u0000`);
   const parts = masked.match(/[^.!?।]+[.!?।]*\s*/g) || [masked];
   const mentorReply = MENTOR_LINE.test(masked);
-  const kept = parts.filter((p) => !PROMISE_RE.test(p) || SIR_LATER.test(p) || (mentorReply && /mentor|they will contact|will (contact|call) you|sampark|contact kar/i.test(p) && !/team will|support team|review|check|get back/i.test(p)));
+  const kept = parts.filter((p) => !PROMISE_RE.test(p) || SIR_LATER.test(p) || RECORDING_OK.test(p) || (mentorReply && /mentor|they will contact|will (contact|call) you|sampark|contact kar/i.test(p) && !/team will|support team|review|check|get back/i.test(p)));
   const unmask = (t) => t.replace(/\u0000(\d+)\u0000/g, (_, i) => urls[i]);
   const out = unmask(kept.join('')).trim();
   if (kept.length === parts.length) return out;
@@ -239,7 +241,7 @@ ${angles}
 
 How to write:
 - Always speak as the team: "we", "our team", "humari team", "हमारी टीम". Never "I", "me", "my team", "meri team".
-- NEVER promise any follow-up. Nobody will "get back to you", "check and update", "look into it", "review your request", "reach out", "call you tomorrow", "schedule a call", "send the recording", "repeat that part" or "give an overview" – so never write anything like that, in any language ("jaanch karke update", "check karegi", "sampark karenge"…). The ONLY allowed line about follow-up: after they share their number, it has been shared with our senior mentors.
+- NEVER promise any follow-up. Nobody will "get back to you", "check and update", "look into it", "review your request", "reach out", "call you tomorrow", "schedule a call", "send the recording", "repeat that part" or "give an overview" – so never write anything like that, in any language ("jaanch karke update", "check karegi", "sampark karenge"…). The ONLY allowed lines about follow-up: after they share their number, it has been shared with our senior mentors; and the recording answers exactly as FACTS say (it is provided tomorrow; if they need it now, they drop their number and our senior mentor team gives it to them personally after the session).
 - NEVER invent anything that is not written in FACTS: no features, apps, integrations (n8n, mobile app…), member-area sections or menus, course structure, session length or timings, payment gateways/banks, support processes, results or income. If FACTS don't answer it, use "escalate" – a person from the team will answer.
 - Professional and respectful: "aap"/"आप" (never "tum"), "ji" where natural, no slang, no jokes, no comments about the person's mood or excitement, no "bro/dear/buddy". At most one 🙏, usually no emoji.
 - Never thank them for sharing their number. When they have shared it, say it has been shared with our senior mentors, who will contact them.

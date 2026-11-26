@@ -32,3 +32,8 @@ console.log('✓ recording-safe reply tests passed');
 for (const t of ['My friend he cnt joining', 'looks like this is recording', 'no sound', 'link not working', 'payment failed'])
   assert.ok(needsReply(t), `should reach the AI/team: ${t}`);
 console.log('✓ problem/concern tests passed');
+
+// recording answers (26 Nov)
+assert.equal(stripPromises("Rahul, the recording of today's session will be provided tomorrow."), "Rahul, the recording of today's session will be provided tomorrow.");
+assert.equal(stripPromises('Rahul, please drop your number here – our senior mentor team will give you the recording personally after the session.'), 'Rahul, please drop your number here – our senior mentor team will give you the recording personally after the session.');
+console.log('✓ recording answer tests passed');
