@@ -753,6 +753,28 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
   .numrow .nr-time{font-size:10.5px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* welcome checklist: 3 connections green → then start the agent */
+.gate{position:fixed;inset:0;z-index:185;display:grid;place-items:center;background:rgba(6,7,10,.62);backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .4s var(--ease)}
+.gate.on{opacity:1;pointer-events:auto}
+.gate .box{width:500px;max-width:calc(100vw - 28px);padding:30px;border-radius:26px;background:var(--panel);border:1px solid var(--line2);transform:translateY(24px) scale(.97);transition:transform .55s var(--ease)}
+.gate.on .box{transform:none}
+.gate h3{font:700 25px/1.1 var(--display);letter-spacing:-.03em;margin-bottom:8px}
+.gate .sub{color:var(--muted);font-size:14px;margin-bottom:20px}
+.gate ol{list-style:none;display:grid;gap:10px;counter-reset:g}
+.gate li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--line);transition:border-color .3s,background .3s}
+.gate li .dot{flex:none;width:11px;height:11px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red);transition:.3s}
+.gate li.ok .dot{background:var(--acid);box-shadow:0 0 10px var(--acid)}
+.gate li.warn .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.gate li.wait .dot{background:var(--dim);box-shadow:none}
+.gate li.ok{border-color:rgba(214,242,60,.35)}
+.gate li .t{flex:1;min-width:0}
+.gate li b{display:block;font-size:14px}
+.gate li small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.gate li .btn{height:36px;padding:0 14px;font-size:12.5px;flex:none}
+.gate li.locked{opacity:.45}
+.gate .acts{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:20px}
+.gate .acts .hint{color:var(--muted);font-size:12.5px}
 </style>
 <noscript><style>[data-reveal]{opacity:1!important;transform:none!important;filter:none!important}.curtain{display:none}</style></noscript>
 </head>
@@ -1028,6 +1050,17 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
     <button class="lock-demo" id="lockDemo" type="button">Just look around with demo data</button>
   </div>
 </div>
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle"><div class="box">
+  <h3 id="gateTitle">Before the webinar 👋</h3>
+  <p class="sub">Make these three lights <b style="color:var(--acid)">green</b> first (top-right corner), then start the agent if it isn't running.</p>
+  <ol>
+    <li id="gGh"><span class="dot"></span><span class="t"><b>1 · GitHub</b><small></small></span><button class="btn ghost" data-gfix="settings">Fix</button></li>
+    <li id="gSheet"><span class="dot"></span><span class="t"><b>2 · Sheet</b><small></small></span><button class="btn ghost" data-gfix="settings">Fix</button></li>
+    <li id="gZoom"><span class="dot"></span><span class="t"><b>3 · Zoom login</b><small></small></span><button class="btn ghost" data-gfix="zoom">Check login</button></li>
+    <li id="gAgent"><span class="dot"></span><span class="t"><b>4 · Start the agent</b><small></small></span><button class="btn acid" data-gfix="launch">Start</button></li>
+  </ol>
+  <div class="acts"><span class="hint" id="gateHint"></span><button class="btn ghost" id="gateClose">Close</button></div>
+</div></div>
 <div class="modal" id="modal"><div class="box"><h3 id="mTitle"></h3><p id="mText"></p><div class="acts"><button class="btn ghost" id="mNo">Cancel</button><button class="btn acid" id="mYes">Confirm</button></div></div></div>
 <div class="blast" id="blast"><div class="rings"><i></i><i></i><i></i><i></i></div><div class="count" id="blastCount"></div><div class="done" id="blastDone"><div class="ck"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#0C0E13" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h3 id="blastTitle">Agent dispatched</h3><p id="blastText"></p></div></div>
 <div class="toasts" id="toasts"></div>
@@ -2507,6 +2540,40 @@ function moveGlider() {
   g.style.left = `${on.offsetLeft}px`; g.style.width = `${on.offsetWidth}px`;
 }
 
+
+// ---------- welcome checklist ----------
+const Gate = { shown: false, autoClose: null };
+function pillState(id) { const c = $(id).className; return /\bok\b/.test(c) ? 'ok' : /\bwarn\b/.test(c) ? 'warn' : /\bbad\b/.test(c) ? 'bad' : 'wait'; }
+function renderGate() {
+  if (!Gate.shown) return;
+  const rows = [
+    ['#gGh', '#pillGh', { ok: 'Connected', bad: 'Not connected – open Settings and check the team password / GitHub token', wait: 'Checking…' }],
+    ['#gSheet', '#pillSheet', { ok: 'Live chat feed connected', bad: 'Not connected – open Settings and check the sheet feed', wait: 'Checking…' }],
+    ['#gZoom', '#pillZoom', { ok: 'Zoom login works', warn: 'Checking the Zoom login now (takes ~2 min)…', bad: 'Login check failed – press "Check login" to sign in again', wait: 'No check yet – press "Check login"' }],
+  ];
+  let green = 0;
+  rows.forEach(([li, pill, msg]) => {
+    const st = pillState(pill), el = $(li); el.className = st; if (st === 'ok') green++;
+    $('small', el).textContent = msg[st] || msg.bad || '';
+    $('button', el).hidden = st === 'ok' || (li === '#gZoom' && st === 'warn');
+  });
+  const ag = $('#gAgent'), running = !!S.active, ready = green === 3;
+  ag.className = running ? 'ok' : ready ? 'wait' : 'wait locked';
+  $('small', ag).textContent = running ? `Agent is running (${S.active.status.replace('_', ' ')})` : ready ? 'All green – press Start to launch the agent' : 'Make the three lights green first';
+  const sb = $('button', ag); sb.hidden = running; sb.disabled = !ready;
+  $('#gateHint').textContent = running && ready ? 'All set ✓' : `${green}/3 green`;
+  if (running && ready && !Gate.autoClose) Gate.autoClose = setTimeout(hideGate, 3500);
+}
+function showGate() { Gate.shown = true; $('#gate').classList.add('on'); renderGate(); }
+function hideGate() { Gate.shown = false; clearTimeout(Gate.autoClose); Gate.autoClose = null; $('#gate').classList.remove('on'); }
+$('#gateClose').addEventListener('click', hideGate);
+$('#gate').addEventListener('click', (e) => { if (e.target.id === 'gate') hideGate(); });
+$$('[data-gfix]').forEach((b) => b.addEventListener('click', () => {
+  const f = b.dataset.gfix;
+  if (f === 'settings') { hideGate(); openDrawer(); }
+  else if (f === 'zoom') { setPill('#pillZoom', 'warn', 'Checking the Zoom login…'); renderGate(); runWorkflow('session-check.yml', b).finally(() => { b.textContent = 'Check login'; }); }
+  else if (f === 'launch') { hideGate(); location.hash = '#launch'; $('#launch').scrollIntoView({ behavior: 'smooth' }); setTimeout(() => $('#launchBtn').focus(), 600); }
+}));
 // ---------- boot ----------
 let timers = [];
 async function boot() {
@@ -2520,6 +2587,7 @@ async function boot() {
   const last = store.get(`autopilot.lastTab.${S.webinar}`, store.get('autopilot.lastTab', null));
   if (S.tabs.length) await selectTab(S.tabs.some((t) => t.name === last) ? last : S.tabs[0].name);
   await Promise.all([loadRuns(), loadFeed(), loadWorkflows(), loadHistoryList()]);
+  if (!Gate.seenThisVisit && $('#lock').hidden) { Gate.seenThisVisit = true; showGate(); } // after the password, once per visit
   timers.push(everyMs(10_000, () => loadRuns()));
   // live chats every 3 s – also while this tab is in the background, so number chimes and alerts are never missed
   timers.push(everyMs(isDemo() ? 4_000 : 3_000, () => loadFeed()));
@@ -2534,6 +2602,7 @@ setInterval(() => {
     if (S.tab?.name === a.tab) { S.mode = a.mode; launch(); }
   }
   if (S.tab) renderLaunch();
+  renderGate();
 }, 1000);
 
 // reply from the dashboard → Outbox tab → the agent sends it in Zoom
