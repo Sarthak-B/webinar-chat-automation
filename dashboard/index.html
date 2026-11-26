@@ -1706,7 +1706,6 @@ function confirmBox(title, text, yes = 'Confirm') {
   });
 }
 async function onLaunchClick(e) {
-  if (S.armed) return disarm();
   const w = launchWindow(); if (!S.tab || !w) return;
   const d = directState();
   if (d.on && !d.ok) return toast(d.msg, true);
@@ -2878,7 +2877,7 @@ document.addEventListener('click', (e) => {
 });
 
 // arrival
-S.armed = store.get('autopilot.armed', null);
+S.armed = null; store.set('autopilot.armed', null); // browser arming is retired (auto launch lives in the sheet) – clear any old one
 splitWords();
 showLock();
 // pick up the latest shared team settings from GitHub; reconnect if they changed (e.g. a new Apps Script link)
