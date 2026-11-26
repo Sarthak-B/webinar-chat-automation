@@ -421,7 +421,10 @@ function sendTime(item) {
   return early <= cfg.priceDeferMin * 60_000 ? new Date(unlockAt.getTime() + Math.max(0, cfg.priceDeferMin * 60_000 - early) / 60) : null;
 }
 
+const runStartedAt = Date.now();
+let quietSkipped = 0;
 async function scheduleLoop() {
+  setTimeout(() => { if (quietSkipped) log(`${quietSkipped} timed chats were already past when this run started – skipped (the next one goes out on time)`); }, 20_000);
   let lastReload = Date.now();
   while (running) {
     const now = Date.now();
@@ -439,6 +442,8 @@ async function scheduleLoop() {
       sentKeys.add(item.key);
       const lateSec = (now - at.getTime()) / 1000;
       if (lateSec > cfg.lateGraceSec) {
+        // chats that were already past when this run started (e.g. a restart mid-webinar) are skipped quietly
+        if (at.getTime() < runStartedAt - 60_000) { quietSkipped++; continue; }
         record('SKIPPED', '', item.text, '', `row ${item.row} was ${Math.round(lateSec)}s overdue`);
         continue;
       }
@@ -499,6 +504,23 @@ const langOf = (name) => person(name).lang || 'english';
 const savedNumbers = new Set();
 const thankedNumbers = new Set();
 const hasNumber = new Set(); // attendee names who have shared a number
+// numbers already saved today (by an earlier run of the same webinar) – never saved, chimed or asked again
+if (!cfg.buyers) {
+  try {
+    const rows = await sheet.read(cfg.numbersTab, 'A1:F3000');
+    let n = 0;
+    for (const r of rows.slice(1)) {
+      if (String(r[0]).trim() !== today || String(r[5] || '').trim() !== cfg.scheduleTab) continue;
+      const name = String(r[2] || '').trim(), phone = String(r[3] || '').replace(/\D/g, '');
+      if (!name || phone.length < 10) continue;
+      savedNumbers.add(`${name.toLowerCase()}|${phone.slice(-10)}`);
+      thankedNumbers.add(phone.slice(-10));
+      hasNumber.add(name);
+      n++;
+    }
+    if (n) log(`Loaded ${n} number(s) already saved today – they won't be saved or asked again`);
+  } catch {}
+}
 const asks = new Map(); // name → { count, last } number asks sent (replies that ask count too)
 let bankIdx = 0;
 
