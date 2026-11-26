@@ -251,10 +251,10 @@ function learnAnswer(book, question, answer, to) {
 // Each slot's tab, mode, Zoom account, start time and on/off live in the "Auto Schedule" tab – the dashboard's
 // "Save as auto launch" button writes them there (or edit the tab by hand). Running it again replaces the timers.
 const AUTO_TAB = 'Auto Schedule';
-const AUTO_HEADER = ['Slot', 'When', 'Tab to read', 'Mode (dry / timed / full)', 'On (yes / no)', 'Start agent at', 'Zoom account', 'Saved'];
+const AUTO_HEADER = ['Slot', 'When', 'Tab to read', 'Mode (dry / timed / full)', 'On (yes / no)', 'Start agent at', 'Zoom account', 'Saved', 'Session starts at'];
 const AUTO_DEFAULTS = {
-  evening: ['evening', 'Every day · 7:30 PM webinar', 'Variant 4 – 7:30 PM', 'full', 'yes', '6:50 PM', 'auto', ''],
-  morning: ['morning', 'Sunday · 11 AM webinar', '', 'full', 'yes', '10:20 AM', 'auto', ''],
+  evening: ['evening', 'Every day · 7:30 PM webinar', 'Variant 4 – 7:30 PM', 'full', 'yes', '6:50 PM', 'auto', '', '7:30 PM'],
+  morning: ['morning', 'Sunday · 11 AM webinar', '', 'full', 'yes', '10:20 AM', 'auto', '', '11:00 AM'],
 };
 function installAutoStart() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -273,14 +273,15 @@ function autoRows(ss) {
     sh.getRange(1, 1, 3, AUTO_HEADER.length).setNumberFormat('@').setValues([AUTO_HEADER, AUTO_DEFAULTS.evening, AUTO_DEFAULTS.morning]);
     sh.setFrozenRows(1);
   }
-  if (sh.getRange(1, 6).getDisplayValue() !== AUTO_HEADER[5]) { // older 5-column tab → add start time + account
+  if (sh.getRange(1, 9).getDisplayValue() !== AUTO_HEADER[8]) { // older tab → add the missing columns (start time, account, session start)
     sh.getRange(1, 1, 1, AUTO_HEADER.length).setValues([AUTO_HEADER]);
     const n = Math.max(0, sh.getLastRow() - 1);
     if (n) {
       const v = sh.getRange(2, 1, n, 1).getDisplayValues();
       v.forEach(function (r, i) {
         const d = AUTO_DEFAULTS[String(r[0]).trim().toLowerCase()];
-        if (d) sh.getRange(i + 2, 2).setValue(d[1]), sh.getRange(i + 2, 6, 1, 2).setNumberFormat('@').setValues([[d[5], d[6]]]);
+        const cur = sh.getRange(i + 2, 6, 1, 4).getDisplayValues()[0];
+        if (d) sh.getRange(i + 2, 6, 1, 4).setNumberFormat('@').setValues([[cur[0] || d[5], cur[1] || d[6], cur[2], cur[3] || d[8]]]);
       });
     }
   }
@@ -291,7 +292,8 @@ function autoRows(ss) {
     return {
       slot: slot, when: r[1], tab: String(r[2]).trim(), mode: (['dry', 'timed', 'full'].indexOf(String(r[3]).trim().toLowerCase()) >= 0 ? String(r[3]).trim().toLowerCase() : 'full'),
       on: !/^(no|off|false|0)$/i.test(String(r[4] || 'yes').trim()), start: String(r[5] || (AUTO_DEFAULTS[slot] || [])[5] || '').trim(),
-      account: (['auto', 'marketing', 'arman'].indexOf(String(r[6]).trim()) >= 0 ? String(r[6]).trim() : 'auto'), saved: r[7], row: i + 2,
+      account: (['auto', 'marketing', 'arman'].indexOf(String(r[6]).trim()) >= 0 ? String(r[6]).trim() : 'auto'), saved: r[7],
+      session: String(r[8] || (AUTO_DEFAULTS[slot] || [])[8] || '').trim(), row: i + 2,
     };
   });
 }
@@ -328,7 +330,7 @@ function autoStart(r) {
   }
   const res = github('POST', '/repos/' + REPO + '/actions/workflows/webinar-agent.yml/dispatches', JSON.stringify({
     ref: 'main',
-    inputs: { webinar: 'business', zoom_account: r.account, tab: r.tab, mode: r.mode },
+    inputs: { webinar: 'business', zoom_account: r.account, tab: r.tab, mode: r.mode, session_start: clockMin(r.session) >= 0 ? r.session : '' },
   }));
   Logger.log('Automatic ' + r.slot + ' run (' + r.tab + ' · ' + r.mode + '): ' + (res.status === 204 ? 'started ✓' : 'FAILED ' + res.status + ' ' + JSON.stringify(res.data)));
   if (res.status !== 204) throw new Error('Could not start the ' + r.slot + ' webinar run: ' + res.status); // Google emails you
@@ -348,12 +350,14 @@ function autoSave(ss, p) {
   const d = AUTO_DEFAULTS[slot] || [slot, '', '', 'full', 'yes', '', 'auto', ''];
   const row = r ? r.row : sh.getLastRow() + 1;
   const cur = r ? [slot, r.when, r.tab, r.mode, r.on ? 'yes' : 'no', r.start, r.account] : d.slice(0, 7);
+  let session = r ? r.session : d[8] || '';
+  if (p.session !== undefined) { if (p.session && clockMin(p.session) < 0) return { error: 'Bad session start – use e.g. 11:00 AM' }; session = String(p.session).trim(); }
   if (p.tab !== undefined) cur[2] = String(p.tab).slice(0, 100);
   if (p.mode !== undefined) { if (['dry', 'timed', 'full'].indexOf(p.mode) < 0) return { error: 'Bad mode' }; cur[3] = p.mode; }
   if (p.on !== undefined) cur[4] = p.on === 'yes' ? 'yes' : 'no';
   if (p.start !== undefined) { if (clockMin(p.start) < 0) return { error: 'Bad start time – use e.g. 6:50 PM' }; cur[5] = String(p.start).trim(); }
   if (p.account !== undefined) { if (['auto', 'marketing', 'arman'].indexOf(p.account) < 0) return { error: 'Bad account' }; cur[6] = p.account; }
-  cur.push(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM h:mm a') + (p.by ? ' · ' + String(p.by).slice(0, 30) : ''));
+  cur.push(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'd MMM h:mm a') + (p.by ? ' · ' + String(p.by).slice(0, 30) : ''), session);
   sh.getRange(row, 1, 1, AUTO_HEADER.length).setNumberFormat('@').setValues([cur]);
   // a slot saved again for today (e.g. a new start time) may still run today
   if (clockMin(cur[5]) > Number(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'H')) * 60 + Number(Utilities.formatDate(new Date(), 'Asia/Kolkata', 'm'))) PropertiesService.getScriptProperties().deleteProperty('AUTO_DONE_' + slot);

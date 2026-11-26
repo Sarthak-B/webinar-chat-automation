@@ -36,6 +36,10 @@ on:
         description: 'Test: move the tab''s timed chats so they start ~2 min after launch (pricing lock moves too)'
         type: boolean
         default: false
+      session_start:
+        description: 'Optional: when the session starts for this run (e.g. 11:00 AM) – every chat in the tab moves to match. Empty = the tab''s own start time'
+        required: false
+        default: ''
       direct_url:
         description: 'Optional: direct Zoom webinar link or ID. Skips the universal link and the wait – joins right away as the host account, and stays until the webinar ends'
         required: false
@@ -110,6 +114,7 @@ jobs:
           ZOOM_EMAIL_FIFTEEN: ${{ secrets.ZOOM_EMAIL_FIFTEEN }}
           ZOOM_PASSWORD_FIFTEEN: ${{ secrets.ZOOM_PASSWORD_FIFTEEN }}
           TEST_FROM_NOW: ${{ inputs.test_from_now }}
+          SESSION_START: ${{ inputs.session_start }}
           AGENT_EMAIL: ${{ vars.AGENT_EMAIL || secrets.AGENT_EMAIL }}
           DRY_RUN: ${{ inputs.mode == 'dry' }}
           AUTO_REPLY: ${{ inputs.mode == 'full' }}

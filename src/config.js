@@ -45,6 +45,9 @@ export function loadConfig() {
     joinUrl: webinar === 'fifteen' ? env('FIFTEEN_JOIN_URL', W.joinUrl) : env('ZOOM_JOIN_URL', W.joinUrl),
     // Optional: the agent account's personal PANELIST link (Zoom emails it when you add the account as a panelist).
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
+    // Session start for THIS run (e.g. "11:00 AM" for the Sunday session): the whole tab – pre-session chats, timed chats,
+    // pricing lock, number lock, closing push – moves so the tab's own start (top-left cell) lands on this time.
+    sessionStartOverride: webinar === 'fifteen' ? '' : env('SESSION_START', ''),
     testFromNow: /^(1|true|yes)$/i.test(env('TEST_FROM_NOW', '')), // test: move the tab's chats to start now
     directUrl: env('ZOOM_DIRECT_URL', ''),
     // Zoom account: auto = 10 Min Business → ZOOM_EMAIL (marketing@), 15 Days → ZOOM_EMAIL_FIFTEEN (arman@);

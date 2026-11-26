@@ -24,6 +24,7 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 ## Starting it: auto launch or by hand
 
 - **Auto launch (normal days):** on the dashboard pick the webinar, tab, mode and Zoom account, choose when the agent should start (default **6:50 PM** for the 7:30 PM webinar, **10:20 AM** Sundays), and press **Save as auto launch**. The settings go into the sheet's "Auto Schedule" tab; the Apps Script checks every 5 min and starts the agent at that time – no device needs to stay open. **Turn off** stops it for that slot.
+- **Session starts at (flight plan):** defaults to the tab's own start (its top-left cell). Change it – or pick "Sun 11 AM" in the Auto launch box – and the whole tab moves to match: e.g. Variant 4 (7:30 PM) run for the 11 AM Sunday session → first chat 10:45 AM, pricing 12:15 PM, closing push 12:45 PM. Sent to the agent as `session_start`; saved per auto slot in the Auto Schedule tab's "Session starts at" column.
 - **Launch by hand (webinar opens early/late, a different tab, a test):** press **Launch now** – it works any time up to 3 h before the first chat; the agent watches from 15 min before the first chat (7:00 PM for a 7:15 first chat), joins within ~30 s of the team starting the webinar, reads everything already in the chat, and stays till Zoom shows the webinar has ended. Never starts a second agent; if the auto launch already started one, it says so.
 - After updating `Code.gs`, run **installAutoStart** once in the Apps Script (it replaces the old fixed 6:30 PM timer with the 5-minute check).
 

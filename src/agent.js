@@ -134,12 +134,18 @@ log(`"${cfg.scheduleTab}": ${schedule.length} timed chats, ${clock(schedule[0].a
 
 // TEST MODE (dashboard "Play the tab's chats from now"): the whole tab is moved so its first chat goes
 // out ~2 minutes after start. The pricing lock moves with it, so the 1h15m rule still holds.
-const testShiftMs = cfg.testFromNow ? Date.now() + 2 * 60_000 - schedule[0].at.getTime() : 0;
+// SESSION START (dashboard "Session starts at", or the auto launch slot): e.g. the 7:30 PM tab run for the 11 AM
+// Sunday session – every row moves by the same amount, so "we start in 15 min" goes 15 min before 11:00.
+const tabStart = !cfg.buyers ? parseSessionStart(scheduleRows) : null;
+const wantStart = cfg.sessionStartOverride ? startDate(cfg.sessionStartOverride) : null;
+const testShiftMs = cfg.testFromNow
+  ? Date.now() + 2 * 60_000 - schedule[0].at.getTime()
+  : wantStart && tabStart ? wantStart.getTime() - tabStart.getTime() : 0;
 const shiftRows = (list) => list.map((x) => ({ ...x, at: new Date(x.at.getTime() + testShiftMs) }));
 if (testShiftMs) {
   schedule = shiftRows(schedule);
-  log(`TEST MODE: chats moved to start from now → ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
-}
+  log(cfg.testFromNow ? `TEST MODE: chats moved to start from now → ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}` : `Session starts at ${clock(wantStart)} (the tab is set for ${clock(tabStart)}) – every chat moved to match → ${clock(schedule[0].at)} → ${clock(schedule.at(-1).at)}`);
+} else if (wantStart && !tabStart) log(`Session start ${cfg.sessionStartOverride} asked, but the tab has no start time in its top-left cell – using the tab's own times`);
 
 // ---------- HARD RULE: no pricing before 1h15m into the session ----------
 let sessionStart = (cfg.buyers && startDate(cfg.sessionStartClock)) || parseSessionStart(scheduleRows) || schedule.find((x) => !/pre/i.test(x.video))?.at || schedule[0].at;
