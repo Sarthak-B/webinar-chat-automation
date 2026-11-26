@@ -164,9 +164,22 @@ setInterval(async () => {
 }, 5 * 60_000).unref();
 if (cfg.buyers) unlockAt = new Date(0); // no pricing hold at all
 // HARD RULE: no number asks of any kind before 1 hour into the session (NUMBER_UNLOCK_MIN, default 60)
+// CLOSING PUSH (default 1h45 in → 9:15 PM for the 7:30 session): every message from someone without a number gets a soft number invite
+const closingPhase = () => !cfg.buyers && cfg.autoReply && Date.now() >= sessionStart.getTime() + cfg.closingPushMin * 60_000;
+const closingAsks = new Map(); // name → { count, last }
+function canClosingAsk(sender) {
+  if (hasNumber.has(sender)) return false;
+  const a = closingAsks.get(sender);
+  return !a || (a.count < cfg.closingNudgeMax && Date.now() - a.last >= cfg.closingNudgeGapMin * 60_000);
+}
+function noteClosingAsk(sender) {
+  const a = closingAsks.get(sender) || { count: 0, last: 0 };
+  a.count++; a.last = Date.now(); closingAsks.set(sender, a);
+}
 const numberLocked = () => !cfg.buyers && Date.now() < sessionStart.getTime() + cfg.numberUnlockMin * 60_000;
 const pricingLocked = () => !cfg.buyers && Date.now() < unlockAt.getTime();
 log(cfg.buyers ? `Session start ${clock(sessionStart)} · buyers session – no pricing lock` : `Session start ${clock(sessionStart)} → number asks from ${clock(new Date(sessionStart.getTime() + cfg.numberUnlockMin * 60_000))} (${cfg.numberUnlockMin} min) · pricing unlocks at ${clock(unlockAt)} (${cfg.priceUnlockMin} min)`);
+if (!cfg.buyers && cfg.autoReply) log(`Closing push from ${clock(new Date(sessionStart.getTime() + cfg.closingPushMin * 60_000))} (${cfg.closingPushMin} min): every message from someone without a number gets a soft "thanks for staying – share your number" reply (max ${cfg.closingNudgeMax} per person, ${cfg.closingNudgeGapMin} min apart)`);
 const sentKeys = new Set();
 
 async function reloadSchedule() {
@@ -618,6 +631,20 @@ async function handle(sender, text) {
     }
     text = rest; // "9876543210, EMI hai?" → one reply that thanks them AND answers (hasNumber is already set)
   }
+  // CLOSING PUSH: "1", "yes sir", "ok", a city… from someone WITHOUT a number → a soft "thanks for staying – share your
+  // number" reply (no question to answer). Someone who already shared a number only gets answers to real questions.
+  if (closingPhase() && !hasNumber.has(sender) && (isTrivial(text) || !needsReply(text) || (text.split(/\s+/).filter(Boolean).length <= 3 && !STRONG_QUESTION.test(text) && !PROBLEM_WORDS.test(text)))) {
+    if (!canClosingAsk(sender)) {
+      record('NO REPLY', sender, '', text, `closing push – already invited ${closingAsks.get(sender)?.count || 0}× (next one after ${cfg.closingNudgeGapMin} min, max ${cfg.closingNudgeMax})`);
+      return;
+    }
+    noteClosingAsk(sender); noteAsk(sender);
+    const angle = numberBank.length ? numberBank[bankIdx++ % numberBank.length] : null;
+    const msg = await aiSlot(() => brain.compose({ purpose: 'closing', sender, said: text, lang, history: person(sender).history, recent: recentSent, angle: angle && `${angle.angle} – ${angle.line}`, pricingLocked: pricingLocked() }));
+    enqueue({ prio: 2, text: msg, to: sender, kind: 'NUMBER ASK', said: text, note: `closing push · ${lang}`, skipIf: () => hasNumber.has(sender) });
+    lastReplyTo.set(sender, Date.now());
+    return;
+  }
   if (isTrivial(text)) {
     record('NO REPLY', sender, '', text, 'engagement answer ("1", "yes", emoji…) – no reply needed');
     return;
@@ -636,7 +663,9 @@ async function handle(sender, text) {
 
   // Answer first, then – in the SAME reply – a smooth transition to the number (only after the 1-hour mark,
   // max NUDGE_MAX times per person, at least NUDGE_GAP_MIN apart, never once they've shared it).
-  const askNow = !cfg.buyers && !numberLocked() && canAsk(sender);
+  const closing = closingPhase() && canClosingAsk(sender); // closing push: a real question gets its answer + the number invite
+  const askNow = !cfg.buyers && !numberLocked() && (closing || canAsk(sender));
+  if (closing) noteClosingAsk(sender);
   const d = await aiSlot(() => brain.decide({ text, hasNumber: hasNumber.has(sender), askNow, ...ctx() }));
   if (d.objection) noteObjection(d.objection, sender);
   if ((d.action === 'reply' || d.action === 'escalate') && d.reply) {

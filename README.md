@@ -31,6 +31,12 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 > - **Objection lines:** any that reveal pricing (e.g. "EMI from Rs. 59/day") wait until the unlock.
 > - **Dashboard:** shows the unlock time in the flight plan and on the timeline.
 >
+> **CLOSING PUSH from 1h 45m (9:15 PM for the 7:30 PM session).** By then only the most engaged 20–50 people are left, so the goal is to collect every possible number before they leave.
+> - **No number yet:** *every* message gets a reply – even "1", "yes", "ok sir" or a city name. It's a soft, motivating line: thanks for staying with us till the end + type your contact number so our senior mentors can clear any doubt personally. Never pushy, aggressive or fake-urgent. If the message has a real question, it's answered first, then the invite.
+> - **Already shared a number:** no more asks – only real questions get a reply; "1"/"yes" get nothing.
+> - **Limits:** max 3 closing invites per person, at least 3 min apart; stops the moment they share a number. Logged as `NUMBER ASK · closing push`.
+> - **Settings:** `CLOSING_PUSH_MIN` (105), `CLOSING_NUDGE_MAX` (3), `CLOSING_NUDGE_GAP_MIN` (3). Not used in the 15 Days buyers' session.
+>
  Every private message is written fresh by AI as the FlexiFunnels team, on behalf of the presenter (`PERSONA_NAME`). It speaks as "our team" / "humari team" / "हमारी टीम", is polite ("aap"/"आप", no slang), answers in the attendee's own language, keeps it short and varied, and is sent at a human pace. No templates are pasted and no bursts of replies go out.
 
 

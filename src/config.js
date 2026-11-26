@@ -118,6 +118,12 @@ export function loadConfig() {
     // HARD RULE: no pricing (amounts, EMI, token, offers, payment links) before this many minutes into the session.
     numberUnlockMin: num('NUMBER_UNLOCK_MIN', 60), // HARD RULE: no number asks before this many minutes into the session
     priceUnlockMin: num('PRICE_UNLOCK_MIN', 75),
+    // CLOSING PUSH: from this many minutes into the session (7:30 PM session → 9:15 PM) only the most engaged people
+    // are left, so EVERY message from someone without a number ("1", "yes", "ok sir"…) gets a soft, motivating
+    // "thanks for staying – share your number" reply. People who already shared a number only get answers to real questions.
+    closingPushMin: num('CLOSING_PUSH_MIN', 105),
+    closingNudgeMax: num('CLOSING_NUDGE_MAX', 3), // max closing nudges per person
+    closingNudgeGapMin: num('CLOSING_NUDGE_GAP_MIN', 3), // at least this many minutes between two nudges to the same person
     priceDeferMin: num('PRICE_DEFER_MIN', 5), // pricing timed chats up to this many min early are held and posted at unlock
     sendGapMs: num('SEND_GAP_MS', 2500), // min gap between any two chat sends
     attendeeCooldownSec: num('ATTENDEE_COOLDOWN_SEC', 45),

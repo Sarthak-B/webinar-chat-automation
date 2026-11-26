@@ -135,6 +135,18 @@ let pickN = 0;
 const pick = (list) => list[pickN++ % list.length];
 
 export const FALLBACK = {
+  // closing push (end of the session): thank them for staying + soft invitation to share the number
+  closing: {
+    english: (n) => pick([
+      `${n ? `Thank you ${n}` : 'Thank you'} for staying with us till the end 🙏 If you have any doubt at all, just type your contact number here – our senior mentors will guide you personally.`,
+      `${n ? `${n}, really` : 'Really'} glad you stayed this long! Share your contact number here and our senior mentors will personally help you with your next steps.`,
+    ]),
+    hinglish: (n) => pick([
+      `${n ? `${n} ji, ` : ''}aakhir tak saath rehne ke liye dhanyavaad 🙏 Koi bhi doubt ho to apna contact number yahan type kar dijiye – hamari senior mentor team aapko personally guide karegi.`,
+      `${n ? `${n} ji, ` : ''}itni der tak jude rehne ke liye thank you! Apna number yahan share kijiye, senior mentors aapki personally help karenge.`,
+    ]),
+    hindi: (n) => `${n ? `${n} जी, ` : ''}अंत तक साथ रहने के लिए धन्यवाद 🙏 कोई भी सवाल हो तो अपना कॉन्टैक्ट नंबर यहाँ टाइप कर दीजिए – हमारी सीनियर मेंटर टीम आपको व्यक्तिगत रूप से गाइड करेगी।`,
+  },
   ask: {
     // the approved transition: no claims about what the mentor/sales team will do – just an optional offer
     english: (n) => `${n ? `${n}, if` : 'If'} you'd like a mentor to guide your first steps personally, you can share your number here.`,
@@ -425,18 +437,20 @@ JSON: {"action":"reply"|"ignore"|"escalate","reply":string|null,"objection":stri
     const task =
       purpose === 'thanks'
         ? 'They just shared their number. Thank them politely and say our team will contact them on it shortly. One sentence. Do NOT ask for anything else.'
-        : `They're taking part in the chat but haven't shared their number. Write ONE short, warm, optional-sounding line inviting them to share their contact number if they'd like a senior mentor to guide them personally – an offer, never a demand.${angle ? ` Angle to use: ${angle}.` : ''} Do not comment on their message or mood; no salesy hype.`;
+        : purpose === 'closing'
+          ? `We are near the END of the session and they are one of the few people still here. They have NOT shared their number yet. Write ONE or TWO short, warm, motivating lines: thank them for staying with us this long (vary the wording), and softly invite them to type their contact number so our senior mentors can personally clear any doubt and guide them (say "our senior mentors", never "team will"). Soft and encouraging – never pushy, aggressive, guilt-tripping or fake urgency; no promises about what Sir will do; no prices.${angle ? ` Angle you may use: ${angle}.` : ''} If their message contains a real question, answer it briefly first in one sentence (only facts you are sure of), then the invitation.`
+          : `They're taking part in the chat but haven't shared their number. Write ONE short, warm, optional-sounding line inviting them to share their contact number if they'd like a senior mentor to guide them personally – an offer, never a demand.${angle ? ` Angle to use: ${angle}.` : ''} Do not comment on their message or mood; no salesy hype.`;
     try {
       const out = await this.#chat(
         `${this.#context({ sender, lang, hasNumber: purpose === 'thanks' ? true : 'ask', history, recent })}${pricingLocked ? '\nPRICING IS LOCKED: no prices, amounts, EMI, token, offers or payment links.' : ''}\n\nTheir latest message: """${String(said || '').slice(0, 300)}"""\n\nTask: ${task}\nJSON: {"message": string}`,
         0.9,
       );
-      const msg = this.#guard(out.message, { hasNumber: purpose === 'thanks', lang, sender, needsAsk: purpose === 'ask', pricingLocked });
+      const msg = this.#guard(out.message, { hasNumber: purpose === 'thanks', lang, sender, needsAsk: purpose === 'ask' || purpose === 'closing', pricingLocked });
       if (msg) return msg;
     } catch {
       /* fall through */
     }
-    const f = FALLBACK[purpose === 'thanks' ? 'thanks' : 'ask'];
+    const f = FALLBACK[purpose === 'thanks' ? 'thanks' : purpose === 'closing' ? 'closing' : 'ask'];
     return (f[lang] || f.english)(name);
   }
 }
