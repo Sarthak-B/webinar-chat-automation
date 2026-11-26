@@ -347,7 +347,7 @@ async function senderLoop() {
     const asksFull = perMin(asksSent) >= cfg.maxAsksPerMin;
     const ready = queue
       .filter((j) => j.notBefore <= now)
-      .filter((j) => !j.to || !privateFull) // public timed chats are never held back
+      .filter((j) => !j.to || !privateFull || j.kind === 'TEAM REPLY') // public timed chats and team replies are never held back
       .filter((j) => j.kind !== 'NUMBER ASK' || !asksFull)
       .sort((a, b) => a.prio - b.prio || a.notBefore - b.notBefore);
     const job = ready[0];
@@ -357,7 +357,7 @@ async function senderLoop() {
     }
     queue.splice(queue.indexOf(job), 1);
     if (job.skipIf?.()) continue; // e.g. a number ask for someone who has since shared their number
-    if (job.to && job.kind !== 'NUMBER' && now - job.at > 15 * 60_000) {
+    if (job.to && job.kind !== 'NUMBER' && job.kind !== 'TEAM REPLY' && now - job.at > 15 * 60_000) {
       record('SKIPPED', job.to, job.text, job.said || '', 'reply waited over 15 min – too late to feel natural');
       continue;
     }
@@ -367,6 +367,7 @@ async function senderLoop() {
       if (!job.to) checkEcho(job.text);
       if (!job.to && /^TIMED/.test(job.kind) && /\b(type|comment|write|tell|reply|drop|answer|share your (city|goal|business|niche|experience))\b/i.test(job.text) && !asksForNumber(job.text)) lastPromptAt = Date.now();
       record(job.kind, job.to, job.text, job.said || '', job.note || '');
+      job.onDone?.(true);
       if (job.qa) history.qaRow({ ...job.qa, reply: job.text });
       if (job.to) {
         privateSent.push(Date.now());
@@ -386,6 +387,7 @@ async function senderLoop() {
       } else {
         log(`send failed (${job.kind} → ${job.to || 'Everyone'}): ${e.message}`);
         record('FAILED', job.to, job.text, job.said || '', e.message);
+        job.onDone?.(false, e.message);
       }
       zoom.currentReceiver = undefined; // force re-selecting the receiver next time
     }
@@ -656,6 +658,42 @@ function noteObjection(key, sender) {
   }
 }
 
+// ---------- Replies typed on the dashboard ----------
+// The dashboard (through the sheet's Apps Script) adds rows to the "Outbox" tab:
+//   A sent at (ISO) · B to (attendee name, empty = Everyone) · C message · D status · E id · F from
+// The agent picks up "pending" rows every few seconds, sends them in Zoom (private reply or to Everyone)
+// and writes the status back: queued → sent / failed: reason.
+const OUTBOX = 'Outbox';
+const outboxSeen = new Set();
+async function outboxLoop() {
+  const startedAtMs = Date.now();
+  while (running) {
+    await sleep(3000);
+    let rows = [];
+    try {
+      rows = await sheet.read(OUTBOX, 'A1:F2000');
+    } catch {
+      continue; // no Outbox tab yet – created by the first reply from the dashboard
+    }
+    rows.forEach((r, i) => {
+      if (i === 0) return; // header
+      const [at, to, text, status, id] = r;
+      const key = id || `${at}|${to}|${text}`;
+      if (outboxSeen.has(key) || String(status || '').toLowerCase() !== 'pending' || !String(text || '').trim()) return;
+      outboxSeen.add(key);
+      const rowNo = i + 1;
+      const setStatus = (st) => sheet.updateRow(OUTBOX, rowNo, [at, to, text, st, id, r[5] || '']).catch(() => {});
+      // only replies typed during this run (an old pending row from another day is never sent)
+      if (Date.parse(at) && Date.parse(at) < startedAtMs - 15 * 60_000) return void setStatus('expired – typed before this run');
+      if (cfg.dryRun) return void setStatus('not sent – dry run');
+      const name = String(to || '').trim();
+      log(`Team reply from the dashboard → ${name || 'Everyone'}: ${String(text).slice(0, 60)}`);
+      setStatus('queued');
+      queue.push({ at: Date.now(), notBefore: Date.now(), prio: 0, text: String(text).trim(), to: name && name.toLowerCase() !== 'everyone' ? name : null, kind: 'TEAM REPLY', note: 'typed on the dashboard', onDone: (ok, why) => setStatus(ok ? 'sent' : `failed: ${String(why || '').slice(0, 120)}`) });
+    });
+  }
+}
+
 // Number safety net: read the whole chat from the top and save any number that isn't saved yet.
 let sweepSoon = false;
 let lastSweep = Date.now();
@@ -776,7 +814,7 @@ async function attendeeLoop() {
 
 // Social proof ("Rahul, Iqra & Pradnya – your numbers have been shared…" to Everyone) is switched OFF for good:
 // it named attendees publicly and was not in the timesheet. Only the sheet's timed chats go to Everyone.
-const workers = [senderLoop(), scheduleLoop(), chatLoop(), attendeeLoop()];
+const workers = [senderLoop(), scheduleLoop(), chatLoop(), attendeeLoop(), outboxLoop()];
 
 async function shutdown(reason) {
   if (!running) return;

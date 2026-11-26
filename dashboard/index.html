@@ -360,6 +360,11 @@ section{padding:110px 0 30px}
 .sys{align-self:center;margin:14px 0;padding:8px 14px;border-radius:99px;font-size:12.5px;background:var(--bg2);border:1px solid var(--line2);color:var(--muted);text-align:center;max-width:80%}
 .adv summary{cursor:pointer;list-style:none}.adv summary::-webkit-details-marker{display:none}.adv summary::after{content:' ▾';opacity:.6}.adv[open] summary::after{content:' ▴'}
 input[readonly]{opacity:.7;cursor:default}
+.composer{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--panel)}
+.composer input{flex:1;min-width:0;height:44px;padding:0 16px;border-radius:99px;border:1px solid var(--line2);background:var(--bg2);outline:none}
+.composer input:focus{border-color:rgba(214,242,60,.5)}
+.composer .btn{height:44px;gap:8px}
+.composer .btn:disabled{opacity:.5}
 .sys.skip{margin:2px 0 10px;padding:0;background:none;border:0;font-size:11px;opacity:.6;align-self:flex-start}
 .sys.team{color:var(--amber);border-color:rgba(245,184,75,.35);background:rgba(245,184,75,.07)}
 .sys.fail{color:var(--red);border-color:rgba(255,107,91,.35);background:rgba(255,107,91,.07)}
@@ -904,6 +909,7 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
         <div class="thread">
           <div class="thread-h" id="threadHead"></div>
           <div class="msgs" id="msgs"><div class="chat-empty"><b>No conversations yet</b>When attendees start typing in the webinar chat, their threads appear here.</div></div>
+          <form class="composer" id="composer" autocomplete="off"><input id="composeText" maxlength="1000" placeholder="Reply in Zoom…" aria-label="Reply in Zoom"><button class="btn acid sm" id="composeSend" type="submit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l18-8-8 18-2-8-8-2z"/></svg>Send</button></form>
           <div class="thread-f"><span><i style="background:var(--panel2);border:1px solid var(--line2)"></i>Attendee</span><span><i style="background:var(--acid)"></i>Agent · our team (private)</span><span><i style="border:1.5px dashed var(--acid)"></i>Dry run, not sent</span></div>
         </div>
       </div>
@@ -1931,6 +1937,10 @@ function buildConversations() {
       touch(all, sent, true); return;
     }
     if (s === 'SKIPPED') { all.ev.push({ side: 'sys', text: `Skipped, too late: ${sent.split('\n')[0]}`, time }); return; }
+    if (s === 'TEAM REPLY') { // typed on the dashboard, sent in Zoom by the agent
+      const c = !to || to === 'Everyone' ? all : get(to);
+      c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Team' }); if (!c.broadcast) { c.replied = true; c.team = false; } touch(c, sent, true); return;
+    }
     if (!to || to === 'Everyone') return;
     const c = get(to);
     if ((s === 'REPLY' || s === 'NUMBER' || s === 'NEEDS TEAM' || s === 'QUESTION' || s === 'AI FAILED') && !c.hasIn && said) c.ev.push({ side: 'in', text: said, time });
@@ -1943,6 +1953,10 @@ function buildConversations() {
   });
   const nums = {}; contactsToday().forEach((x) => { nums[x.name] = x.num; });
   map.forEach((c) => { c.number = nums[c.name] || null; });
+  // replies typed here that the agent hasn't sent yet
+  const done = new Set(todays(S.log).filter((r) => /^(DRY )?(TEAM REPLY|FAILED)$/.test(String(r[2]))).map((r) => `${r[3]}|${String(r[4]).trim()}`));
+  S.pendingOut = (S.pendingOut || []).filter((p) => !done.has(`${p.to || 'Everyone'}|${p.text}`) && Date.now() - p.at < 5 * 60e3);
+  S.pendingOut.forEach((p) => { const c = p.to ? get(p.to) : all; c.ev.push({ side: 'out', text: p.text, time: fmtFull(new Date(p.at)), tag: 'Team', pending: true }); });
   if (!all.ev.length) map.delete('Everyone');
   return [...map.values()].filter((c) => c.ev.length).sort((a, b) => (b.broadcast - a.broadcast) || (b.last - a.last));
 }
@@ -1990,11 +2004,12 @@ function renderConversations(switched = false) {
     if (e.side === 'sys') { html += `<div class="sys ${e.cls || ''} ${isNew}">${esc(e.text)} · ${esc(shortTime(e.time))}</div>`; return; }
     const cont = i > 0 && c.ev[i - 1].side === e.side ? 'cont' : '';
     html += `<div class="bw ${e.side} ${e.dry ? 'dry' : ''} ${cont} ${isNew}"><div class="bubble">${e.tag ? `<span class="tagl">${esc(e.tag)}</span>` : ''}${linkify(e.text)}</div>
-      <div class="meta">${esc(shortTime(e.time))}${e.side === 'out' ? (e.dry ? ' · dry run, not sent' : ` · ${c.broadcast ? 'to everyone' : 'private'} <span class="tick">✓✓</span>`) : ''}</div></div>`;
+      <div class="meta">${esc(shortTime(e.time))}${e.pending ? ' · sending to Zoom…' : e.side === 'out' ? (e.dry ? ' · dry run, not sent' : ` · ${c.broadcast ? 'to everyone' : 'private'} <span class="tick">✓✓</span>`) : ''}</div></div>`;
   });
   const lastEv = c.ev[c.ev.length - 1], lastAt = lastEv && parseClock(lastEv.time);
   if (!c.broadcast && lastEv?.side === 'in' && lastEv?.cls !== 'muted' && !c.team && S.active && lastAt && Date.now() - lastAt < 25e3) html += '<div class="bw out"><div class="typing"><i></i><i></i><i></i></div></div>';
   box.innerHTML = html;
+  $('#composeText').placeholder = c.broadcast ? 'Message everyone in Zoom…' : `Reply privately to ${c.name} in Zoom…`;
   if (changed || nearBottom) box.scrollTo({ top: box.scrollHeight, behavior: changed ? 'auto' : 'smooth' });
 }
 
@@ -2100,6 +2115,7 @@ function doGet(e) {
       if (p.action === 'tabs') return out({ title: fb.getName(), tabs: fb.getSheets().filter(function (sh) { return /\\bday\\s*\\d+/i.test(sh.getName()); }).map(describeDay).sort(function (a, b) { return a.day - b.day; }) });
       if (p.action === 'schedule') return out(scheduleDay(fb, p.tab));
       if (p.action === 'rows') return out(rows(fb, p.tab, Number(p.from || 0))); // 15 Days Agent Log / Numbers live in its own sheet
+      if (p.action === 'send') return out(queueReply(fb, p.to, p.text, p.from));
       if (p.action === 'clear') { // 15 Days: only its own Agent Log / Numbers – never the 10 Min history
         const parts = p.what === 'all' ? ['chats', 'numbers'] : p.what === 'history' ? [] : [p.what];
         return out({ ok: true, done: parts.map(function (w) { return clearData(fb, w).cleared; }) });
@@ -2113,6 +2129,7 @@ function doGet(e) {
     if (p.action === 'gh') return out(github(p.method, p.path, p.body));
     if (p.action === 'clear') return out(clearData(ss, p.what));
     if (p.action === 'delwebinar') return out(deleteWebinar(p.id));
+    if (p.action === 'send') return out(queueReply(ss, p.to, p.text, p.from));
     if (p.action === 'whoami') return out({ ok: true, github: !!githubToken(), repo: REPO });
     return out({ error: 'Unknown action' });
   } catch (err) {
@@ -2276,6 +2293,24 @@ function webinarTabs(hb) {
     const t = sh.getName();
     return t !== 'Summary' && t !== 'Q&A' && sh.getRange('A1').getNote() !== '';
   });
+}
+
+// ---- Replies typed on the dashboard → the agent sends them in Zoom ----
+// Adds a row to the "Outbox" tab; the running agent picks it up within a few seconds and marks it sent.
+function queueReply(book, to, text, from) {
+  text = String(text || '').trim();
+  if (!text) return { error: 'Empty message' };
+  if (text.length > 1000) return { error: 'Message too long (max 1000 characters)' };
+  let sh = book.getSheetByName('Outbox');
+  if (!sh) {
+    sh = book.insertSheet('Outbox');
+    sh.appendRow(['Sent at', 'To', 'Message', 'Status', 'Id', 'From']);
+    sh.setFrozenRows(1);
+  }
+  const id = Utilities.getUuid().slice(0, 8);
+  // plain text in every cell (a reply starting with = or + must never become a formula)
+  sh.getRange(sh.getLastRow() + 1, 1, 1, 6).setNumberFormat('@').setValues([[new Date().toISOString(), String(to || '').slice(0, 100), text, 'pending', id, String(from || 'dashboard').slice(0, 40)]]);
+  return { ok: true, id: id };
 }
 
 // ---- Automatic start (GitHub's own schedule never fired for this repo, so this sheet starts the agent) ----
@@ -2468,6 +2503,24 @@ setInterval(() => {
   }
   if (S.tab) renderLaunch();
 }, 1000);
+
+// reply from the dashboard → Outbox tab → the agent sends it in Zoom
+$('#composer').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = $('#composeText'), text = input.value.trim(); if (!text || !S.conv) return;
+  const toEveryone = S.conv === 'Everyone', to = toEveryone ? '' : S.conv;
+  if (toEveryone && !(await confirmBox('Send to everyone?', `Every attendee will see: "${text.slice(0, 140)}"`))) return;
+  if (!S.active && !isDemo()) toast('The agent isn\'t running right now – the reply is saved and goes out only if a run starts within 15 minutes', true);
+  $('#composeSend').disabled = true;
+  try {
+    if (!isDemo()) await feed({ action: 'send', to, text, from: 'dashboard', ...bookParam() });
+    S.pendingOut = [...(S.pendingOut || []), { to, text, at: Date.now() }];
+    if (isDemo()) setTimeout(() => { Demo.log.push([todayStr(), fmtFull(new Date()), 'TEAM REPLY', to || 'Everyone', text, '', 'typed on the dashboard']); S.log = Demo.log.slice(); renderFeed(); }, 1500);
+    input.value = ''; renderConversations(); toast(toEveryone ? 'Sending to everyone in Zoom…' : `Sending to ${to} in Zoom…`);
+  } catch (err) {
+    toast(/unknown action/i.test(err.message) ? 'Update the Apps Script first (paste the latest Code.gs → Deploy → Manage deployments → New version)' : `Couldn't send: ${err.message}`, true);
+  } finally { $('#composeSend').disabled = false; input.focus(); }
+});
 
 // events
 $$('[data-open-settings]').forEach((b) => b.addEventListener('click', openDrawer));
