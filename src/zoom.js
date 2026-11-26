@@ -28,7 +28,7 @@ export const SEL = {
   // the number on the footer "Participants" button (webinar attendee count, as the panelist/host sees it)
   participantCount: ['.footer-button__participants-icon .footer-button__number-counter', '.footer-button__number-counter', 'button[aria-label*="participant" i] [class*="counter"]', 'button[aria-label*="participant" i]'],
   registration: ['input[type="email"]:visible', 'input[name*="email" i]:visible', 'button:has-text("Register")'],
-  meetingEnded: ['text=/meeting has been ended|webinar has ended|This meeting has ended/i'],
+  meetingEnded: ['text=/meeting has been ended|webinar has been ended|ended by (the )?host|webinar has ended|This meeting has ended|This webinar has ended|meeting is over|webinar is over/i'],
   // the agent is no longer really in the webinar (Zoom often leaves the old screen up, so typing still "works")
   disconnected: /joined (this|the) (meeting|webinar) (from|on) another device|signed in (on|from) another device|you have been removed|removed (you )?from (this|the) (meeting|webinar)|connection (was|has been|is) lost|lost connection|unable to connect|reconnecting|you are offline|network (is )?unstable.*reconnect/i,
 };
@@ -427,11 +427,11 @@ export class Zoom {
           onWait('Webinar not started yet – waiting for the team to start it (the agent never starts it)');
         }
         if (Date.now() > deadline) throw new Error('webinar was never started');
-        if (Date.now() - lastReload > 60_000) {
+        if (Date.now() - lastReload > 30_000) {
           lastReload = Date.now();
           await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
         }
-        await page.waitForTimeout(10_000);
+        await page.waitForTimeout(5_000);
         continue;
       }
       this.ui = await this.findMeetingFrame();
@@ -449,8 +449,8 @@ export class Zoom {
         onWait('Webinar not started yet – waiting');
       }
       if (Date.now() > deadline) throw new Error('Timed out waiting to get into the webinar');
-      // a waiting page can sit there forever: reload every 2 minutes so a newly started webinar is picked up
-      if (Date.now() - lastReload > 120_000) {
+      // a waiting page can sit there forever: reload every 30 s so the agent is in within seconds of the team starting it
+      if (Date.now() - lastReload > 30_000) {
         lastReload = Date.now();
         await page.goto(zoomUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {});
       }
@@ -531,7 +531,20 @@ export class Zoom {
   }
 
   async hasEnded() {
-    return this.page.isClosed() || Boolean(await first(this.root, SEL.meetingEnded)) || Boolean(await first(this.page, SEL.meetingEnded));
+    if (this.page.isClosed()) return true;
+    // Zoom's own "the webinar has been ended" screen/dialog – never words an attendee typed in the chat
+    const re = /meeting has been ended|webinar has been ended|ended by (the )?host|webinar has ended|This meeting has ended|This webinar has ended/i;
+    for (const scope of [this.root, this.page].filter(Boolean)) {
+      const hit = await scope
+        .evaluate((src) => {
+          const rx = new RegExp(src, 'i');
+          const els = [...document.querySelectorAll('div,span,p,h1,h2,h3,h4')].filter((e) => e.childElementCount === 0 && rx.test(e.textContent || ''));
+          return els.some((e) => !e.closest('[class*="chat"],[id*="chat"]') && e.getClientRects().length > 0);
+        }, re.source)
+        .catch(() => false);
+      if (hit) return true;
+    }
+    return false;
   }
 
   // Current attendee count shown in Zoom (null if it can't be read).

@@ -1034,12 +1034,14 @@ while (running) {
   await sleep(15_000);
   const last = schedule.at(-1).at.getTime();
   // With a direct link it stays until the webinar itself ends (handy for tests outside the tab's times)
-  // After the last timed chat people still share numbers – keep listening until the chat has been quiet for
-  // 10 min (or 90 min after the last timed chat), unless Zoom ends the webinar first.
-  const quiet = Date.now() - lastIncomingAt > 10 * 60_000;
-  if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length && (quiet || Date.now() > last + 90 * 60_000)) await shutdown('all timed chats done and the chat has gone quiet');
-  else if (Date.now() - startedAt > cfg.maxRuntimeMin * 60_000) await shutdown('max runtime reached');
-  else if (await zoom.hasEnded().catch(() => false)) await shutdown('webinar ended');
+  // HARD RULE: stay from the moment the webinar goes live till the webinar ENDS – every message till the last one.
+  // It leaves when Zoom says the webinar has ended. Backup only (in case that screen can't be read): after the last
+  // timed chat, once nobody has typed for QUIET_LEAVE_MIN (30) minutes.
+  if (await zoom.hasEnded().catch(() => false)) {
+    await zoom.sweepChat?.().then((list) => intake(list || [], { catchup: true })).catch(() => {}); // last read before leaving
+    await shutdown('webinar ended');
+  } else if (Date.now() - startedAt > cfg.maxRuntimeMin * 60_000) await shutdown('max runtime reached');
+  else if (!cfg.directUrl && Date.now() > last + cfg.endAfterLastMin * 60_000 && !queue.length && Date.now() - lastIncomingAt > cfg.quietLeaveMin * 60_000) await shutdown(`all timed chats done and nobody has typed for ${cfg.quietLeaveMin} min`);
   else await watchdog();
 }
 await Promise.allSettled(workers);

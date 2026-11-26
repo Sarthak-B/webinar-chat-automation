@@ -67,7 +67,7 @@ export function loadConfig() {
     // presenter's name in Zoom (attendees see Saurabh Bhatnagar replying), so that name is always the team.
     teamNames: [...new Set([...list('TEAM_NAMES'), ...list('PRESENTER_ZOOM_NAMES'), 'saurabh bhatnagar'])],
     headless: bool('HEADLESS', false), // CI runs headed inside xvfb; Zoom is friendlier to that
-    joinEarlyMin: num('JOIN_EARLY_MIN', 5), // start trying to join this many minutes before the first chat row
+    joinEarlyMin: num('JOIN_EARLY_MIN', 15), // start watching for the webinar this many minutes before the first chat row (7:00 for a 7:15 first chat) – it joins the moment the team starts it
     joinWaitMin: num('JOIN_WAIT_MIN', 75), // keep waiting for the webinar to go live until this long after the first chat
 
     // Google Sheet
@@ -142,6 +142,7 @@ export function loadConfig() {
     objectionThreshold: num('OBJECTION_THRESHOLD', 3), // distinct people within 5 min
     objectionCooldownMin: num('OBJECTION_COOLDOWN_MIN', 15),
     endAfterLastMin: num('END_AFTER_LAST_MIN', 10),
+    quietLeaveMin: num('QUIET_LEAVE_MIN', 30), // backup only: if Zoom's "webinar ended" can't be seen, leave after the last timed chat once the chat is this quiet
     maxRuntimeMin: num('MAX_RUNTIME_MIN', 340), // stay under GitHub's 6h job limit
   };
 }

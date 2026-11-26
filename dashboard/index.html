@@ -847,7 +847,7 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
     <div class="wrap">
       <div class="shead">
         <div><span class="label"><b>02</b> / Launch sequence</span><h2 data-split>Pick the webinar. <em class="it">Then hands off.</em></h2></div>
-        <p data-reveal>Choose the webinar, then the tab (or the day) it should read, so it only posts what you pick. Start it up to 45 minutes before the first chat. It waits, then joins 5 minutes early.</p>
+        <p data-reveal>Choose the webinar, then the tab (or the day) it should read, so it only posts what you pick. Start it any time up to 3 hours before: it watches from 15 minutes before the first chat and joins the moment the team starts the webinar, then stays till the webinar ends.</p>
       </div>
       <div class="launch">
         <div>
@@ -1425,11 +1425,11 @@ function renderLaunch() {
       winText = `${fmtTime(new Date(w.opens))}<small>${countdown(w.opens - now)}</small>`; pct = 100 - Math.min(100, ((w.opens - now) / (3 * 3600e3)) * 100);
       note = 'Keep this tab open. It launches itself when the window opens.';
     } else if (now < w.opens) {
-      // manual launch works any time up to 3 h before the first chat: the agent waits, then joins ~5 min early
+      // manual launch works any time up to 3 h before the first chat: the agent waits, then joins the moment the webinar goes live
       const tooEarly = w.first - now > 3 * 3600e3;
       label = tooEarly ? 'Too early to launch' : 'Launch now'; disabled = disabled || tooEarly; winLabel = 'First chat at';
       winText = `${fmtTime(new Date(w.first))}<small>in ${countdown(w.first - now)}</small>`; pct = 100 - Math.min(100, ((w.first - now) / (3 * 3600e3)) * 100);
-      note = tooEarly ? 'Launch by hand within 3 hours of the first chat – or save an auto launch below so it starts by itself.' : 'Starts the agent now: it waits, then joins about 5 minutes before the first chat. It never starts a second agent.';
+      note = tooEarly ? 'Launch by hand within 3 hours of the first chat – or save an auto launch below so it starts by itself.' : 'Starts the agent now: it watches from 15 minutes before the first chat and joins the moment the team starts the webinar, then stays till the webinar ends. It never starts a second agent.';
     } else if (now < w.last) {
       winLabel = now < w.first ? 'Window open · first chat in' : 'Webinar in progress · ends'; pct = 100;
       winText = now < w.first ? `${countdown(w.first - now)}<small>at ${fmtTime(new Date(w.first))}</small>` : `${fmtTime(new Date(w.last))}<small>${countdown(w.last - now)} left</small>`;
@@ -2695,7 +2695,7 @@ async function saveAuto(on) {
   if (on && !S.tab) return toast('Pick a tab first', true);
   const start = to12($('#autoTime').value || '18:50');
   if (on) {
-    const ok = await confirmBox(`Auto launch ${slot === 'morning' ? 'every Sunday' : 'every day'} at ${start}?`, `"${S.tab.name}" · ${modeName[S.mode]} · Zoom ${acctUsed()}@. The sheet starts the agent at ${start} by itself; it joins about 5 minutes before the first chat. Launching by hand still works any time – it never starts a second agent.`, 'Save auto launch');
+    const ok = await confirmBox(`Auto launch ${slot === 'morning' ? 'every Sunday' : 'every day'} at ${start}?`, `"${S.tab.name}" · ${modeName[S.mode]} · Zoom ${acctUsed()}@. The sheet starts the agent at ${start} by itself; it joins the moment the team starts the webinar and stays till it ends. Launching by hand still works any time – it never starts a second agent.`, 'Save auto launch');
     if (!ok) return;
   }
   const b = on ? $('#autoSave') : $('#autoOff'); b.disabled = true;
