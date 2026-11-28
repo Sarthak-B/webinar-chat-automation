@@ -628,8 +628,8 @@ async function handle(sender, text) {
   if (phone && !thankedNumbers.has(phone) && !cfg.buyers) {
     thankedNumbers.add(phone);
     newNumberNames.push(firstName(sender));
-    if (isTrivial(rest)) {
-      // They shared their number: a short professional confirmation that the number went to our senior mentors.
+    if (isTrivial(rest) || !needsReply(rest)) {
+      // They shared their number (with nothing or no real question next to it, e.g. "For bajaj finance 98…"): a short professional confirmation that the number went to our senior mentors.
       const thanks = await aiSlot(() => brain.compose({ purpose: 'thanks', said: text, ...ctx() }));
       enqueue({ prio: 1, text: thanks, to: sender, kind: 'NUMBER', said: text, note: lang });
       lastReplyTo.set(sender, Date.now());

@@ -35,7 +35,7 @@ const QUESTION_WORDS =
   /\b(what|whats|how|why|when|where|which|who|whom|can|could|will|would|is|are|do|does|did|should|shall|may|price|prices|pricing|cost|fee|fees|emi|refund|money ?back|pay|payment|link|buy|purchase|join|enrol|enroll|register|start|help|explain|tell|share|send|repeat|recording|certificate|support|contact|number|whatsapp|call|problem|issue|error|working|access|login|kya|kyu|kyun|kaise|kese|kaisa|kab|kaha|kahan|kitna|kitni|kitne|kaun|kon|konsa|kaunsa|batao|bataiye|btaiye|btao|samjhao|samjhaiye|chahiye|chahta|chahti|possible|boring|scam|fake|waste|slow|lag|hindi|english|language|samajh|nahi|nhi)\b|[?？]|क्या|कैसे|कितना|कब|कहाँ|क्यों/i;
 // Problems and concerns always need a person or the AI – even short ones ("cant join", "no sound", "is this recorded")
 export const PROBLEM_WORDS =
-  /\b(cant|cnt|can't|cannot|unable|not able|not working|nahi ho|nhi ho|nahi chal|nhi chal|join|joining|audio|sound|voice|awaz|aawaz|video|screen|link|recording|recorded|record|live|scam|fake|fraud|cheat|refund|money back|payment|paid|charged|login|password|access|error|problem|issue|help|stuck|frozen|lag|slow|hindi|english|language)\b/i;
+  /\b(cant|cnt|can't|cannot|unable|not able|not working|nahi ho|nhi ho|nahi chal|nhi chal|join|joining|audio|sound|voice|awaz|aawaz|video|screen|link|recording|recorded|record|live|scam|fake|fraud|cheat|refund|money back|payment|paid|charged|login|password|access|error|problem|issue|help|stuck|frozen|lag|slow|hindi|english|language|not clear|not cleared|unclear|didn'?t understand|did not understand|don'?t understand|samajh nahi|samjh nahi|samaj nahi|samjha nahi|confused|confusing|doubt)\b/i;
 export function needsReply(text) {
   const t = String(text || '').trim();
   if (!t) return false;
@@ -296,7 +296,10 @@ Respond with JSON only.`;
       try {
         return await this.#chat(user, temperature);
       } catch (e) {
-        if (attempt >= 2 || !/cooling down|429|rate limit|too many/i.test(e.message)) throw e;
+        // free AI limits: when any model is cooling down, wait for the first one to come back (up to 4 tries, ~2 min)
+        // – a reply a minute late beats no reply
+        const cooling = [...this.cool.values()].some((t) => t > Date.now() && t - Date.now() < 10 * 60_000);
+        if (attempt >= 3 || !(cooling || /cooling down|429|rate limit|too many/i.test(e.message))) throw e;
         const next = Math.min(...[...this.cool.values()].filter((t) => t > Date.now()), Date.now() + 20_000);
         await new Promise((r) => setTimeout(r, Math.min(65_000, Math.max(3_000, next - Date.now() + 500))));
       }
@@ -317,7 +320,9 @@ Respond with JSON only.`;
       } catch (e) {
         errors.push(`${p.name} ${p.model}: ${e.message}`);
         const billing = /credit|balance|quota|billing|insufficient|suspended/i.test(e.message);
-        if (/\b(429|402|401|403|5\d\d)\b|timeout|aborted|fetch failed/i.test(e.message)) this.cool.set(i, Date.now() + (billing ? 30 : 1) * 60_000);
+        const gone = /\b404\b|does not exist|decommissioned|model_not_found|not found/i.test(e.message); // model retired → skip it for the rest of the run
+        if (gone) this.cool.set(i, Date.now() + 24 * 3600_000);
+        else if (/\b(429|402|401|403|5\d\d)\b|timeout|aborted|fetch failed/i.test(e.message)) this.cool.set(i, Date.now() + (billing ? 30 : 1) * 60_000);
       }
     }
     throw new Error(errors.length ? errors.join(' | ').slice(0, 400) : 'all AI providers are cooling down after limit errors');
