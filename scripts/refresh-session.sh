@@ -2,12 +2,14 @@
 # Mac: refresh the agent's Zoom login in one go.
 #   bash scripts/refresh-session.sh            → 10 Min Business account  (ZOOM_SESSION_B64)
 #   bash scripts/refresh-session.sh fifteen    → 15 Days Challenge account (ZOOM_SESSION_B64_FIFTEEN)
+#   bash scripts/refresh-session.sh admin      → Faceless webinar account admin@ (ZOOM_SESSION_B64_ADMIN)
 # Opens Zoom → you log in (host account) → press Enter → the session is copied to your clipboard,
 # the GitHub secret page opens in Chrome (just paste + Update), and the local files are deleted.
 set -e
 DIR="$HOME/webinar-chat-automation"
 SECRET=ZOOM_SESSION_B64; WHO="10 Min Business"
 if [ "$1" = "fifteen" ]; then SECRET=ZOOM_SESSION_B64_FIFTEEN; WHO="15 Days Challenge"; fi
+if [ "$1" = "admin" ]; then SECRET=ZOOM_SESSION_B64_ADMIN; WHO="Faceless (admin@)"; fi
 SECRET_URL="https://github.com/Sarthak-B/webinar-chat-automation/settings/secrets/actions/$SECRET"
 
 if [ ! -d "$DIR/.git" ]; then
