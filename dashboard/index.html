@@ -2102,7 +2102,7 @@ function buildConversations() {
     if (s === 'REPLY' || s === 'NUMBER') { c.ev.push({ side: 'out', text: sent, time, dry, tag: s === 'NUMBER' ? 'Number confirmed' : '' }); c.replied = true; c.team = false; touch(c, sent, true); }
     else if (s === 'NUMBER ASK') { c.ev.push({ side: 'out', text: sent, time, dry, tag: 'Number ask' }); c.asked = (c.asked || 0) + 1; touch(c, sent, true, c.teamLast); }
     else if (s === 'NO REPLY') { if (!c.hasIn && said) c.ev.push({ side: 'in', text: said, time }); c.ev.push({ side: 'sys', cls: 'muted skip', text: /prompt|not a question|engagement/i.test(note || '') ? 'Skipped – answer to Sir, not a question' : `Skipped${note ? ` · ${String(note).replace(/^no reply needed( · )?/, '')}` : ''}`, time }); }
-    else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ AI didn't reply – answer manually in Zoom${note ? ` · ${String(note).replace(/^AI did not answer – reply manually · /, '')}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
+    else if (s === 'AI FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `⚠ The AI couldn't answer this one${/429|limit|cooling|404|does not exist/i.test(note || '') ? ' (the free AI was busy – too many questions at once)' : ''} – please type a reply below and press Send`, title: String(note || ''), time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'REVIEW') { c.ev.push({ side: 'sys', cls: 'review', text: '👀 AI replied without a sheet answer – check it once; send a better reply below if needed', time }); }
     else if (s === 'NEEDS TEAM' || s === 'QUESTION') { c.ev.push({ side: 'sys', cls: 'team', text: `Handed to the team${note ? ` · ${note}` : ''}`, time }); c.team = true; touch(c, said, false, true); }
     else if (s === 'FAILED') { c.ev.push({ side: 'sys', cls: 'fail', text: `Couldn't send${note ? `: ${note}` : ''}`, time }); }
@@ -2157,7 +2157,7 @@ function renderConversations(switched = false) {
   let html = '<div class="daysep">Today</div>';
   c.ev.forEach((e, i) => {
     const isNew = i >= prev ? 'new' : '';
-    if (e.side === 'sys') { html += `<div class="sys ${e.cls || ''} ${isNew}">${esc(e.text)} · ${esc(shortTime(e.time))}</div>`; return; }
+    if (e.side === 'sys') { html += `<div class="sys ${e.cls || ''} ${isNew}"${e.title ? ` title="${esc(e.title)}"` : ''}>${esc(e.text)} · ${esc(shortTime(e.time))}</div>`; return; }
     const cont = i > 0 && c.ev[i - 1].side === e.side ? 'cont' : '';
     html += `<div class="bw ${e.side} ${e.dry ? 'dry' : ''} ${cont} ${isNew}"><div class="bubble">${e.tag ? `<span class="tagl">${esc(e.tag)}</span>` : ''}${linkify(e.text)}</div>
       <div class="meta">${esc(shortTime(e.time))}${e.pending ? ' · sending to Zoom…' : e.side === 'out' ? (e.dry ? ' · dry run, not sent' : ` · ${c.broadcast ? 'to everyone' : 'private'} <span class="tick">✓✓</span>`) : ''}</div></div>`;
@@ -2169,7 +2169,7 @@ function renderConversations(switched = false) {
   // "teach the AI": the question this reply answers = their latest message; pre-ticked when it was handed to the team
   const lastIn = [...c.ev].reverse().find((e) => e.side === 'in' && e.cls !== 'muted');
   const lw = $('#learnWrap'); lw.hidden = c.broadcast || !lastIn;
-  if (lastIn && lw.dataset.for !== `${c.name}|${lastIn.text}`) { lw.dataset.for = `${c.name}|${lastIn.text}`; $('#learnBox').checked = !!c.team; $('#learnQ').textContent = `“${String(lastIn.text).slice(0, 60)}”`; lw.dataset.q = lastIn.text; }
+  if (lastIn && lw.dataset.for !== `${c.name}|${lastIn.text}`) { lw.dataset.for = `${c.name}|${lastIn.text}`; $('#learnBox').checked = false; /* only saved when someone ticks it */ $('#learnQ').textContent = `“${String(lastIn.text).slice(0, 60)}”`; lw.dataset.q = lastIn.text; }
   if (changed || nearBottom) box.scrollTo({ top: box.scrollHeight, behavior: changed ? 'auto' : 'smooth' });
 }
 
