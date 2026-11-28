@@ -1400,7 +1400,8 @@ async function loadTabs() {
     if (isDemo()) S.tabs = isFifteen() ? [0, 1, 2, 6, 7, 8, 9].map((n) => ({ name: `Day ${n} Chats`, schedule: true, day: n, count: 40 + n, first: '7:00:11 pm', last: '9:12:40 pm' })) : Demo.tabs;
     else {
       const d = await feed({ action: 'tabs', ...bookParam() });
-      S.tabs = d.tabs.filter((t) => t.schedule);
+      // Faceless shows only its own "Faceless …" tabs; 10 Min Business hides them
+      S.tabs = d.tabs.filter((t) => t.schedule && (isFifteen() || (S.webinar === 'faceless') === /faceless/i.test(t.name)));
       if (isFifteen() && !S.tabs.some((t) => /\bday\s*\d+/i.test(t.name))) throw new Error('Add the 15 Days Apps Script URL in Settings (⚙) – see SETUP.md "15 Days Apps Script".');
     }
     setPill('#pillSheet', 'ok', 'Sheet feed connected');
