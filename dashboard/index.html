@@ -907,8 +907,9 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
         <div>
           <div class="step active done" id="step0" data-reveal>
             <div class="step-h"><span class="step-n">00</span><div><h3>Which webinar is it?</h3><p>Each webinar has its own sheet, join link and rules.</p></div></div>
-            <div class="seg" id="webinarSeg">
+            <div class="seg three" id="webinarSeg">
               <button class="opt" data-webinar="business"><span class="tag">7:30 PM</span><b>10 Min Business</b><span>FlexiGenie sales webinar. Timed chats, AI replies that go for the number, 1h 15m pricing lock. Joins via sb.flexifunnels.com/genie-demo.</span></button>
+              <button class="opt" data-webinar="faceless"><span class="tag">Sales</span><b>Build 8 Figure Business Faceless</b><span>Faceless sales webinar. Same rules as 10 Min Business: timed chats, AI replies that go for the number, 1h 15m pricing lock, closing push. Zoom: admin@. Joins via sb.flexifunnels.com/faceless.</span></button>
               <button class="opt" data-webinar="fifteen"><span class="tag">Buyers · 7 PM</span><b>15 Days First Sale Challenge</b><span>Buyers' session. Timed chats from the day's tab + replies that clear doubts. No number asks, no pricing lock. Joins via sb.flexifunnels.com/fifteendays.</span></button>
             </div>
           </div>
@@ -938,6 +939,7 @@ input:focus,textarea:focus{box-shadow:0 0 0 4px rgba(214,242,60,.12)}
                 <button type="button" data-acct="auto" class="on">Auto</button>
                 <button type="button" data-acct="marketing">marketing@</button>
                 <button type="button" data-acct="arman">arman@</button>
+                <button type="button" data-acct="admin">admin@</button>
               </div>
               <small id="acctHint"></small></div>
             <label class="testnow"><input type="checkbox" id="testNow"><span class="box"></span><span><b>Test: play the tab's chats from now</b><small>The tab's timed chats start about 2 minutes after launch instead of at their real times. The 1h 15m pricing lock moves with them. Use only for tests.</small></span></label>
@@ -1197,9 +1199,10 @@ const isDemo = () => (cfg.demo === null ? !configured() : cfg.demo);
 
 const WEBINARS = {
   business: { name: '10 Min Business', join: 'https://sb.flexifunnels.com/genie-demo' },
+  faceless: { name: 'Build 8 Figure Business Faceless', join: 'https://sb.flexifunnels.com/faceless' },
   fifteen: { name: '15 Days First Sale Challenge', join: 'https://sb.flexifunnels.com/fifteendays' },
 };
-const S = { webinar: (() => { try { return JSON.parse(localStorage.getItem('autopilot.webinar')) === 'fifteen' ? 'fifteen' : 'business'; } catch { return 'business'; } })(), conv: null, cfilter: 'questions', csearch: '', tabs: [], tab: null, mode: (() => { try { return JSON.parse(localStorage.getItem('autopilot.mode')) || 'dry'; } catch { return 'dry'; } })(), schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
+const S = { webinar: (() => { try { return (['fifteen', 'faceless'].includes(JSON.parse(localStorage.getItem('autopilot.webinar'))) ? JSON.parse(localStorage.getItem('autopilot.webinar')) : 'business'); } catch { return 'business'; } })(), conv: null, cfilter: 'questions', csearch: '', tabs: [], tab: null, mode: (() => { try { return JSON.parse(localStorage.getItem('autopilot.mode')) || 'dry'; } catch { return 'dry'; } })(), schedule: [], runs: [], active: null, jobs: null, log: [], logTotal: 0, numbers: [], numTotal: 0, workflows: [], wfRuns: {}, filter: 'all', armed: null, defaultBranch: 'main' };
 
 // ---------- clock (parse "10:45:00 am" for today, same as the agent) ----------
 function parseClock(str, base = new Date()) {
@@ -1375,7 +1378,7 @@ function renderWebinar() {
   $('#step1Title').textContent = isFifteen() ? 'Which day is running?' : 'Which tab should it read?';
   $('#step1Sub').textContent = isFifteen() ? 'The "Day …" tabs from the 15 Days Challenge Chats sheet. Times count from 7:00 PM.' : 'Only tabs with a "Video Time" header are shown.';
   const j = $('#sumJoin'); if (j && !directState().on) { j.textContent = joinLabel(); j.title = WEBINARS[S.webinar].join; }
-  $('#directSub').textContent = `Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away with the ${isFifteen() ? '15 Days Challenge Zoom account' : '10 Min Business (host) Zoom account'} and stays until it ends.`;
+  $('#directSub').textContent = `Paste a Zoom webinar link or ID to skip everything else. The agent joins that webinar right away with the ${isFifteen() ? '15 Days Challenge Zoom account' : S.webinar === 'faceless' ? 'Faceless (host) Zoom account, admin@,' : '10 Min Business (host) Zoom account'} and stays until it ends.`;
   renderDirect(); renderLaunch(); renderAcct();
 }
 async function switchWebinar(w) {
@@ -1470,7 +1473,7 @@ function renderDirect() {
 }
 // Zoom account per run: Auto = 10 Min Business → marketing@, 15 Days → arman@ (override for tests)
 S.acct = 'auto';
-function acctUsed() { return S.acct !== 'auto' ? S.acct : (S.webinar === 'fifteen' ? 'arman' : 'marketing'); }
+function acctUsed() { return S.acct !== 'auto' ? S.acct : ({ fifteen: 'arman', faceless: 'admin' }[S.webinar] || 'marketing'); }
 function renderAcct() {
   $$('#acctSeg button').forEach((b) => b.classList.toggle('on', b.dataset.acct === S.acct));
   const h = $('#acctHint'); if (!h) return;
@@ -2750,9 +2753,9 @@ async function loadAuto() {
 function renderAuto(keepInputs) {
   const box = $('#autoBox'); if (!box) return;
   const slot = $('#autoSlot').value, cur = AutoL.slots.find((x) => x.slot === slot);
-  if (isFifteen()) {
-    box.classList.remove('on'); $('#autoSt').textContent = 'Not for 15 Days';
-    $('#autoCur').innerHTML = 'The 15 Days tab changes every day, so launch it by hand with the button above.';
+  if (isFifteen() || S.webinar === 'faceless') {
+    box.classList.remove('on'); $('#autoSt').textContent = isFifteen() ? 'Not for 15 Days' : 'Coming soon';
+    $('#autoCur').innerHTML = isFifteen() ? 'The 15 Days tab changes every day, so launch it by hand with the button above.' : 'Auto launch for the Faceless webinar is added once its sheet tab and time are set. Launch it by hand with the button above for now.';
     $('#autoSave').disabled = true; $('#autoOff').hidden = true; return;
   }
   $('#autoSave').disabled = !S.tab || AutoL.err === 'old';

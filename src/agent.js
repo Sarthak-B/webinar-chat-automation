@@ -247,7 +247,7 @@ if (loggedIn) {
 } else {
   // Logged out = Zoom would let it in only as an attendee, who can't see other people's chats or
   // reply privately. Stop with a clear message instead of sitting in the webinar doing nothing.
-  const msg = 'Zoom login has expired and automatic sign-in did not work. On your Mac run: bash ~/webinar-chat-automation/scripts/refresh-session.sh, paste into the ' + (cfg.buyers ? 'ZOOM_SESSION_B64_FIFTEEN' : 'ZOOM_SESSION_B64') + ' secret and launch again.';
+  const msg = 'Zoom login has expired and automatic sign-in did not work. On your Mac run: bash ~/webinar-chat-automation/scripts/refresh-session.sh, paste into the ' + ({ arman: 'ZOOM_SESSION_B64_FIFTEEN', admin: 'ZOOM_SESSION_B64_ADMIN' }[cfg.zoomAccount] || 'ZOOM_SESSION_B64') + ' secret and launch again.';
   log(`ERROR: ${msg}`);
   record('ERROR', '', '', '', msg);
   await agentLog.close().catch(() => {});

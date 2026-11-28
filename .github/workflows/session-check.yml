@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        account: [business, fifteen]
+        account: [business, fifteen, admin]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,19 +31,23 @@ jobs:
         env:
           S_BUSINESS: ${{ secrets.ZOOM_SESSION_B64 }}
           S_FIFTEEN: ${{ secrets.ZOOM_SESSION_B64_FIFTEEN }}
+          S_ADMIN: ${{ secrets.ZOOM_SESSION_B64_ADMIN }}
+          HAS_LOGIN: ${{ matrix.account == 'admin' && secrets.ZOOM_EMAIL_ADMIN != '' || matrix.account == 'fifteen' && secrets.ZOOM_EMAIL_FIFTEEN != '' || matrix.account == 'business' && secrets.ZOOM_EMAIL != '' }}
           ACC: ${{ matrix.account }}
         run: |
-          if [ "$ACC" = "fifteen" ]; then S="$S_FIFTEEN"; echo "name=ZOOM_SESSION_B64_FIFTEEN" >> "$GITHUB_OUTPUT"; else S="$S_BUSINESS"; echo "name=ZOOM_SESSION_B64" >> "$GITHUB_OUTPUT"; fi
-          if [ -z "$S" ]; then echo "No saved session for $ACC yet – skipping"; echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0; fi
-          echo "$S" | base64 -d | gunzip > zoom-session.json
+          case "$ACC" in fifteen) S="$S_FIFTEEN"; N=ZOOM_SESSION_B64_FIFTEEN;; admin) S="$S_ADMIN"; N=ZOOM_SESSION_B64_ADMIN;; *) S="$S_BUSINESS"; N=ZOOM_SESSION_B64;; esac
+          echo "name=$N" >> "$GITHUB_OUTPUT"
+          if [ -n "$S" ]; then echo "$S" | base64 -d | gunzip > zoom-session.json; exit 0; fi
+          # no saved login yet: still check it by signing in with the email + password secrets (if they're set)
+          if [ "$HAS_LOGIN" = "true" ]; then echo '{}' > zoom-session.json; else echo "No saved session or login for $ACC yet – skipping"; echo "skip=1" >> "$GITHUB_OUTPUT"; fi
 
       - name: Check login
         if: steps.restore.outputs.skip != '1'
         env:
           ZOOM_PROXY: ${{ secrets.ZOOM_PROXY }}
           # signs in again by itself if the saved login has expired
-          ZOOM_EMAIL: ${{ matrix.account == 'fifteen' && secrets.ZOOM_EMAIL_FIFTEEN || secrets.ZOOM_EMAIL }}
-          ZOOM_PASSWORD: ${{ matrix.account == 'fifteen' && secrets.ZOOM_PASSWORD_FIFTEEN || secrets.ZOOM_PASSWORD }}
+          ZOOM_EMAIL: ${{ matrix.account == 'fifteen' && secrets.ZOOM_EMAIL_FIFTEEN || matrix.account == 'admin' && secrets.ZOOM_EMAIL_ADMIN || secrets.ZOOM_EMAIL }}
+          ZOOM_PASSWORD: ${{ matrix.account == 'fifteen' && secrets.ZOOM_PASSWORD_FIFTEEN || matrix.account == 'admin' && secrets.ZOOM_PASSWORD_ADMIN || secrets.ZOOM_PASSWORD }}
         run: xvfb-run --auto-servernum --server-args="-screen 0 1440x900x24" npm run check-session
 
       - name: Save refreshed session

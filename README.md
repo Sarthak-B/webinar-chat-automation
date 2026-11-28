@@ -21,6 +21,16 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 
 ---
 
+## Webinars
+
+| Webinar | Rules | Join link | Zoom account (auto) | Secrets |
+|---|---|---|---|---|
+| 10 Min Business | sales | sb.flexifunnels.com/genie-demo | marketing@ | `ZOOM_EMAIL`, `ZOOM_PASSWORD`, `ZOOM_SESSION_B64` |
+| Build 8 Figure Business Faceless | sales (same as 10 Min; same chat sheet, logs, numbers, history) | sb.flexifunnels.com/faceless | admin@ | `ZOOM_EMAIL_ADMIN`, `ZOOM_PASSWORD_ADMIN`, optional `ZOOM_SESSION_B64_ADMIN` |
+| 15 Days First Sale Challenge | buyers | sb.flexifunnels.com/fifteendays | arman@ | `ZOOM_EMAIL_FIFTEEN`, `ZOOM_PASSWORD_FIFTEEN`, `ZOOM_SESSION_B64_FIFTEEN` |
+
+Faceless: its timesheet tab is still to be added to the chat sheet; auto launch for it comes once the tab and time are set (launch by hand until then).
+
 ## Starting it: auto launch or by hand
 
 - **Auto launch (normal days):** on the dashboard pick the webinar, tab, mode and Zoom account, choose when the agent should start (default **6:50 PM** for the 7:30 PM webinar, **10:20 AM** Sundays), and press **Save as auto launch**. The settings go into the sheet's "Auto Schedule" tab; the Apps Script checks every 5 min and starts the agent at that time – no device needs to stay open. **Turn off** stops it for that slot.

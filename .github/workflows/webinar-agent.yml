@@ -11,14 +11,14 @@ on:
   workflow_dispatch:
     inputs:
       webinar:
-        description: 'Which webinar: business = 10 Min Business (FlexiGenie) · fifteen = 15 Days First Sale Challenge'
+        description: 'Which webinar: business = 10 Min Business (FlexiGenie) · faceless = Build 8 Figure Business Faceless · fifteen = 15 Days First Sale Challenge'
         type: choice
-        options: ['business', 'fifteen']
+        options: ['business', 'faceless', 'fifteen']
         default: 'business'
       zoom_account:
         description: 'Zoom account for this run: auto = 10 Min Business → ZOOM_EMAIL (marketing@), 15 Days → ZOOM_EMAIL_FIFTEEN (arman@). Pick one to override (tests).'
         type: choice
-        options: ['auto', 'marketing', 'arman']
+        options: ['auto', 'marketing', 'arman', 'admin']
         default: 'auto'
       tab:
         description: 'Sheet tab to read the timed chats from (exact name, e.g. "Variant 3 – 11 AM")'
@@ -74,16 +74,18 @@ jobs:
         run: |
           npx playwright install --with-deps chromium
 
-      # Each webinar has its own Zoom account: 10 Min Business → ZOOM_SESSION_B64,
-      # 15 Days Challenge → ZOOM_SESSION_B64_FIFTEEN. Never falls back to the other account's login.
+      # Each webinar has its own Zoom account: 10 Min Business → ZOOM_SESSION_B64 (marketing@),
+      # 15 Days Challenge → ZOOM_SESSION_B64_FIFTEEN (arman@), Faceless → ZOOM_SESSION_B64_ADMIN (admin@). Never falls back to the other account's login.
       - name: Restore Zoom session
         env:
           S_BUSINESS: ${{ secrets.ZOOM_SESSION_B64 }}
           S_FIFTEEN: ${{ secrets.ZOOM_SESSION_B64_FIFTEEN }}
+          S_ADMIN: ${{ secrets.ZOOM_SESSION_B64_ADMIN }}
           W: ${{ inputs.webinar || 'business' }}
           A: ${{ inputs.zoom_account || 'auto' }}
         run: |
-          if [ "$A" = "arman" ] || { [ "$A" = "auto" ] && [ "$W" = "fifteen" ]; }; then ZOOM_SESSION_B64="$S_FIFTEEN"; else ZOOM_SESSION_B64="$S_BUSINESS"; fi
+          if [ "$A" = "auto" ]; then case "$W" in fifteen) A=arman;; faceless) A=admin;; *) A=marketing;; esac; fi
+          case "$A" in arman) ZOOM_SESSION_B64="$S_FIFTEEN";; admin) ZOOM_SESSION_B64="$S_ADMIN";; *) ZOOM_SESSION_B64="$S_BUSINESS";; esac
           # a missing/broken session is OK when the email + password secrets are set (the agent signs in)
           if [ -n "$ZOOM_SESSION_B64" ] && echo "$ZOOM_SESSION_B64" | base64 -d | gunzip > zoom-session.json 2>/dev/null; then :; else echo '{}' > zoom-session.json; fi
           chmod 600 zoom-session.json
@@ -113,6 +115,9 @@ jobs:
           ZOOM_PASSWORD: ${{ secrets.ZOOM_PASSWORD }}
           ZOOM_EMAIL_FIFTEEN: ${{ secrets.ZOOM_EMAIL_FIFTEEN }}
           ZOOM_PASSWORD_FIFTEEN: ${{ secrets.ZOOM_PASSWORD_FIFTEEN }}
+          ZOOM_EMAIL_ADMIN: ${{ secrets.ZOOM_EMAIL_ADMIN }}
+          ZOOM_PASSWORD_ADMIN: ${{ secrets.ZOOM_PASSWORD_ADMIN }}
+          JOIN_URL_INPUT: ${{ inputs.join_url }}
           TEST_FROM_NOW: ${{ inputs.test_from_now }}
           SESSION_START: ${{ inputs.session_start }}
           AGENT_EMAIL: ${{ vars.AGENT_EMAIL || secrets.AGENT_EMAIL }}
@@ -176,8 +181,8 @@ jobs:
           A: ${{ inputs.zoom_account || 'auto' }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "SECRETS_PAT not set – skipping session refresh"; exit 0; fi
-          NAME=ZOOM_SESSION_B64
-          if [ "$A" = "arman" ] || { [ "$A" = "auto" ] && [ "$W" = "fifteen" ]; }; then NAME=ZOOM_SESSION_B64_FIFTEEN; fi
+          if [ "$A" = "auto" ]; then case "$W" in fifteen) A=arman;; faceless) A=admin;; *) A=marketing;; esac; fi
+          case "$A" in arman) NAME=ZOOM_SESSION_B64_FIFTEEN;; admin) NAME=ZOOM_SESSION_B64_ADMIN;; *) NAME=ZOOM_SESSION_B64;; esac
           gzip -c zoom-session.json | base64 | tr -d "\n" | gh secret set "$NAME" --repo "$GITHUB_REPOSITORY"
           echo "Session secret refreshed"
 

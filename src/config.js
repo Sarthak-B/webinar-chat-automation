@@ -22,6 +22,8 @@ const list = (k) => env(k, '').split(',').map((s) => s.trim().toLowerCase()).fil
 // The two webinars the agent can run. WEBINAR = business (default) | fifteen
 export const WEBINARS = {
   business: { name: '10 Min Business', joinUrl: 'https://sb.flexifunnels.com/genie-demo' },
+  // Sales rules like 10 Min Business (same chat sheet, logs, numbers and history) – own join link and Zoom account (admin@)
+  faceless: { name: 'Build 8 Figure Business Faceless', joinUrl: 'https://sb.flexifunnels.com/faceless' },
   fifteen: {
     name: '15 Days First Sale Challenge',
     joinUrl: 'https://sb.flexifunnels.com/fifteendays',
@@ -31,7 +33,8 @@ export const WEBINARS = {
 };
 
 export function loadConfig() {
-  const webinar = /^(fifteen|15)/i.test(env('WEBINAR', '')) ? 'fifteen' : 'business';
+  const w = env('WEBINAR', '');
+  const webinar = /^(fifteen|15)/i.test(w) ? 'fifteen' : /^faceless/i.test(w) ? 'faceless' : 'business';
   const W = WEBINARS[webinar];
   return {
     webinar,
@@ -42,7 +45,8 @@ export function loadConfig() {
     sessionStartClock: webinar === 'fifteen' ? env('FIFTEEN_START', W.start) : '',
     // Zoom
     // One universal link for every webinar (redirects to the live Zoom webinar). Override with the ZOOM_JOIN_URL variable if it ever changes.
-    joinUrl: webinar === 'fifteen' ? env('FIFTEEN_JOIN_URL', W.joinUrl) : env('ZOOM_JOIN_URL', W.joinUrl),
+    // a link pasted on the dashboard for this run (JOIN_URL_INPUT) wins; otherwise each webinar's own link
+    joinUrl: env('JOIN_URL_INPUT', '') || (webinar === 'fifteen' ? env('FIFTEEN_JOIN_URL', W.joinUrl) : webinar === 'faceless' ? env('FACELESS_JOIN_URL', W.joinUrl) : env('ZOOM_JOIN_URL', W.joinUrl)),
     // Optional: the agent account's personal PANELIST link (Zoom emails it when you add the account as a panelist).
     panelistUrl: env('ZOOM_PANELIST_URL', ''),
     // Session start for THIS run (e.g. "11:00 AM" for the Sunday session): the whole tab – pre-session chats, timed chats,
@@ -53,13 +57,11 @@ export function loadConfig() {
     // Zoom account: auto = 10 Min Business → ZOOM_EMAIL (marketing@), 15 Days → ZOOM_EMAIL_FIFTEEN (arman@);
     // the dashboard can override it per run (tests): ZOOM_ACCOUNT = marketing | arman
     ...(() => {
+      // auto: 10 Min Business → marketing@ (ZOOM_EMAIL), 15 Days → arman@ (ZOOM_EMAIL_FIFTEEN), Faceless → admin@ (ZOOM_EMAIL_ADMIN)
       const acc = env('ZOOM_ACCOUNT', 'auto');
-      const useFifteen = acc === 'arman' || (acc !== 'marketing' && webinar === 'fifteen');
-      return {
-        zoomAccount: useFifteen ? 'arman' : 'marketing',
-        zoomEmail: useFifteen ? env('ZOOM_EMAIL_FIFTEEN', '') : env('ZOOM_EMAIL', ''),
-        zoomPassword: useFifteen ? env('ZOOM_PASSWORD_FIFTEEN', '') : env('ZOOM_PASSWORD', ''),
-      };
+      const a = ['marketing', 'arman', 'admin'].includes(acc) ? acc : webinar === 'fifteen' ? 'arman' : webinar === 'faceless' ? 'admin' : 'marketing';
+      const sfx = { marketing: '', arman: '_FIFTEEN', admin: '_ADMIN' }[a];
+      return { zoomAccount: a, zoomEmail: env(`ZOOM_EMAIL${sfx}`, ''), zoomPassword: env(`ZOOM_PASSWORD${sfx}`, '') };
     })(),
     // no switching to the other webinar's account: 10 Min Business = marketing@ only, 15 Days = arman@ only
     altZoomEmail: '',
