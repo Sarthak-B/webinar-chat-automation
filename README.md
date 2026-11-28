@@ -29,7 +29,7 @@ It finds the live webinar through the universal link **https://sb.flexifunnels.c
 | Build 8 Figure Business Faceless | sales (same as 10 Min; same chat sheet, logs, numbers, history) | sb.flexifunnels.com/faceless | admin@ | `ZOOM_EMAIL_ADMIN`, `ZOOM_PASSWORD_ADMIN`, optional `ZOOM_SESSION_B64_ADMIN` |
 | 15 Days First Sale Challenge | buyers | sb.flexifunnels.com/fifteendays | arman@ | `ZOOM_EMAIL_FIFTEEN`, `ZOOM_PASSWORD_FIFTEEN`, `ZOOM_SESSION_B64_FIFTEEN` |
 
-Faceless: its timesheet tab is still to be added to the chat sheet; auto launch for it comes once the tab and time are set (launch by hand until then).
+Faceless: tabs "Faceless 2 – 7:30 PM" and "Faceless 2 – 11 AM" in the chat sheet (copied from the "Faceless Webinar 2 Chat Sheet"). Manual launch only – no auto launch.
 
 ## Starting it: auto launch or by hand
 

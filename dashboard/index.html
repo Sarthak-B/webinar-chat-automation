@@ -2755,8 +2755,8 @@ function renderAuto(keepInputs) {
   const box = $('#autoBox'); if (!box) return;
   const slot = $('#autoSlot').value, cur = AutoL.slots.find((x) => x.slot === slot);
   if (isFifteen() || S.webinar === 'faceless') {
-    box.classList.remove('on'); $('#autoSt').textContent = isFifteen() ? 'Not for 15 Days' : 'Coming soon';
-    $('#autoCur').innerHTML = isFifteen() ? 'The 15 Days tab changes every day, so launch it by hand with the button above.' : 'Auto launch for the Faceless webinar is added once its sheet tab and time are set. Launch it by hand with the button above for now.';
+    box.classList.remove('on'); $('#autoSt').textContent = isFifteen() ? 'Not for 15 Days' : 'Manual only';
+    $('#autoCur').innerHTML = isFifteen() ? 'The 15 Days tab changes every day, so launch it by hand with the button above.' : 'The Faceless webinar runs only when the team launches it – use the Launch button above (pick the Faceless tab and its session time).';
     $('#autoSave').disabled = true; $('#autoOff').hidden = true; return;
   }
   $('#autoSave').disabled = !S.tab || AutoL.err === 'old';
